@@ -1,11 +1,8 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
-import Debug from 'debug';
 import * as Y from 'yjs';
 import { proxy, subscribe } from 'valtio/vanilla';
 // origin symbol is provided by caller to avoid cycles
 import { yTypeToPlainObject, plainObjectToYType } from './converter.js';
-
-const debug = Debug('valtio-yjs:synchronizer');
 
 /**
  * Sets up the two-way synchronization between a Valtio proxy and a Yjs document.
@@ -22,13 +19,13 @@ export function setupSyncListeners(
   // Yjs -> Valtio listener (coarse first pass: mirror whole root on any change)
   const handleYjsChanges = (_events: Y.YEvent<any>[], transaction: Y.Transaction) => {
     if (transaction.origin === origin) {
-      debug('Ignore Yjs -> Valtio (own origin)');
+      console.log('[valtio-yjs] Ignore Yjs -> Valtio (own origin)');
       return;
     }
 
     isApplyingYjsToValtio = true;
     try {
-      debug('Applying Yjs -> Valtio');
+      console.log('[valtio-yjs] Applying Yjs -> Valtio');
       const next = yTypeToPlainObject(yRoot);
       // Replace keys in the proxy to reflect yRoot; avoid replacing the object itself
       if (Array.isArray(next) && Array.isArray(stateProxy)) {
@@ -58,10 +55,10 @@ export function setupSyncListeners(
   const handleValtioOps = (_ops: any[]) => {
     if (isApplyingYjsToValtio) {
       // Skip reflecting changes back to Yjs if they were caused by Yjs in the first place
-      debug('Skip Valtio -> Yjs (from Yjs)');
+      console.log('[valtio-yjs] Skip Valtio -> Yjs (from Yjs)');
       return;
     }
-    debug('Applying Valtio -> Yjs');
+    console.log('[valtio-yjs] Applying Valtio -> Yjs');
     doc.transact(() => {
       // Build fresh y structure from current proxy value and replace yRoot content.
       const current = stateProxy as any;
