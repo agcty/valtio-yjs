@@ -1,4 +1,4 @@
 # pnpm workspace packages
 packages:
   - .
-  - examples/04_rewrite_testbed
+  - examples/*

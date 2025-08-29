@@ -11,7 +11,7 @@ export default [
     },
     outDir: "dist",
     clean: true,
-    tsconfig: "tsconfig.src.json",
+    tsconfig: false,
     platform: "neutral",
     treeshake: true,
     minify: false,

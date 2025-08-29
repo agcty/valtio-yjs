@@ -56,3 +56,4 @@ With this example running, you can now perform a series of critical manual tests
 3. **Expected Result:** Client 2's state should update, but **Client 1's state should remain frozen.** It should no longer receive any updates. This confirms your cleanup logic is working correctly.
 
 This simple testbed will give you high confidence in the core mechanics of the new architecture before you move on to the more complex, granular update logic.
+

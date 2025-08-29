@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { useSnapshot } from 'valtio';
-import { createYjsProxy } from 'valtio-yjs'; // Import our new function
+import { createYjsProxy } from 'valtio-yjs';
 import { useState } from 'react';
 
 // --- 1. SETUP TWO Y.DOCS ---
@@ -9,13 +9,29 @@ const doc2 = new Y.Doc();
 
 // --- 2. SIMULATE THE NETWORK ---
 // When doc1 changes, apply the update to doc2
+// Prevent echo-bounce by suppressing the immediate mirrored update once
+let ignoreNextUpdateFromDoc1 = false;
+let ignoreNextUpdateFromDoc2 = false;
+
 doc1.on('update', (update: Uint8Array) => {
+  if (ignoreNextUpdateFromDoc1) {
+    ignoreNextUpdateFromDoc1 = false;
+    return;
+  }
   Y.applyUpdate(doc2, update);
+  // The apply on doc2 will trigger its 'update' listener; ignore that one
+  ignoreNextUpdateFromDoc2 = true;
   console.log('Sent update from Doc1 -> Doc2');
 });
 // When doc2 changes, apply the update to doc1
 doc2.on('update', (update: Uint8Array) => {
+  if (ignoreNextUpdateFromDoc2) {
+    ignoreNextUpdateFromDoc2 = false;
+    return;
+  }
   Y.applyUpdate(doc1, update);
+  // The apply on doc1 will trigger its 'update' listener; ignore that one
+  ignoreNextUpdateFromDoc1 = true;
   console.log('Sent update from Doc2 -> Doc1');
 });
 

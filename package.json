@@ -8,20 +8,20 @@
     "type": "git",
     "url": "https://github.com/valtiojs/valtio-yjs.git"
   },
-  "source": "./src/index.ts",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "require": {
-        "types": "./dist/cjs/index.d.ts",
-        "default": "./dist/cjs/index.js"
+      "types": "./dist/index.d.ts",
+      "node": {
+        "module": "./dist/index.js",
+        "import": "./dist/index.js",
+        "require": "./dist/index.cjs"
       },
-      "default": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
+      "browser": {
+        "module": "./dist/index.js",
+        "import": "./dist/index.js"
+      },
+      "default": "./dist/index.js"
     }
   },
   "sideEffects": false,
