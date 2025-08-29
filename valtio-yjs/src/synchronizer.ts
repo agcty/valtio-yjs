@@ -10,7 +10,7 @@ import * as Y from 'yjs';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
 import { reconcileValtioMap, reconcileValtioArray } from './reconciler.js';
 import { SynchronizationContext } from './context.js';
-import { getValtioProxyForYType } from './controller.js';
+// import { getValtioProxyForYType } from './controller.js';
 
 /**
  * Sets up a one-way listener from Yjs to Valtio.
@@ -22,40 +22,22 @@ export function setupSyncListener(
   doc: Y.Doc,
   yRoot: Y.Map<any> | Y.Array<any>,
 ): () => void {
-  const handleDeep = (events: Y.YEvent<any>[], transaction: Y.Transaction) => {
+  const handleAfterTransaction = (transaction: Y.Transaction) => {
     if (transaction.origin === VALTIO_YJS_ORIGIN) return;
-
-    for (const ev of events) {
-      let target: Y.AbstractType<any> | null = ev.target as Y.AbstractType<any>;
-
-      // Walk up to the nearest materialized ancestor
-      while (target && !getValtioProxyForYType(context, target)) {
-        // Yjs types have a possibly-null `parent` reference
-        target = (target as unknown as { parent: Y.AbstractType<any> | null }).parent ?? null;
-      }
-
-      if (!target) {
-        // Bootstrap materialization from root if nothing found
-        if (yRoot instanceof Y.Map) {
-          reconcileValtioMap(context, yRoot, doc);
-        } else if (yRoot instanceof Y.Array) {
-          reconcileValtioArray(context, yRoot, doc);
-        }
-        continue;
-      }
-
-      if (target instanceof Y.Map) {
-        reconcileValtioMap(context, target, doc);
-      } else if (target instanceof Y.Array) {
-        reconcileValtioArray(context, target, doc);
-      }
+    try {
+      console.log('[valtio-yjs] afterTransaction reconciliation triggered');
+    } catch { void 0; }
+    if (yRoot instanceof Y.Map) {
+      reconcileValtioMap(context, yRoot, doc);
+    } else if (yRoot instanceof Y.Array) {
+      reconcileValtioArray(context, yRoot, doc);
     }
   };
 
-  yRoot.observeDeep(handleDeep);
+  doc.on('afterTransaction', handleAfterTransaction);
 
   return () => {
-    yRoot.unobserveDeep(handleDeep);
+    doc.off('afterTransaction', handleAfterTransaction);
   };
 }
 

@@ -20,11 +20,18 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
   const valtioProxy = getValtioProxyForYType(context, yMap) as Record<string, any> | undefined;
   if (!valtioProxy) {
     // This map hasn't been materialized yet, so there's nothing to reconcile.
-    console.debug('[valtio-yjs] reconcileValtioMap skipped (no proxy)');
+    console.log('[valtio-yjs] reconcileValtioMap skipped (no proxy)');
     return;
   }
 
   context.withReconcilingLock(() => {
+    try {
+      console.log('[valtio-yjs] reconcileValtioMap start', {
+        yKeys: Array.from(yMap.keys()),
+        valtioKeys: Object.keys(valtioProxy),
+        yJson: typeof yMap.toJSON === 'function' ? yMap.toJSON() : undefined,
+      });
+    } catch { void 0; }
     const yKeys = new Set(Array.from(yMap.keys()).map((k) => String(k)));
     const valtioKeys = new Set(Object.keys(valtioProxy));
 
@@ -33,11 +40,10 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
       if (!valtioKeys.has(key)) {
         const yValue = yMap.get(key);
         if (yValue instanceof Y.AbstractType) {
-
-          console.debug('[valtio-yjs] materialize nested controller for key', key);
+          console.log('[valtio-yjs] materialize nested controller for key', key);
           (valtioProxy as any)[key] = createYjsController(context, yValue, doc);
         } else {
-          console.debug('[valtio-yjs] set primitive key', key);
+          console.log('[valtio-yjs] set primitive key', key);
           (valtioProxy as any)[key] = yValue;
         }
       }
@@ -46,7 +52,7 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     // Remove extra keys from Valtio proxy
     for (const key of valtioKeys) {
       if (!yKeys.has(key)) {
-        console.debug('[valtio-yjs] delete key', key);
+        console.log('[valtio-yjs] delete key', key);
         delete (valtioProxy as any)[key];
       }
     }
@@ -58,12 +64,17 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
         if (!(yValue instanceof Y.AbstractType)) {
           const current = (valtioProxy as any)[key];
           if (current !== yValue) {
-            console.debug('[valtio-yjs] update primitive key', key);
+            console.log('[valtio-yjs] update primitive key', key);
             (valtioProxy as any)[key] = yValue;
           }
         }
       }
     }
+    try {
+      console.log('[valtio-yjs] reconcileValtioMap end', {
+        valtioKeys: Object.keys(valtioProxy),
+      });
+    } catch { void 0; }
   });
 }
 
@@ -74,11 +85,22 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
   if (!valtioProxy) return;
 
   context.withReconcilingLock(() => {
+    try {
+      console.log('[valtio-yjs] reconcileValtioArray start', {
+        yLength: yArray.length,
+        valtioLength: (valtioProxy as any[]).length,
+      });
+    } catch { void 0; }
     const newContent = yArray.toArray().map((item) =>
       item instanceof Y.AbstractType ? createYjsController(context, item, doc) : item,
     );
-    console.debug('[valtio-yjs] reconcile array splice', newContent.length);
+    console.log('[valtio-yjs] reconcile array splice', newContent.length);
     (valtioProxy as any[]).splice(0, (valtioProxy as any[]).length, ...newContent);
+    try {
+      console.log('[valtio-yjs] reconcileValtioArray end', {
+        valtioLength: (valtioProxy as any[]).length,
+      });
+    } catch { void 0; }
   });
 }
 

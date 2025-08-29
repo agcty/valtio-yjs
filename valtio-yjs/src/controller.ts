@@ -32,12 +32,21 @@ function attachValtioMapSubscription(
   const unsubscribe = subscribe(objProxy, (ops: any[]) => {
     if (context.isReconciling) return;
     // Only translate root-level key changes here; nested changes are handled by nested controllers
-    const rootLevelOps = ops.filter((op) => Array.isArray(op.path) && op.path.length === 1 && typeof op.path[0] === 'string');
+    // Valtio emits tuple ops: [type, pathArray, value, prev]
+    const rootLevelOps = ops.filter((op) => {
+      return (
+        Array.isArray(op) &&
+        Array.isArray(op[1]) &&
+        op[1].length === 1 &&
+        typeof op[1][0] === 'string'
+      );
+    });
     if (rootLevelOps.length === 0) return;
     doc.transact(() => {
       for (const op of rootLevelOps) {
-        const key = op.path[0] as string;
-        if (op.op === 'set') {
+        const type = op[0] as string;
+        const key = (op[1] as (string | number)[])[0] as string;
+        if (type === 'set') {
           const nextValue = (objProxy as any)[key];
           const nestedY =
             nextValue && typeof nextValue === 'object'
@@ -50,7 +59,7 @@ function attachValtioMapSubscription(
           } else {
             yMap.set(key, nextValue);
           }
-        } else if (op.op === 'delete') {
+        } else if (type === 'delete') {
           if (yMap.has(key)) yMap.delete(key);
         }
       }

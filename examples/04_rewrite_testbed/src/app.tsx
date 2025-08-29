@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { useSnapshot } from 'valtio';
 import { createYjsProxy } from 'valtio-yjs';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 // --- 1. SETUP TWO Y.DOCS ---
 const doc1 = new Y.Doc();
@@ -55,6 +55,17 @@ const { proxy: proxy2, dispose: dispose2 } = createYjsProxy<{
 const ClientView = ({ name, stateProxy }: { name: string, stateProxy: typeof proxy1 }) => {
   const snap = useSnapshot(stateProxy);
   const proxyRef = useRef(stateProxy);
+  useEffect(() => {
+    // Dynamically import to avoid bundling the subscribe in examples; valtio is already a dep here though.
+    import('valtio/vanilla').then(({ subscribe }) => {
+      const unsub = subscribe(proxyRef.current as any, (ops: any[]) => {
+        try {
+          console.log(`[${name}] valtio ops`, ops);
+        } catch { /* noop */ }
+      });
+      return () => unsub();
+    });
+  }, [name]);
 
   const addItem = () => {
     const id = Date.now();
