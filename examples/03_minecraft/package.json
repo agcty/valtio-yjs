@@ -11,8 +11,9 @@
     "react-dom": "latest",
     "three": "latest",
     "valtio": "latest",
-    "valtio-yjs": "latest",
-    "y-webrtc": "latest"
+    "valtio-yjs": "workspace:*",
+    "y-webrtc": "latest",
+    "yjs": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",

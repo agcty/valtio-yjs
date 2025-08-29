@@ -1,5 +1,5 @@
 {
-  "name": "example",
+  "name": "example-rewrite-testbed",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -8,12 +8,12 @@
     "react-dom": "latest",
     "valtio": "latest",
     "valtio-yjs": "workspace:*",
-    "y-websocket": "latest",
     "yjs": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
     "typescript": "latest",
     "vite": "latest"
   },
