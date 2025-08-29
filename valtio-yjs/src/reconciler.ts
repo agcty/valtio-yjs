@@ -6,6 +6,15 @@ import {
   runWithoutValtioReflection,
 } from './controller.js';
 
+// Reconciler layer
+//
+// Responsibility:
+// - Apply Yjs -> Valtio updates in a structural way, ensuring the Valtio
+//   proxies exist (materialized) and match the Y tree shape.
+// - No deepEqual. Only add missing keys, remove extra keys, and create
+//   nested controllers for Y types as needed.
+// - Uses runWithoutValtioReflection to avoid reflecting these changes back
+//   to Yjs.
 /**
  * Reconciles the structure of a Valtio proxy to match its underlying Y.Map.
  * It creates/deletes properties on the proxy to ensure the "scaffolding" is correct.

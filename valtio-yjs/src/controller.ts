@@ -1,4 +1,13 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
+// Controller layer
+//
+// Responsibility:
+// - Materialize real Valtio proxies for Yjs shared types (currently Y.Map).
+// - Maintain stable identity via caches (Y type <-> Valtio proxy).
+// - Reflect local Valtio writes back to Yjs minimally (set/delete) inside
+//   transactions tagged with VALTIO_YJS_ORIGIN.
+// - Lazily create nested controllers when a Y value is another Y type.
+// - Provide runWithoutValtioReflection to suspend Valtio->Yjs during reconciling.
 import * as Y from 'yjs';
 import { proxy, subscribe } from 'valtio/vanilla';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
@@ -19,6 +28,8 @@ function isPlainObject(value: any): boolean {
   return proto === Object.prototype || proto === null;
 }
 
+// Subscribe to a Valtio object proxy and translate top-level key operations
+// into minimal Y.Map operations. Nested edits are handled by nested controllers.
 function attachValtioMapSubscription(yMap: Y.Map<any>, objProxy: any, doc: Y.Doc): () => void {
   const unsubscribe = subscribe(objProxy, (ops: any[]) => {
     // Only translate root-level key changes here; nested changes are handled by nested controllers
@@ -46,6 +57,8 @@ function attachValtioMapSubscription(yMap: Y.Map<any>, objProxy: any, doc: Y.Doc
   return unsubscribe;
 }
 
+// Create (or reuse from cache) a Valtio proxy that mirrors a Y.Map.
+// Nested Y types are recursively materialized via createYjsController.
 function materializeMapToValtio(yMap: Y.Map<any>, doc: Y.Doc): any {
   const existing = yTypeToValtioProxy.get(yMap);
   if (existing) return existing;
@@ -78,6 +91,8 @@ export function getYTypeForValtioProxy(obj: object): Y.AbstractType<any> | undef
   return valtioProxyToYType.get(obj);
 }
 
+// Temporarily disable the Valtio subscription for a Y type, run fn, then reattach.
+// Used by the reconciler to avoid reflecting Yjs->Valtio changes back into Yjs.
 export function runWithoutValtioReflection(yType: Y.AbstractType<any>, fn: () => void): void {
   const unsubscribe = yTypeToUnsubscribe.get(yType);
   const doc = yTypeToDoc.get(yType);

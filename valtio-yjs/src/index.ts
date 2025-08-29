@@ -8,7 +8,7 @@ import { VALTIO_YJS_ORIGIN } from './constants.js';
 export { VALTIO_YJS_ORIGIN } from './constants.js';
 export { syncedText } from './syncedTypes.js';
 
-export interface CreateYjsProxyOptions<T> {
+export interface CreateYjsProxyOptions<_T> {
   getRoot: (doc: Y.Doc) => Y.Map<any> | Y.Array<any>;
 }
 

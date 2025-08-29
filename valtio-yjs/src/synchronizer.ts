@@ -1,4 +1,11 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
+// Synchronizer layer
+//
+// Responsibility:
+// - Listen to Yjs transactions and trigger reconciliation.
+// - Ignore transactions with our origin (VALTIO_YJS_ORIGIN) to prevent loops.
+// - Reconcile from the root each time to ensure lazy materialization of new subtrees,
+//   then reconcile all changed parent types for minimal updates.
 import * as Y from 'yjs';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
 import { reconcileValtioMap, reconcileValtioArray } from './reconciler.js';
@@ -17,11 +24,9 @@ export function setupSyncListener(doc: Y.Doc, yRoot: Y.Map<any> | Y.Array<any>):
 
     // Always reconcile from root to ensure lazy materialization of newly added subtrees.
     if (yRoot instanceof Y.Map) {
-      // eslint-disable-next-line no-console
       console.debug('[valtio-yjs] reconcile root Map');
       reconcileValtioMap(yRoot, doc);
     } else if (yRoot instanceof Y.Array) {
-      // eslint-disable-next-line no-console
       console.debug('[valtio-yjs] reconcile root Array');
       reconcileValtioArray(yRoot, doc);
     }
@@ -29,11 +34,9 @@ export function setupSyncListener(doc: Y.Doc, yRoot: Y.Map<any> | Y.Array<any>):
     // Reconcile all changed parent types
     transaction.changedParentTypes.forEach((_, yType) => {
       if (yType instanceof Y.Map) {
-        // eslint-disable-next-line no-console
         console.debug('[valtio-yjs] reconcile changed Map');
         reconcileValtioMap(yType, doc);
       } else if (yType instanceof Y.Array) {
-        // eslint-disable-next-line no-console
         console.debug('[valtio-yjs] reconcile changed Array');
         reconcileValtioArray(yType, doc);
       }
