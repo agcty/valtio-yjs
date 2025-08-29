@@ -14,18 +14,39 @@ export function setupSyncListeners(
   yRoot: Y.Map<any> | Y.Array<any>,
   origin?: any,
 ): () => void {
+  const areDeepEqual = (a: any, b: any): boolean => {
+    if (a === b) return true;
+    if (a === null || b === null) return a === b;
+    if (typeof a !== 'object' || typeof b !== 'object') return false;
+    if (Array.isArray(a) || Array.isArray(b)) {
+      if (!Array.isArray(a) || !Array.isArray(b)) return false;
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (!areDeepEqual(a[i], b[i])) return false;
+      }
+      return true;
+    }
+    const aKeys = Object.keys(a);
+    const bKeys = Object.keys(b);
+    if (aKeys.length !== bKeys.length) return false;
+    for (const key of aKeys) {
+      if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
+      if (!areDeepEqual(a[key], b[key])) return false;
+    }
+    return true;
+  };
   // Prevent feedback loop: when applying Yjs -> Valtio, temporarily ignore Valtio -> Yjs
   let isApplyingYjsToValtio = false;
   // Yjs -> Valtio listener (coarse first pass: mirror whole root on any change)
   const handleYjsChanges = (_events: Y.YEvent<any>[], transaction: Y.Transaction) => {
     if (transaction.origin === origin) {
-      console.log('[valtio-yjs] Ignore Yjs -> Valtio (own origin)');
+      console.count('[valtio-yjs] Ignore Yjs -> Valtio (own origin)');
       return;
     }
 
     isApplyingYjsToValtio = true;
     try {
-      console.log('[valtio-yjs] Applying Yjs -> Valtio');
+      console.count('[valtio-yjs] Applying Yjs -> Valtio');
       const next = yTypeToPlainObject(yRoot);
       // Replace keys in the proxy to reflect yRoot; avoid replacing the object itself
       if (Array.isArray(next) && Array.isArray(stateProxy)) {
@@ -55,27 +76,39 @@ export function setupSyncListeners(
   const handleValtioOps = (_ops: any[]) => {
     if (isApplyingYjsToValtio) {
       // Skip reflecting changes back to Yjs if they were caused by Yjs in the first place
-      console.log('[valtio-yjs] Skip Valtio -> Yjs (from Yjs)');
+      console.count('[valtio-yjs] Skip Valtio -> Yjs (from Yjs)');
       return;
     }
-    console.log('[valtio-yjs] Applying Valtio -> Yjs');
+    console.count('[valtio-yjs] Applying Valtio -> Yjs');
+    // Compare with existing Y state and bail if identical to avoid update bounces
+    const current = stateProxy as any;
+    const existing = yTypeToPlainObject(yRoot);
+    if (areDeepEqual(existing, current)) {
+      return;
+    }
     doc.transact(() => {
-      // Build fresh y structure from current proxy value and replace yRoot content.
-      const current = stateProxy as any;
-      const yValue = plainObjectToYType(current);
-      if (yRoot instanceof Y.Map && yValue instanceof Y.Map) {
-        // delete keys missing in proxy
+      // Apply minimal changes
+      if (yRoot instanceof Y.Map && typeof current === 'object' && !Array.isArray(current)) {
+        // delete keys missing in proxy (read only from integrated yRoot)
         Array.from(yRoot.keys()).forEach((k) => {
-          if (!yValue.has(k)) yRoot.delete(k);
+          if (!Object.prototype.hasOwnProperty.call(current, k)) {
+            yRoot.delete(k);
+          }
         });
-        // set keys from proxy
-        yValue.forEach((val: any, key: string) => {
-          yRoot.set(key, val);
+        // set changed keys from proxy (convert values on-the-fly)
+        const existingPlain = existing as any;
+        Object.entries(current).forEach(([key, value]) => {
+          if (!areDeepEqual(existingPlain?.[key], value)) {
+            yRoot.set(key, plainObjectToYType(value));
+          }
         });
-      } else if (yRoot instanceof Y.Array && yValue instanceof Y.Array) {
-        yRoot.delete(0, yRoot.length);
-        if (yValue.length > 0) {
-          yRoot.insert(0, yValue.toArray());
+      } else if (yRoot instanceof Y.Array && Array.isArray(current)) {
+        if (!areDeepEqual(existing, current)) {
+          yRoot.delete(0, yRoot.length);
+          if (current.length > 0) {
+            const items = current.map(plainObjectToYType);
+            yRoot.insert(0, items);
+          }
         }
       }
     }, origin);
