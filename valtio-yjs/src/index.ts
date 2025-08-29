@@ -42,8 +42,8 @@ export function createYjsProxy<T extends object>(
   // 1. Create the root controller proxy (returns a real Valtio proxy).
   const stateProxy = createYjsController(yRoot, doc);
 
-  // 2. Set up the single, document-wide listener for remote changes.
-  const dispose = setupSyncListener(doc);
+  // 2. Set up the reconciler-backed listener for remote changes.
+  const dispose = setupSyncListener(doc, yRoot);
 
   // 3. Return the proxy and the dispose function.
   return { proxy: stateProxy as T, dispose };
