@@ -30,15 +30,17 @@ doc2.on('update', (update: Uint8Array, origin: unknown) => {
 
 // --- 3. CREATE TWO INDEPENDENT PROXIES ---
 // Let's test a Map-based root state
-const { proxy: proxy1, dispose: dispose1 } = createYjsProxy<{
+const { proxy: proxy1, dispose: dispose1, bootstrap: bootstrap1 } = createYjsProxy<{
   message: string;
   items: { [id: string]: { id: number, text: string } };
 }>(doc1, {
   getRoot: (doc: Y.Doc) => doc.getMap('sharedState'),
-  initialState: {
-    message: 'Hello World',
-    items: {},
-  },
+});
+
+// Initialize doc1's state; doc2 will receive it via relay
+bootstrap1({
+  message: 'Hello World3',
+  items: {},
 });
 
 const { proxy: proxy2, dispose: dispose2 } = createYjsProxy<{

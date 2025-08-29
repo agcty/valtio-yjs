@@ -7,6 +7,8 @@ import { plainObjectToYType } from './converter.js';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
 export { VALTIO_YJS_ORIGIN } from './constants.js';
 export { syncedText } from './syncedTypes.js';
+import { SynchronizationContext } from './context.js';
+import { reconcileValtioArray, reconcileValtioMap } from './reconciler.js';
 
 export interface CreateYjsProxyOptions<_T> {
   getRoot: (doc: Y.Doc) => Y.Map<any> | Y.Array<any>;
@@ -26,7 +28,8 @@ export function createYjsProxy<T extends object>(
   const yRoot = getRoot(doc);
 
   // 1. Create the root controller proxy (returns a real Valtio proxy).
-  const stateProxy = createYjsController(yRoot, doc);
+  const context = new SynchronizationContext();
+  const stateProxy = createYjsController(context, yRoot, doc);
 
   // 2. Provide developer-driven bootstrap for initial data.
   const bootstrap = (data: T) => {
@@ -34,23 +37,39 @@ export function createYjsProxy<T extends object>(
       console.warn('[valtio-yjs] bootstrap called on a non-empty document. Aborting to prevent data loss.');
       return;
     }
-    const initialY = plainObjectToYType(data);
     doc.transact(() => {
-      if (yRoot instanceof Y.Map && initialY instanceof Y.Map) {
-        initialY.forEach((value: any, key: string) => {
-          yRoot.set(key, value);
-        });
-      } else if (yRoot instanceof Y.Array && initialY instanceof Y.Array) {
-        const items = initialY.toArray();
+      if (yRoot instanceof Y.Map) {
+        const record = data as unknown as Record<string, any>;
+        for (const key of Object.keys(record)) {
+          const value = record[key];
+          if (value !== undefined) {
+            yRoot.set(key, plainObjectToYType(value));
+          }
+        }
+      } else if (yRoot instanceof Y.Array) {
+        const items = (data as unknown as any[]).map((v) => plainObjectToYType(v));
         if (items.length > 0) yRoot.insert(0, items);
       }
     }, VALTIO_YJS_ORIGIN);
+
+    // Our listener ignores our origin to avoid loops, so we must explicitly
+    // reconcile locally to materialize the proxy after bootstrap.
+    if (yRoot instanceof Y.Map) {
+      reconcileValtioMap(context, yRoot, doc);
+    } else if (yRoot instanceof Y.Array) {
+      reconcileValtioArray(context, yRoot, doc);
+    }
   };
 
   // 3. Set up the reconciler-backed listener for remote changes.
-  const dispose = setupSyncListener(doc, yRoot);
+  const disposeSync = setupSyncListener(context, doc, yRoot);
 
   // 4. Return the proxy, dispose, and bootstrap function.
+  const dispose = () => {
+    disposeSync();
+    context.disposeAll();
+  };
+
   return { proxy: stateProxy as T, dispose, bootstrap };
 }
 

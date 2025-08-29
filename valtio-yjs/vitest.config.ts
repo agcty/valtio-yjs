@@ -10,6 +10,7 @@ export default defineConfig({
       headless: true,
       instances: [{ browser: "chromium" }],
     },
-    setupFiles: ['./tests/vitest-setup.ts'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.spec.ts'],
+    // setupFiles: ['./tests/vitest-setup.ts'],
   },
 });

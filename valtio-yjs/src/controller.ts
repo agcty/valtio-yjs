@@ -3,24 +3,17 @@
 //
 // Responsibility:
 // - Materialize real Valtio proxies for Yjs shared types (currently Y.Map).
-// - Maintain stable identity via caches (Y type <-> Valtio proxy).
+// - Maintain stable identity via caches (Y type <-> Valtio proxy) inside a context.
 // - Reflect local Valtio writes back to Yjs minimally (set/delete) inside
 //   transactions tagged with VALTIO_YJS_ORIGIN.
 // - Lazily create nested controllers when a Y value is another Y type.
-// - Provide runWithoutValtioReflection to suspend Valtio->Yjs during reconciling.
 import * as Y from 'yjs';
 import { proxy, subscribe } from 'valtio/vanilla';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
 import { plainObjectToYType } from './converter.js';
+import { SynchronizationContext } from './context.js';
 
-// Cache: Y type -> Valtio proxy object
-const yTypeToValtioProxy = new WeakMap<Y.AbstractType<any>, any>();
-// Reverse cache: Valtio proxy -> Y type
-const valtioProxyToYType = new WeakMap<object, Y.AbstractType<any>>();
-// Track doc per Y type (for re-subscribing)
-const yTypeToDoc = new WeakMap<Y.AbstractType<any>, Y.Doc>();
-// Track unsubscribe function for Valtio subscriptions per Y type
-const yTypeToUnsubscribe = new WeakMap<Y.AbstractType<any>, () => void>();
+// All caches are moved into SynchronizationContext
 
 function isPlainObject(value: any): boolean {
   if (value === null || typeof value !== 'object') return false;
@@ -30,8 +23,14 @@ function isPlainObject(value: any): boolean {
 
 // Subscribe to a Valtio object proxy and translate top-level key operations
 // into minimal Y.Map operations. Nested edits are handled by nested controllers.
-function attachValtioMapSubscription(yMap: Y.Map<any>, objProxy: any, doc: Y.Doc): () => void {
+function attachValtioMapSubscription(
+  context: SynchronizationContext,
+  yMap: Y.Map<any>,
+  objProxy: any,
+  doc: Y.Doc,
+): () => void {
   const unsubscribe = subscribe(objProxy, (ops: any[]) => {
+    if (context.isReconciling) return;
     // Only translate root-level key changes here; nested changes are handled by nested controllers
     const rootLevelOps = ops.filter((op) => Array.isArray(op.path) && op.path.length === 1 && typeof op.path[0] === 'string');
     if (rootLevelOps.length === 0) return;
@@ -40,7 +39,10 @@ function attachValtioMapSubscription(yMap: Y.Map<any>, objProxy: any, doc: Y.Doc
         const key = op.path[0] as string;
         if (op.op === 'set') {
           const nextValue = (objProxy as any)[key];
-          const nestedY = valtioProxyToYType.get(nextValue as object);
+          const nestedY =
+            nextValue && typeof nextValue === 'object'
+              ? context.valtioProxyToYType.get(nextValue as object)
+              : undefined;
           if (nestedY) {
             yMap.set(key, nestedY);
           } else if (isPlainObject(nextValue) || Array.isArray(nextValue)) {
@@ -59,70 +61,52 @@ function attachValtioMapSubscription(yMap: Y.Map<any>, objProxy: any, doc: Y.Doc
 
 // Create (or reuse from cache) a Valtio proxy that mirrors a Y.Map.
 // Nested Y types are recursively materialized via createYjsController.
-function materializeMapToValtio(yMap: Y.Map<any>, doc: Y.Doc): any {
-  const existing = yTypeToValtioProxy.get(yMap);
+function materializeMapToValtio(context: SynchronizationContext, yMap: Y.Map<any>, doc: Y.Doc): any {
+  const existing = context.yTypeToValtioProxy.get(yMap);
   if (existing) return existing;
 
   const initialObj: Record<string, any> = {};
   for (const [key, value] of yMap.entries()) {
     if (value instanceof Y.AbstractType) {
-      initialObj[key] = createYjsController(value, doc);
+      initialObj[key] = createYjsController(context, value, doc);
     } else {
       initialObj[key] = value;
     }
   }
   const objProxy = proxy(initialObj);
 
-  yTypeToValtioProxy.set(yMap, objProxy);
-  valtioProxyToYType.set(objProxy, yMap);
-  yTypeToDoc.set(yMap, doc);
+  context.yTypeToValtioProxy.set(yMap, objProxy);
+  context.valtioProxyToYType.set(objProxy, yMap);
 
-  const unsubscribe = attachValtioMapSubscription(yMap, objProxy, doc);
-  yTypeToUnsubscribe.set(yMap, unsubscribe);
+  const unsubscribe = attachValtioMapSubscription(context, yMap, objProxy, doc);
+  context.registerSubscription(yMap, unsubscribe);
 
   return objProxy;
 }
 
-export function getValtioProxyForYType(yType: Y.AbstractType<any>): any | undefined {
-  return yTypeToValtioProxy.get(yType);
+export function getValtioProxyForYType(context: SynchronizationContext, yType: Y.AbstractType<any>): any | undefined {
+  return context.yTypeToValtioProxy.get(yType);
 }
 
-export function getYTypeForValtioProxy(obj: object): Y.AbstractType<any> | undefined {
-  return valtioProxyToYType.get(obj);
+export function getYTypeForValtioProxy(context: SynchronizationContext, obj: object): Y.AbstractType<any> | undefined {
+  return context.valtioProxyToYType.get(obj);
 }
 
-// Temporarily disable the Valtio subscription for a Y type, run fn, then reattach.
-// Used by the reconciler to avoid reflecting Yjs->Valtio changes back into Yjs.
-export function runWithoutValtioReflection(yType: Y.AbstractType<any>, fn: () => void): void {
-  const unsubscribe = yTypeToUnsubscribe.get(yType);
-  const doc = yTypeToDoc.get(yType);
-  if (unsubscribe) unsubscribe();
-  try {
-    fn();
-  } finally {
-    if (yType instanceof Y.Map && doc) {
-      const objProxy = yTypeToValtioProxy.get(yType);
-      if (objProxy) {
-        const newUnsub = attachValtioMapSubscription(yType, objProxy, doc);
-        yTypeToUnsubscribe.set(yType, newUnsub);
-      }
-    }
-  }
-}
+// Reflection lock is handled by context.isReconciling; no unsubscribe/resubscribe required.
 
 // Map controller: returns a real Valtio proxy representing the Y.Map
-export function createYjsMapControllerProxy(yMap: Y.Map<any>, doc: Y.Doc): object {
-  return materializeMapToValtio(yMap, doc);
+export function createYjsMapControllerProxy(context: SynchronizationContext, yMap: Y.Map<any>, doc: Y.Doc): object {
+  return materializeMapToValtio(context, yMap, doc);
 }
 
 /**
  * The main controller router. It takes any Yjs shared type and returns the
  * appropriate controller object for it.
  */
-export function createYjsController(yType: Y.AbstractType<any>, doc: Y.Doc): object {
+export function createYjsController(context: SynchronizationContext, yType: Y.AbstractType<any>, doc: Y.Doc): object {
   if (yType instanceof Y.Map) {
     // The Map controller is special, it's the Proxy.
-    return createYjsMapControllerProxy(yType, doc);
+    return createYjsMapControllerProxy(context, yType, doc);
   }
   // if (yType instanceof Y.Array) {
   //   return createYArrayController(yType, doc);

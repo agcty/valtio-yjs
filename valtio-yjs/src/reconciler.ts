@@ -1,10 +1,7 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
 import * as Y from 'yjs';
-import {
-  createYjsController,
-  getValtioProxyForYType,
-  runWithoutValtioReflection,
-} from './controller.js';
+import { createYjsController, getValtioProxyForYType } from './controller.js';
+import { SynchronizationContext } from './context.js';
 
 // Reconciler layer
 //
@@ -19,15 +16,15 @@ import {
  * Reconciles the structure of a Valtio proxy to match its underlying Y.Map.
  * It creates/deletes properties on the proxy to ensure the "scaffolding" is correct.
  */
-export function reconcileValtioMap(yMap: Y.Map<any>, doc: Y.Doc): void {
-  const valtioProxy = getValtioProxyForYType(yMap) as Record<string, any> | undefined;
+export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<any>, doc: Y.Doc): void {
+  const valtioProxy = getValtioProxyForYType(context, yMap) as Record<string, any> | undefined;
   if (!valtioProxy) {
     // This map hasn't been materialized yet, so there's nothing to reconcile.
     console.debug('[valtio-yjs] reconcileValtioMap skipped (no proxy)');
     return;
   }
 
-  runWithoutValtioReflection(yMap, () => {
+  context.withReconcilingLock(() => {
     const yKeys = new Set(Array.from(yMap.keys()).map((k) => String(k)));
     const valtioKeys = new Set(Object.keys(valtioProxy));
 
@@ -38,7 +35,7 @@ export function reconcileValtioMap(yMap: Y.Map<any>, doc: Y.Doc): void {
         if (yValue instanceof Y.AbstractType) {
 
           console.debug('[valtio-yjs] materialize nested controller for key', key);
-          (valtioProxy as any)[key] = createYjsController(yValue, doc);
+          (valtioProxy as any)[key] = createYjsController(context, yValue, doc);
         } else {
           console.debug('[valtio-yjs] set primitive key', key);
           (valtioProxy as any)[key] = yValue;
@@ -53,18 +50,32 @@ export function reconcileValtioMap(yMap: Y.Map<any>, doc: Y.Doc): void {
         delete (valtioProxy as any)[key];
       }
     }
+
+    // Update existing primitive values for common keys
+    for (const key of yKeys) {
+      if (valtioKeys.has(key)) {
+        const yValue = yMap.get(key);
+        if (!(yValue instanceof Y.AbstractType)) {
+          const current = (valtioProxy as any)[key];
+          if (current !== yValue) {
+            console.debug('[valtio-yjs] update primitive key', key);
+            (valtioProxy as any)[key] = yValue;
+          }
+        }
+      }
+    }
   });
 }
 
 // TODO: Implement granular delta-based reconciliation for arrays.
 // For now, perform a coarse structural sync using splice.
-export function reconcileValtioArray(yArray: Y.Array<any>, doc: Y.Doc): void {
-  const valtioProxy = getValtioProxyForYType(yArray) as any[] | undefined;
+export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.Array<any>, doc: Y.Doc): void {
+  const valtioProxy = getValtioProxyForYType(context, yArray) as any[] | undefined;
   if (!valtioProxy) return;
 
-  runWithoutValtioReflection(yArray, () => {
+  context.withReconcilingLock(() => {
     const newContent = yArray.toArray().map((item) =>
-      item instanceof Y.AbstractType ? createYjsController(item, doc) : item,
+      item instanceof Y.AbstractType ? createYjsController(context, item, doc) : item,
     );
     console.debug('[valtio-yjs] reconcile array splice', newContent.length);
     (valtioProxy as any[]).splice(0, (valtioProxy as any[]).length, ...newContent);
