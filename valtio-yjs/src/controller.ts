@@ -21,6 +21,48 @@ function isPlainObject(value: any): boolean {
   return proto === Object.prototype || proto === null;
 }
 
+// Subscribe to a Valtio array proxy and translate top-level index operations
+// into minimal Y.Array operations.
+function attachValtioArraySubscription(
+  context: SynchronizationContext,
+  yArray: Y.Array<any>,
+  arrProxy: any[],
+  doc: Y.Doc,
+): () => void {
+  const unsubscribe = subscribe(arrProxy as any, (ops: any[]) => {
+    if (context.isReconciling) return;
+    const rootIndexOps = ops.filter((op) => Array.isArray(op) && Array.isArray(op[1]) && (op[1] as any[]).length === 1 && typeof (op[1] as any[])[0] === 'number');
+    if (rootIndexOps.length === 0) return;
+    doc.transact(() => {
+      for (const op of rootIndexOps) {
+        const type = op[0] as string;
+        const index = (op[1] as (string | number)[])[0] as number;
+        if (type === 'set') {
+          const nextValue = (arrProxy as any[])[index];
+          const nestedY = nextValue && typeof nextValue === 'object' ? context.valtioProxyToYType.get(nextValue as object) : undefined;
+          const yValue = nestedY ?? (isPlainObject(nextValue) || Array.isArray(nextValue) ? plainObjectToYType(nextValue) : nextValue);
+          if (index >= 0) {
+            if (index < yArray.length) {
+              yArray.delete(index, 1);
+              yArray.insert(index, [yValue]);
+            } else if (index === yArray.length) {
+              yArray.insert(yArray.length, [yValue]);
+            } else {
+              // If someone sets a sparse index, fill with nulls up to that index for Yjs compatibility
+              const fillCount = index - yArray.length;
+              if (fillCount > 0) yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
+              yArray.insert(yArray.length, [yValue]);
+            }
+          }
+        } else if (type === 'delete') {
+          if (index >= 0 && index < yArray.length) yArray.delete(index, 1);
+        }
+      }
+    }, VALTIO_YJS_ORIGIN);
+  });
+  return unsubscribe;
+}
+
 // Subscribe to a Valtio object proxy and translate top-level key operations
 // into minimal Y.Map operations. Nested edits are handled by nested controllers.
 function attachValtioMapSubscription(
@@ -31,36 +73,73 @@ function attachValtioMapSubscription(
 ): () => void {
   const unsubscribe = subscribe(objProxy, (ops: any[]) => {
     if (context.isReconciling) return;
-    // Only translate root-level key changes here; nested changes are handled by nested controllers
     // Valtio emits tuple ops: [type, pathArray, value, prev]
-    const rootLevelOps = ops.filter((op) => {
-      return (
-        Array.isArray(op) &&
-        Array.isArray(op[1]) &&
-        op[1].length === 1 &&
-        typeof op[1][0] === 'string'
-      );
-    });
-    if (rootLevelOps.length === 0) return;
+    const candidateOps = ops.filter((op) => Array.isArray(op) && Array.isArray(op[1]));
+    if (candidateOps.length === 0) return;
     doc.transact(() => {
-      for (const op of rootLevelOps) {
+      for (const op of candidateOps) {
         const type = op[0] as string;
-        const key = (op[1] as (string | number)[])[0] as string;
-        if (type === 'set') {
-          const nextValue = (objProxy as any)[key];
-          const nestedY =
-            nextValue && typeof nextValue === 'object'
-              ? context.valtioProxyToYType.get(nextValue as object)
-              : undefined;
-          if (nestedY) {
-            yMap.set(key, nestedY);
-          } else if (isPlainObject(nextValue) || Array.isArray(nextValue)) {
-            yMap.set(key, plainObjectToYType(nextValue));
-          } else {
-            yMap.set(key, nextValue);
+        const path = op[1] as (string | number)[];
+        if (path.length === 1) {
+          const key = String(path[0]);
+          if (type === 'set') {
+            const nextValue = (objProxy as any)[key];
+            const nestedY =
+              nextValue && typeof nextValue === 'object'
+                ? context.valtioProxyToYType.get(nextValue as object)
+                : undefined;
+            if (nestedY) {
+              const current = yMap.get(key);
+              if (current !== nestedY) yMap.set(key, nestedY);
+            } else if (isPlainObject(nextValue) || Array.isArray(nextValue)) {
+              yMap.set(key, plainObjectToYType(nextValue));
+            } else {
+              yMap.set(key, nextValue);
+            }
+          } else if (type === 'delete') {
+            if (yMap.has(key)) yMap.delete(key);
           }
-        } else if (type === 'delete') {
-          if (yMap.has(key)) yMap.delete(key);
+        } else if (path.length === 2) {
+          // Route one-level nested changes (Map -> child Map/Array) directly
+          const [parentKeyRaw, childKeyRaw] = path;
+          const parentKey = String(parentKeyRaw);
+          const parentProxy = (objProxy as any)[parentKey];
+          const parentY = parentProxy && typeof parentProxy === 'object' ? context.valtioProxyToYType.get(parentProxy as object) : undefined;
+          if (parentY instanceof Y.Map) {
+            const childKey = String(childKeyRaw);
+            if (type === 'set') {
+              const nextValue = (parentProxy as any)[childKey];
+              const nestedY =
+                nextValue && typeof nextValue === 'object'
+                  ? context.valtioProxyToYType.get(nextValue as object)
+                  : undefined;
+              if (nestedY) {
+                const current = parentY.get(childKey);
+                if (current !== nestedY) parentY.set(childKey, nestedY);
+              } else if (isPlainObject(nextValue) || Array.isArray(nextValue)) {
+                parentY.set(childKey, plainObjectToYType(nextValue));
+              } else {
+                parentY.set(childKey, nextValue);
+              }
+            } else if (type === 'delete') {
+              if (parentY.has(childKey)) parentY.delete(childKey);
+            }
+          } else if (parentY instanceof Y.Array && typeof childKeyRaw === 'number') {
+            const index = childKeyRaw as number;
+            if (type === 'set') {
+              const nextValue = (parentProxy as any[])[index];
+              const nestedY = nextValue && typeof nextValue === 'object' ? context.valtioProxyToYType.get(nextValue as object) : undefined;
+              const yValue = nestedY ?? (isPlainObject(nextValue) || Array.isArray(nextValue) ? plainObjectToYType(nextValue) : nextValue);
+              if (index < parentY.length) {
+                parentY.delete(index, 1);
+                parentY.insert(index, [yValue]);
+              } else if (index === parentY.length) {
+                parentY.insert(parentY.length, [yValue]);
+              }
+            } else if (type === 'delete') {
+              if (index >= 0 && index < parentY.length) parentY.delete(index, 1);
+            }
+          }
         }
       }
     }, VALTIO_YJS_ORIGIN);
@@ -93,6 +172,18 @@ function materializeMapToValtio(context: SynchronizationContext, yMap: Y.Map<any
   return objProxy;
 }
 
+function materializeArrayToValtio(context: SynchronizationContext, yArray: Y.Array<any>, doc: Y.Doc): any[] {
+  const existing = context.yTypeToValtioProxy.get(yArray) as any[] | undefined;
+  if (existing) return existing;
+  const initialItems = yArray.toArray().map((value) => (value instanceof Y.AbstractType ? createYjsController(context, value, doc) : value));
+  const arrProxy = proxy(initialItems) as unknown as any[];
+  context.yTypeToValtioProxy.set(yArray as unknown as Y.AbstractType<any>, arrProxy);
+  context.valtioProxyToYType.set(arrProxy as unknown as object, yArray as unknown as Y.AbstractType<any>);
+  const unsubscribe = attachValtioArraySubscription(context, yArray, arrProxy, doc);
+  context.registerSubscription(yArray as unknown as Y.AbstractType<any>, unsubscribe);
+  return arrProxy;
+}
+
 export function getValtioProxyForYType(context: SynchronizationContext, yType: Y.AbstractType<any>): any | undefined {
   return context.yTypeToValtioProxy.get(yType);
 }
@@ -117,9 +208,9 @@ export function createYjsController(context: SynchronizationContext, yType: Y.Ab
     // The Map controller is special, it's the Proxy.
     return createYjsMapControllerProxy(context, yType, doc);
   }
-  // if (yType instanceof Y.Array) {
-  //   return createYArrayController(yType, doc);
-  // }
+  if (yType instanceof Y.Array) {
+    return materializeArrayToValtio(context, yType, doc) as unknown as object;
+  }
   // if (yType instanceof Y.Text) {
   //   return createYTextController(yType, doc);
   // }
