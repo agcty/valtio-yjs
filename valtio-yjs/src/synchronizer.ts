@@ -1,124 +1,51 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
 import * as Y from 'yjs';
-import { proxy, subscribe } from 'valtio/vanilla';
-// origin symbol is provided by caller to avoid cycles
-import { yTypeToPlainObject, plainObjectToYType } from './converter.js';
+import { VALTIO_YJS_ORIGIN } from './constants.js';
+import { createYjsController, getValtioProxyForYType } from './controller.js';
 
 /**
- * Sets up the two-way synchronization between a Valtio proxy and a Yjs document.
- * @returns A dispose function to clean up all listeners.
+ * Sets up a one-way listener from Yjs to Valtio.
+ * On remote changes, it notifies the correct controller proxy to trigger UI updates.
+ * @returns A dispose function to clean up the listener.
  */
-export function setupSyncListeners(
-  stateProxy: ReturnType<typeof proxy>,
-  doc: Y.Doc,
-  yRoot: Y.Map<any> | Y.Array<any>,
-  origin?: any,
-): () => void {
-  const areDeepEqual = (a: any, b: any): boolean => {
-    if (a === b) return true;
-    if (a === null || b === null) return a === b;
-    if (typeof a !== 'object' || typeof b !== 'object') return false;
-    if (Array.isArray(a) || Array.isArray(b)) {
-      if (!Array.isArray(a) || !Array.isArray(b)) return false;
-      if (a.length !== b.length) return false;
-      for (let i = 0; i < a.length; i++) {
-        if (!areDeepEqual(a[i], b[i])) return false;
-      }
-      return true;
-    }
-    const aKeys = Object.keys(a);
-    const bKeys = Object.keys(b);
-    if (aKeys.length !== bKeys.length) return false;
-    for (const key of aKeys) {
-      if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
-      if (!areDeepEqual(a[key], b[key])) return false;
-    }
-    return true;
-  };
-  // Prevent feedback loop: when applying Yjs -> Valtio, temporarily ignore Valtio -> Yjs
-  let isApplyingYjsToValtio = false;
-  // Yjs -> Valtio listener (coarse first pass: mirror whole root on any change)
-  const handleYjsChanges = (_events: Y.YEvent<any>[], transaction: Y.Transaction) => {
-    if (transaction.origin === origin) {
-      console.count('[valtio-yjs] Ignore Yjs -> Valtio (own origin)');
+export function setupSyncListener(doc: Y.Doc): () => void {
+  const handleAfterTransaction = (transaction: Y.Transaction) => {
+    // Ignore changes originating from our own proxy setters.
+    if (transaction.origin === VALTIO_YJS_ORIGIN) {
       return;
     }
 
-    isApplyingYjsToValtio = true;
-    try {
-      console.count('[valtio-yjs] Applying Yjs -> Valtio');
-      const next = yTypeToPlainObject(yRoot);
-      // Replace keys in the proxy to reflect yRoot; avoid replacing the object itself
-      if (Array.isArray(next) && Array.isArray(stateProxy)) {
-        stateProxy.splice(0, stateProxy.length, ...next);
-        return;
-      }
-      if (!Array.isArray(next) && typeof next === 'object' && next) {
-        // delete keys not in next
-        Object.keys(stateProxy as any).forEach((k) => {
-          if (!(k in (next as any))) {
-            delete (stateProxy as any)[k];
-          }
-        });
-        // assign new/updated keys
-        Object.entries(next).forEach(([k, v]) => {
-          (stateProxy as any)[k] = v as any;
-        });
-      }
-    } finally {
-      isApplyingYjsToValtio = false;
-    }
-  };
+    // For each changed parent type, minimally apply changes into the corresponding Valtio proxy
+    transaction.changedParentTypes.forEach((parentType) => {
+      const proxy = getValtioProxyForYType(parentType as any);
+      if (!proxy) return;
 
-  yRoot.observeDeep(handleYjsChanges);
-
-  // Valtio -> Yjs listener (coarse first pass: mirror whole root on any change)
-  const handleValtioOps = (_ops: any[]) => {
-    if (isApplyingYjsToValtio) {
-      // Skip reflecting changes back to Yjs if they were caused by Yjs in the first place
-      console.count('[valtio-yjs] Skip Valtio -> Yjs (from Yjs)');
-      return;
-    }
-    console.count('[valtio-yjs] Applying Valtio -> Yjs');
-    // Compare with existing Y state and bail if identical to avoid update bounces
-    const current = stateProxy as any;
-    const existing = yTypeToPlainObject(yRoot);
-    if (areDeepEqual(existing, current)) {
-      return;
-    }
-    doc.transact(() => {
-      // Apply minimal changes
-      if (yRoot instanceof Y.Map && typeof current === 'object' && !Array.isArray(current)) {
-        // delete keys missing in proxy (read only from integrated yRoot)
-        Array.from(yRoot.keys()).forEach((k) => {
-          if (!Object.prototype.hasOwnProperty.call(current, k)) {
-            yRoot.delete(k);
-          }
-        });
-        // set changed keys from proxy (convert values on-the-fly)
-        const existingPlain = existing as any;
-        Object.entries(current).forEach(([key, value]) => {
-          if (!areDeepEqual(existingPlain?.[key], value)) {
-            yRoot.set(key, plainObjectToYType(value));
-          }
-        });
-      } else if (yRoot instanceof Y.Array && Array.isArray(current)) {
-        if (!areDeepEqual(existing, current)) {
-          yRoot.delete(0, yRoot.length);
-          if (current.length > 0) {
-            const items = current.map(plainObjectToYType);
-            yRoot.insert(0, items);
+      if (parentType instanceof Y.Map) {
+        // Read keys from parentType and set minimal keys (cheap for maps)
+        for (const k of Array.from(parentType.keys())) {
+          const key = String(k);
+          const yVal = parentType.get(key);
+          if (yVal instanceof Y.AbstractType) {
+            if (!(key in proxy) || proxy[key] !== getValtioProxyForYType(yVal)) {
+              proxy[key] = createYjsController(yVal, doc);
+            }
+          } else {
+            if (proxy[key] !== yVal) proxy[key] = yVal;
           }
         }
+        // Remove deleted keys
+        Object.keys(proxy as Record<string, any>).forEach((k) => {
+          if (!parentType.has(k as string)) delete proxy[k];
+        });
       }
-    }, origin);
+    });
   };
 
-  const unsubscribeValtio = subscribe(stateProxy, handleValtioOps);
+  // 'afterTransaction' is a robust way to listen for all changes, batched.
+  doc.on('afterTransaction', handleAfterTransaction);
 
   return () => {
-    yRoot.unobserveDeep(handleYjsChanges);
-    unsubscribeValtio();
+    doc.off('afterTransaction', handleAfterTransaction);
   };
 }
 

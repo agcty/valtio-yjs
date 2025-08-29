@@ -32,18 +32,18 @@ doc2.on('update', (update: Uint8Array, origin: unknown) => {
 // Let's test a Map-based root state
 const { proxy: proxy1, dispose: dispose1 } = createYjsProxy<{
   message: string;
-  items: { id: number, text: string }[];
+  items: { [id: string]: { id: number, text: string } };
 }>(doc1, {
   getRoot: (doc: Y.Doc) => doc.getMap('sharedState'),
   initialState: {
     message: 'Hello World',
-    items: [],
+    items: {},
   },
 });
 
 const { proxy: proxy2, dispose: dispose2 } = createYjsProxy<{
   message: string;
-  items: { id: number, text: string }[];
+  items: { [id: string]: { id: number, text: string } };
 }>(doc2, {
   getRoot: (doc: Y.Doc) => doc.getMap('sharedState'),
   // No initialState here, it should sync from doc1
@@ -55,15 +55,20 @@ const ClientView = ({ name, stateProxy }: { name: string, stateProxy: typeof pro
   const proxyRef = useRef(stateProxy);
 
   const addItem = () => {
-    proxyRef.current.items.push({
-      id: Date.now(),
+    const id = Date.now();
+    proxyRef.current.items[id] = {
+      id,
       text: `Item from ${name}`,
-    });
+    };
   };
 
   const deleteLastItem = () => {
-    if (proxyRef.current.items.length > 0) {
-      proxyRef.current.items.pop();
+    const keys = Object.keys(snap.items);
+    if (keys.length > 0) {
+      const lastKey = keys.pop();
+      if (lastKey) {
+        delete proxyRef.current.items[lastKey];
+      }
     }
   };
 

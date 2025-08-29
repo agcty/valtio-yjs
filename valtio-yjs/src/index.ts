@@ -1,10 +1,10 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
 
 import * as Y from 'yjs';
-import { proxy } from 'valtio/vanilla';
-import { setupSyncListeners } from './synchronizer.js';
-import { yTypeToPlainObject, plainObjectToYType } from './converter.js';
-import { VALTIO_YJS_ORIGIN } from './constants.js';
+import { createYjsController } from './controller.js';
+import { setupSyncListener } from './synchronizer.js';
+import { plainObjectToYType } from './converter.js';
+export { VALTIO_YJS_ORIGIN } from './constants.js';
 
 export interface CreateYjsProxyOptions<T> {
   getRoot: (doc: Y.Doc) => Y.Map<any> | Y.Array<any>;
@@ -23,7 +23,7 @@ export function createYjsProxy<T extends object>(
   const { getRoot, initialState } = options;
   const yRoot = getRoot(doc);
 
-  // Merge initial state by applying a temp doc update to avoid overwriting remote state
+  // Safely merge initial state (this logic remains the same and is correct).
   if (initialState) {
     const tempDoc = new Y.Doc();
     const tempRoot = getRoot(tempDoc);
@@ -39,12 +39,13 @@ export function createYjsProxy<T extends object>(
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(tempDoc));
   }
 
-  // Build initial proxy state from the current yRoot content
-  const initialPlain = yTypeToPlainObject(yRoot) as T;
-  const stateProxy = proxy(initialPlain);
+  // 1. Create the root controller proxy (returns a real Valtio proxy).
+  const stateProxy = createYjsController(yRoot, doc);
 
-  const dispose = setupSyncListeners(stateProxy, doc, yRoot, VALTIO_YJS_ORIGIN);
+  // 2. Set up the single, document-wide listener for remote changes.
+  const dispose = setupSyncListener(doc);
 
+  // 3. Return the proxy and the dispose function.
   return { proxy: stateProxy as T, dispose };
 }
 
