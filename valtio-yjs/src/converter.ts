@@ -22,6 +22,9 @@ export function yTypeToPlainObject(yValue: any): any {
  * Recursively converts a plain JavaScript object/array (or primitive) into Yjs shared types.
  */
 export function plainObjectToYType(jsValue: any): any {
+  if (jsValue instanceof Y.AbstractType) {
+    return jsValue;
+  }
   if (jsValue === null || typeof jsValue !== 'object') {
     return jsValue === undefined ? null : jsValue; // Yjs doesn't support undefined
   }
