@@ -8,7 +8,7 @@
     "react-dom": "latest",
     "valtio": "latest",
     "valtio-yjs": "workspace:*",
-    "yjs": "workspace:*"
+    "yjs": "latest"
   },
   "devDependencies": {
     "@types/react": "latest",

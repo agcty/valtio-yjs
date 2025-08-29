@@ -29,20 +29,10 @@
     "src",
     "dist"
   ],
-  "packageManager": "pnpm@9.4.0",
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch ./src",
-    "test": "pnpm run '/^test:.*/'",
-    "test:format": "prettier -c .",
-    "test:lint": "eslint .",
-    "test:types": "tsc -p . --noEmit",
-    "test:types:examples": "tsc -p examples --noEmit",
-    "test:spec": "vitest run",
-    "examples:01_obj": "cd examples/01_obj && vite",
-    "examples:02_array": "cd examples/02_array && vite",
-    "examples:03_minecraft": "cd examples/03_minecraft && vite",
-    "examples:04_rewrite_testbed": "cd examples/04_rewrite_testbed && vite"
+    "test": "pnpm run '/^test:.*/'"
   },
   "keywords": [
     "valtio",
@@ -54,10 +44,11 @@
     "singleQuote": true
   },
   "devDependencies": {
-    "tsdown": "^0.14.2",
     "@eslint/js": "^9.32.0",
     "@testing-library/jest-dom": "^6.6.4",
+    "@types/debug": "^4.1.12",
     "@types/node": "^24.2.0",
+    "debug": "^4.4.1",
     "eslint": "^9.32.0",
     "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
@@ -66,6 +57,7 @@
     "eslint-plugin-react-hooks": "6.0.0-rc.1",
     "happy-dom": "^18.0.1",
     "prettier": "^3.6.2",
+    "tsdown": "^0.14.2",
     "typescript": "^5.9.2",
     "typescript-eslint": "^8.39.0",
     "valtio": "^2.1.7",
@@ -75,6 +67,7 @@
     "yjs": "^13.6.27"
   },
   "peerDependencies": {
-    "valtio": ">=2.0.0-rc.0"
+    "valtio": ">=2.0.0-rc.0",
+    "yjs": ">=13.6.27"
   }
 }

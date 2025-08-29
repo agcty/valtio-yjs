@@ -1,8 +1,11 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
+import Debug from 'debug';
 import * as Y from 'yjs';
 import { proxy, subscribe } from 'valtio/vanilla';
 // origin symbol is provided by caller to avoid cycles
 import { yTypeToPlainObject, plainObjectToYType } from './converter.js';
+
+const debug = Debug('valtio-yjs:synchronizer');
 
 /**
  * Sets up the two-way synchronization between a Valtio proxy and a Yjs document.
@@ -16,20 +19,16 @@ export function setupSyncListeners(
 ): () => void {
   // Prevent feedback loop: when applying Yjs -> Valtio, temporarily ignore Valtio -> Yjs
   let isApplyingYjsToValtio = false;
-  // const logPrefix = '[valtio-yjs]';
   // Yjs -> Valtio listener (coarse first pass: mirror whole root on any change)
   const handleYjsChanges = (_events: Y.YEvent<any>[], transaction: Y.Transaction) => {
     if (transaction.origin === origin) {
-      // console.debug(logPrefix, 'Ignore Yjs -> Valtio (own origin)');
+      debug('Ignore Yjs -> Valtio (own origin)');
       return;
     }
 
     isApplyingYjsToValtio = true;
     try {
-      // Basic diagnostic: when Yjs changes are applied to Valtio
-      // Using debug to avoid cluttering console in production
-      // eslint-disable-next-line no-console
-      console.debug('[valtio-yjs] Applying Yjs -> Valtio');
+      debug('Applying Yjs -> Valtio');
       const next = yTypeToPlainObject(yRoot);
       // Replace keys in the proxy to reflect yRoot; avoid replacing the object itself
       if (Array.isArray(next) && Array.isArray(stateProxy)) {
@@ -59,11 +58,10 @@ export function setupSyncListeners(
   const handleValtioOps = (_ops: any[]) => {
     if (isApplyingYjsToValtio) {
       // Skip reflecting changes back to Yjs if they were caused by Yjs in the first place
-      // console.debug(logPrefix, 'Skip Valtio -> Yjs (from Yjs)');
+      debug('Skip Valtio -> Yjs (from Yjs)');
       return;
     }
-    // eslint-disable-next-line no-console
-    console.debug('[valtio-yjs] Applying Valtio -> Yjs');
+    debug('Applying Valtio -> Yjs');
     doc.transact(() => {
       // Build fresh y structure from current proxy value and replace yRoot content.
       const current = stateProxy as any;
