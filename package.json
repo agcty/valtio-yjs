@@ -1,80 +1,13 @@
 {
-  "name": "valtio-yjs",
-  "description": "valtio-yjs makes yjs state easy",
-  "version": "0.6.4",
-  "type": "module",
-  "author": "Daishi Kato",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/valtiojs/valtio-yjs.git"
-  },
-  "exports": {
-    "./package.json": "./package.json",
-    ".": {
-      "types": "./dist/index.d.ts",
-      "node": {
-        "module": "./dist/index.js",
-        "import": "./dist/index.js",
-        "require": "./dist/index.cjs"
-      },
-      "browser": {
-        "module": "./dist/index.js",
-        "import": "./dist/index.js"
-      },
-      "default": "./dist/index.js"
-    }
-  },
-  "sideEffects": false,
-  "files": [
-    "src",
-    "dist"
-  ],
-  "packageManager": "pnpm@9.4.0",
+  "name": "valtio-yjs-monorepo",
+  "version": "1.0.0",
+  "description": "valtio-yjs monorepo",
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch ./src",
-    "test": "pnpm run '/^test:.*/'",
-    "test:format": "prettier -c .",
-    "test:lint": "eslint .",
-    "test:types": "tsc -p . --noEmit",
-    "test:types:examples": "tsc -p examples --noEmit",
-    "test:spec": "vitest run",
-    "examples:01_obj": "cd examples/01_obj && vite",
-    "examples:02_array": "cd examples/02_array && vite",
-    "examples:03_minecraft": "cd examples/03_minecraft && vite",
-    "examples:04_rewrite_testbed": "cd examples/04_rewrite_testbed && vite"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [
-    "valtio",
-    "yjs",
-    "crdt"
-  ],
-  "license": "MIT",
-  "prettier": {
-    "singleQuote": true
-  },
-  "devDependencies": {
-    "tsdown": "^0.14.2",
-    "@eslint/js": "^9.32.0",
-    "@testing-library/jest-dom": "^6.6.4",
-    "@types/node": "^24.2.0",
-    "eslint": "^9.32.0",
-    "eslint-import-resolver-typescript": "^4.4.4",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-jsx-a11y": "^6.10.2",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "6.0.0-rc.1",
-    "happy-dom": "^18.0.1",
-    "prettier": "^3.6.2",
-    "typescript": "^5.9.2",
-    "typescript-eslint": "^8.39.0",
-    "valtio": "^2.1.7",
-    "vite": "^7.0.6",
-    "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^3.2.4",
-    "yjs": "^13.6.27"
-  },
-  "peerDependencies": {
-    "valtio": ">=2.0.0-rc.0"
-  }
+  "private": true,
+  "keywords": [],
+  "author": "Daishi Kato",
+  "license": "ISC",
+  "packageManager": "pnpm@10.13.1"
 }

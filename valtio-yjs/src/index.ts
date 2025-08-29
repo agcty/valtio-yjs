@@ -27,13 +27,14 @@ export function createYjsProxy<T extends object>(
   if (initialState) {
     const tempDoc = new Y.Doc();
     const tempRoot = getRoot(tempDoc);
-    const initialY = plainObjectToYType(initialState);
-    if (initialY instanceof Y.Map && tempRoot instanceof Y.Map) {
-      initialY.forEach((value: any, key: string) => {
-        tempRoot.set(key, value);
+    // Write initial state directly into tempRoot without reading non-integrated Y types
+    if (tempRoot instanceof Y.Map && typeof initialState === 'object' && !Array.isArray(initialState)) {
+      Object.entries(initialState as any).forEach(([key, value]) => {
+        tempRoot.set(key, plainObjectToYType(value));
       });
-    } else if (initialY instanceof Y.Array && tempRoot instanceof Y.Array) {
-      tempRoot.insert(0, initialY.toArray());
+    } else if (tempRoot instanceof Y.Array && Array.isArray(initialState)) {
+      const yItems = (initialState as any[]).map(plainObjectToYType);
+      if (yItems.length > 0) tempRoot.insert(0, yItems);
     }
     Y.applyUpdate(doc, Y.encodeStateAsUpdate(tempDoc));
   }

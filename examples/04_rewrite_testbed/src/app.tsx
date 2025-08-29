@@ -1,38 +1,31 @@
 import * as Y from 'yjs';
 import { useSnapshot } from 'valtio';
 import { createYjsProxy } from 'valtio-yjs';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 // --- 1. SETUP TWO Y.DOCS ---
 const doc1 = new Y.Doc();
 const doc2 = new Y.Doc();
 
 // --- 2. SIMULATE THE NETWORK ---
-// When doc1 changes, apply the update to doc2
-// Prevent echo-bounce by suppressing the immediate mirrored update once
-let ignoreNextUpdateFromDoc1 = false;
-let ignoreNextUpdateFromDoc2 = false;
+// Tag relayed updates with an origin so we can ignore them on the receiving side.
+const RELAY_ORIGIN = Symbol('relay-origin');
 
-doc1.on('update', (update: Uint8Array) => {
-  if (ignoreNextUpdateFromDoc1) {
-    ignoreNextUpdateFromDoc1 = false;
-    return;
-  }
-  Y.applyUpdate(doc2, update);
-  // The apply on doc2 will trigger its 'update' listener; ignore that one
-  ignoreNextUpdateFromDoc2 = true;
-  console.log('Sent update from Doc1 -> Doc2');
+// When doc1 changes, apply the update to doc2
+doc1.on('update', (update: Uint8Array, origin: unknown) => {
+  if (origin === RELAY_ORIGIN) return;
+  doc2.transact(() => {
+    Y.applyUpdate(doc2, update);
+  }, RELAY_ORIGIN);
+  console.log('Relay Doc1 -> Doc2 (bytes:', update.byteLength, ')');
 });
 // When doc2 changes, apply the update to doc1
-doc2.on('update', (update: Uint8Array) => {
-  if (ignoreNextUpdateFromDoc2) {
-    ignoreNextUpdateFromDoc2 = false;
-    return;
-  }
-  Y.applyUpdate(doc1, update);
-  // The apply on doc1 will trigger its 'update' listener; ignore that one
-  ignoreNextUpdateFromDoc1 = true;
-  console.log('Sent update from Doc2 -> Doc1');
+doc2.on('update', (update: Uint8Array, origin: unknown) => {
+  if (origin === RELAY_ORIGIN) return;
+  doc1.transact(() => {
+    Y.applyUpdate(doc1, update);
+  }, RELAY_ORIGIN);
+  console.log('Relay Doc2 -> Doc1 (bytes:', update.byteLength, ')');
 });
 
 // --- 3. CREATE TWO INDEPENDENT PROXIES ---
@@ -48,7 +41,10 @@ const { proxy: proxy1, dispose: dispose1 } = createYjsProxy<{
   },
 });
 
-const { proxy: proxy2, dispose: dispose2 } = createYjsProxy(doc2, {
+const { proxy: proxy2, dispose: dispose2 } = createYjsProxy<{
+  message: string;
+  items: { id: number, text: string }[];
+}>(doc2, {
   getRoot: (doc: Y.Doc) => doc.getMap('sharedState'),
   // No initialState here, it should sync from doc1
 });
@@ -56,17 +52,18 @@ const { proxy: proxy2, dispose: dispose2 } = createYjsProxy(doc2, {
 // --- 4. CREATE A REUSABLE CLIENT COMPONENT ---
 const ClientView = ({ name, stateProxy }: { name: string, stateProxy: typeof proxy1 }) => {
   const snap = useSnapshot(stateProxy);
+  const proxyRef = useRef(stateProxy);
 
   const addItem = () => {
-    stateProxy.items.push({
+    proxyRef.current.items.push({
       id: Date.now(),
       text: `Item from ${name}`,
     });
   };
 
   const deleteLastItem = () => {
-    if (stateProxy.items.length > 0) {
-      stateProxy.items.pop();
+    if (proxyRef.current.items.length > 0) {
+      proxyRef.current.items.pop();
     }
   };
 
@@ -81,7 +78,7 @@ const ClientView = ({ name, stateProxy }: { name: string, stateProxy: typeof pro
           value={snap.message}
           onChange={(e) => {
             const newValue = e.target.value;
-            stateProxy.message = newValue;
+            proxyRef.current.message = newValue;
           }}
         />
       </div>
