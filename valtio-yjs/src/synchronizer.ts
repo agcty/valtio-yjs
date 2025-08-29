@@ -10,7 +10,18 @@ import * as Y from 'yjs';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
 import { reconcileValtioMap, reconcileValtioArray } from './reconciler.js';
 import { SynchronizationContext } from './context.js';
-// import { getValtioProxyForYType } from './controller.js';
+import { getValtioProxyForYType } from './controller.js';
+// Synchronization strategy
+//
+// We use a single doc-level `afterTransaction` listener combined with
+// `transaction.changedParentTypes` to drive reconciliation. This yields:
+// - Correctness: never miss updates (doc-level visibility) and handle
+//   lazy materialization by walking up to the nearest materialized ancestor.
+// - Performance: reconcile only parent containers that actually changed
+//   in the transaction, not the whole tree.
+// - Simplicity: one listener, clear responsibility (no overlapping deep
+//   observers). Fallback to `yRoot` covers cases with no materialized
+//   ancestor.
 
 /**
  * Sets up a one-way listener from Yjs to Valtio.
@@ -24,13 +35,29 @@ export function setupSyncListener(
 ): () => void {
   const handleAfterTransaction = (transaction: Y.Transaction) => {
     if (transaction.origin === VALTIO_YJS_ORIGIN) return;
-    try {
-      console.log('[valtio-yjs] afterTransaction reconciliation triggered');
-    } catch { void 0; }
-    if (yRoot instanceof Y.Map) {
-      reconcileValtioMap(context, yRoot, doc);
-    } else if (yRoot instanceof Y.Array) {
-      reconcileValtioArray(context, yRoot, doc);
+    const reconciled = new Set<Y.AbstractType<any>>();
+    // changedParentTypes: Map<Y.AbstractType<any>, any>
+    const parentsIter = (transaction as unknown as { changedParentTypes?: Map<Y.AbstractType<any>, unknown> }).changedParentTypes?.keys();
+    const parents = parentsIter ? Array.from(parentsIter) : [];
+    if (parents.length === 0) {
+      // Fallback: reconcile root
+      if (yRoot instanceof Y.Map) reconcileValtioMap(context, yRoot, doc);
+      else if (yRoot instanceof Y.Array) reconcileValtioArray(context, yRoot, doc);
+      return;
+    }
+    for (const yType of parents) {
+      let target: Y.AbstractType<any> | null = yType;
+      while (target && !getValtioProxyForYType(context, target)) {
+        target = (target as unknown as { parent: Y.AbstractType<any> | null }).parent ?? null;
+      }
+      if (!target) {
+        // Fallback to root when no materialized ancestor
+        target = yRoot as Y.AbstractType<any>;
+      }
+      if (reconciled.has(target)) continue;
+      if (target instanceof Y.Map) reconcileValtioMap(context, target, doc);
+      else if (target instanceof Y.Array) reconcileValtioArray(context, target, doc);
+      reconciled.add(target);
     }
   };
 
