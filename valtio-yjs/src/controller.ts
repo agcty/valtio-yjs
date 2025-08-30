@@ -15,7 +15,7 @@ import { SynchronizationContext } from './context.js';
 import { isSharedType } from './guards.js';
 // Refined Valtio operation types and guards
 type ValtioMapPath = [string];
-type ValtioArrayPath = [number];
+type ValtioArrayPath = [number | string];
 type ValtioSetMapOp = ['set', ValtioMapPath, unknown, unknown];
 type ValtioDeleteMapOp = ['delete', ValtioMapPath];
 type ValtioSetArrayOp = ['set', ValtioArrayPath, unknown, unknown];
@@ -30,15 +30,51 @@ function isDeleteMapOp(op: unknown): op is ValtioDeleteMapOp {
 }
 
 function isSetArrayOp(op: unknown): op is ValtioSetArrayOp {
-  return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'number';
+  if (!Array.isArray(op) || op[0] !== 'set' || !Array.isArray(op[1]) || op[1].length !== 1) return false;
+  const idx = (op as [string, [number | string]])[1][0];
+  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
 }
 
 function isDeleteArrayOp(op: unknown): op is ValtioDeleteArrayOp {
-  return Array.isArray(op) && op[0] === 'delete' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'number';
+  if (!Array.isArray(op) || op[0] !== 'delete' || !Array.isArray(op[1]) || op[1].length !== 1) return false;
+  const idx = (op as [string, [number | string]])[1][0];
+  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
 }
 
 
 // All caches are moved into SynchronizationContext
+
+// Normalize array path indices coming from Valtio subscribe.
+// Rationale: Valtio reports path segments as property keys; for arrays these
+// can arrive as numeric-like strings (e.g. "2"). The controller is our
+// boundary to external semantics, so we normalize here to ensure the rest of
+// the pipeline (context, Yjs ops) sees numeric indices only. Keeping the
+// union type local avoids leaking dependency details and reduces branching
+// elsewhere.
+function normalizeIndex(idx: number | string): number {
+  return typeof idx === 'number' ? idx : Number.parseInt(idx, 10);
+}
+
+function upgradeChildIfNeeded(
+  context: SynchronizationContext,
+  container: Record<string, unknown> | unknown[],
+  key: string | number,
+  yValue: unknown,
+  doc: Y.Doc,
+): void {
+  const current = (container as Record<string, unknown> | unknown[])[key as keyof typeof container] as unknown;
+  const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
+  if (!isAlreadyController && (yValue instanceof Y.Map || yValue instanceof Y.Array)) {
+    const newController = createYjsController(context, yValue as AnySharedType, doc);
+    context.withReconcilingLock(() => {
+      if (Array.isArray(container) && typeof key === 'number') {
+        (container as unknown[])[key] = newController as unknown;
+      } else {
+        (container as Record<string, unknown>)[String(key)] = newController as unknown;
+      }
+    });
+  }
+}
 
 // Subscribe to a Valtio array proxy and translate top-level index operations
 // into minimal Y.Array operations.
@@ -58,32 +94,50 @@ function attachValtioArraySubscription(
   const unsubscribe = subscribe(arrProxy as unknown as object, (ops: unknown[]) => {
     if (context.isReconciling) return;
     console.log('[valtio-yjs][controller][array] ops', JSON.stringify(ops));
-    // Process only direct index set/delete and ignore others (e.g., length updates)
+    // Phase 1: categorize actionable ops (ignore length changes etc.)
+    const deletes = new Map<number, unknown>(); // index -> previous value
+    const sets = new Map<number, unknown>(); // index -> new value
     for (const op of ops) {
-      if (isSetArrayOp(op)) {
-        const idx = op[1][0];
-        context.enqueueArraySet(
-          yArray,
-          idx,
-          () => plainObjectToYType((arrProxy as unknown[])[idx], context),
-          (yValue: unknown) => {
-            const current = (arrProxy as unknown[])[idx] as unknown;
-            const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
-            if (!isAlreadyController && (yValue instanceof Y.Map || yValue instanceof Y.Array)) {
-              const newController = createYjsController(context, yValue, doc);
-              context.withReconcilingLock(() => {
-                (arrProxy as unknown[])[idx] = newController as unknown;
-              });
-            }
-          },
-        );
-        continue;
-      }
       if (isDeleteArrayOp(op)) {
-        const index = op[1][0];
-        context.enqueueArrayDelete(yArray, index);
-        continue;
+        const idx = normalizeIndex(op[1][0]);
+        deletes.set(idx, (op as unknown as [string, [number | string], unknown])[2]);
+      } else if (isSetArrayOp(op)) {
+        const idx = normalizeIndex(op[1][0]);
+        sets.set(idx, (op as unknown as [string, [number | string], unknown, unknown])[2]);
       }
+    }
+
+    // Phase 2: detect intra-array moves by identity
+    const moves: Array<{ from: number; to: number }> = [];
+    for (const [deleteIndex, deletedValue] of Array.from(deletes.entries())) {
+      if (!deletedValue || typeof deletedValue !== 'object') continue;
+      let matched = false;
+      for (const [setIndex, setValue] of Array.from(sets.entries())) {
+        if (setValue === deletedValue) {
+          moves.push({ from: deleteIndex, to: setIndex });
+          deletes.delete(deleteIndex);
+          sets.delete(setIndex);
+          matched = true;
+          break;
+        }
+      }
+      if (matched) continue;
+    }
+
+    // Phase 3: enqueue high-level operations
+    for (const move of moves) {
+      context.enqueueArrayMove(yArray, move.from, move.to);
+    }
+    for (const [index] of deletes.entries()) {
+      context.enqueueArrayDelete(yArray, index);
+    }
+    for (const [idx] of sets.entries()) {
+      context.enqueueArraySet(
+        yArray,
+        idx,
+        () => plainObjectToYType((arrProxy as unknown[])[idx], context),
+        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy as unknown[], idx, yValue, doc),
+      );
     }
   }, true);
   return unsubscribe;
@@ -112,16 +166,7 @@ function attachValtioMapSubscription(
           yMap,
           key,
           () => plainObjectToYType(objProxy[key], context),
-          (yValue: unknown) => {
-            const current = objProxy[key];
-            const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
-            if (!isAlreadyController && (yValue instanceof Y.Map || yValue instanceof Y.Array)) {
-              const newController = createYjsController(context, yValue, doc);
-              context.withReconcilingLock(() => {
-                (objProxy as Record<string, unknown>)[key] = newController;
-              });
-            }
-          },
+          (yValue: unknown) => upgradeChildIfNeeded(context, objProxy, key, yValue, doc),
         );
         continue;
       }

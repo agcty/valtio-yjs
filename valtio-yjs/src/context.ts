@@ -200,13 +200,61 @@ export class SynchronizationContext {
         }
       }
 
-      // Apply array deletes
+      // Execute array moves and deletes in a robust order
+      // 1) Build combined delete sets (pure deletes + move sources) and capture move values
+      const combinedDeletes = new Map<Y.Array<unknown>, Set<number>>();
+      const moveInserts = new Map<Y.Array<unknown>, Array<{ to: number; value: unknown }>>();
+      for (const [yArray, moves] of arrayMoves) {
+        let del = combinedDeletes.get(yArray);
+        if (!del) {
+          del = new Set<number>();
+          combinedDeletes.set(yArray, del);
+        }
+        for (const m of moves) {
+          // Capture the value before any mutation
+          const captured = (yArray as Y.Array<unknown>).get(m.from);
+          let inserts = moveInserts.get(yArray);
+          if (!inserts) {
+            inserts = [];
+            moveInserts.set(yArray, inserts);
+          }
+          inserts.push({ to: m.to, value: captured });
+          del.add(m.from);
+        }
+      }
       for (const [yArray, indices] of arrayDeletes) {
+        let del = combinedDeletes.get(yArray);
+        if (!del) {
+          del = new Set<number>();
+          combinedDeletes.set(yArray, del);
+        }
+        for (const i of indices) del.add(i);
+      }
+
+      // 2) Apply all deletes in descending order
+      for (const [yArray, indices] of combinedDeletes) {
         const sorted = Array.from(indices).sort((a, b) => b - a);
         for (const index of sorted) {
           const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
           console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc });
           if (index >= 0 && index < yArray.length) yArray.delete(index, 1);
+        }
+      }
+
+      // 3) Insert moved items at adjusted positions after deletes
+      for (const [yArray, inserts] of moveInserts) {
+        const del = combinedDeletes.get(yArray) ?? new Set<number>();
+        const adjusted = inserts.map((ins) => {
+          let shift = 0;
+          for (const d of del) if (d < ins.to) shift++;
+          const target = Math.max(0, Math.min(ins.to - shift, yArray.length));
+          return { to: target, value: ins.value };
+        });
+        // Insert from higher to lower indices to avoid shifting subsequent targets
+        adjusted.sort((a, b) => b.to - a.to);
+        for (const ins of adjusted) {
+          console.log('[valtio-yjs][context] array.move-insert', { to: ins.to, length: yArray.length });
+          (yArray as Y.Array<unknown>).insert(ins.to, [ins.value]);
         }
       }
       // Apply array sets (replace/append/fill)
