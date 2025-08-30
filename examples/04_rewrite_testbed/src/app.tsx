@@ -67,19 +67,6 @@ const ClientView = ({
   const snap = useSnapshot(stateProxy, { sync: true });
   const proxyRef = useRef(stateProxy);
   const [editingId, setEditingId] = useState<number | null>(null);
-  useEffect(() => {
-    // Dynamically import to avoid bundling the subscribe in examples; valtio is already a dep here though.
-    import("valtio/vanilla").then(({ subscribe }) => {
-      const unsub = subscribe(proxyRef.current as any, (ops: any[]) => {
-        try {
-          console.log(`[${name}] valtio ops`, ops);
-        } catch {
-          /* noop */
-        }
-      });
-      return () => unsub();
-    });
-  }, [name]);
 
   const addItem = () => {
     const id = Date.now();

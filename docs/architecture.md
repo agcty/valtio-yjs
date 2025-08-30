@@ -9,22 +9,26 @@
 ## System Layers
 
 ```text
-Public API          Controller Layer            Synchronization Layer        Type Conversion
-(createYjsProxy) -> (createYjsController)  ->  (setupSyncListener)       ->  (converter utils)
-                      |                           |
-                      v                           v
-                 Valtio proxies  <-------------- Yjs afterTransaction
+Public API          Controller Layer              Synchronization Layer        Type Conversion
+(createYjsProxy) -> (createYjsController)    ->   (setupSyncListener)      ->  (converter utils)
+                      |                             |
+                      v                             v
+                 Valtio proxies  <--------------  Yjs observeDeep(yRoot)
+                              ^
+                              |
+                     Context Write Scheduler (one transaction per microtask)
 ```
 
-- Public API Layer: `createYjsProxy(doc, { getRoot })` creates the root controller, sets up sync, and returns `{ proxy, dispose, bootstrap }`.
-- Controller Layer: A tree of Valtio proxies mirrors `Y.Map`/`Y.Array`. Local mutations are translated to minimal Yjs ops within `doc.transact` tagged by `VALTIO_YJS_ORIGIN`.
-- Synchronization Layer: A single doc-level listener (`afterTransaction`) inspects `transaction.changedParentTypes` and triggers reconciliation for affected containers.
+- Public API Layer: `createYjsProxy(doc, { getRoot })` creates the root controller, binds a context to the `Y.Doc`, sets up sync, and returns `{ proxy, dispose, bootstrap }`.
+- Controller Layer: A tree of Valtio proxies mirrors `Y.Map`/`Y.Array`. Local mutations enqueue direct-child ops into the Context Write Scheduler; the scheduler flushes them in one `doc.transact(…, VALTIO_YJS_ORIGIN)` per microtask.
+- Synchronization Layer: A root-scoped deep observer (`yRoot.observeDeep`) handles inbound updates. It ignores library-origin transactions and reconciles the nearest materialized ancestor for each event.
 - Type Conversion Layer: Pure utilities convert plain JS data to Yjs types and vice versa.
 
 ## Key Components and Their Roles
 
 - `SynchronizationContext` (`valtio-yjs/src/context.ts`):
   - Encapsulates all per-instance state: caches (`yTypeToValtioProxy`, `valtioProxyToYType`), subscription disposers, and a reconciliation lock (`isReconciling`).
+  - Central Write Scheduler: coalesces direct-child ops from all controllers, flushes once per microtask, applies deterministic map/array writes in a single transaction, then performs eager upgrades under the lock.
   - Prevents global state leakage; supports multiple independent instances.
 
 - `createYjsController` (router) (`valtio-yjs/src/controller.ts`):
@@ -32,17 +36,16 @@ Public API          Controller Layer            Synchronization Layer        Typ
   - Currently supports `Y.Map` and `Y.Array`; future types can be added.
 
 - Controller proxies (Map/Array controllers):
-  - Map controller returns a Valtio proxy that acts as a live controller for the underlying `Y.Map`.
-  - Array controller returns a Valtio proxy that acts as a live controller for the underlying `Y.Array`.
+  - Materialize Valtio proxies for `Y.Map`/`Y.Array` and maintain identity via context caches.
   - Responsibilities:
-    1) Intercept local edits via Valtio subscriptions and translate top-level changes to minimal Yjs ops inside `doc.transact(…, VALTIO_YJS_ORIGIN)`.
-    2) Lazily materialize nested controllers when encountering nested Y types via `createYjsController`.
-    3) Eagerly upgrade assigned plain objects/arrays into controller-backed Y types on write, replacing the plain value in the Valtio proxy under a reconciliation lock. This ensures nested edits are always handled by the child controller and preserves encapsulation (no parent-level nested routing).
+    1) Intercept local edits and enqueue only direct-child ops into the Context Write Scheduler (no deep routing).
+    2) Lazily materialize nested controllers via `createYjsController` when reading Y types.
+    3) Eagerly upgrade assigned plain objects/arrays: on write, convert to Y types and, after the scheduler’s transaction, replace the plain value with a live controller under the reconciliation lock.
 
 - Synchronizer (`setupSyncListener`) (`valtio-yjs/src/synchronizer.ts`):
-  - Listens to `doc.on('afterTransaction')`.
+  - Listens via `yRoot.observeDeep`.
   - Skips transactions with our origin to avoid feedback loops.
-  - Uses `transaction.changedParentTypes` to identify affected parent containers and triggers the reconciler for each, walking up to the nearest materialized ancestor as needed.
+  - For each event, walks `.parent` to find the nearest materialized ancestor and reconciles that container exactly once per tick.
 
 - Reconciler (`reconcileValtioMap`, `reconcileValtioArray`) (`valtio-yjs/src/reconciler.ts`):
   - Ensures the Valtio proxy structure matches the Yjs structure, creating missing keys/items and controllers for nested Y types, deleting extras, and updating primitive values.
