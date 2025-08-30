@@ -14,11 +14,11 @@ import type { AnySharedType } from './context.js';
 import { SynchronizationContext } from './context.js';
 // Refined Valtio operation types and guards
 type ValtioMapPath = [string];
-type ValtioArrayPath = [number];
+type ValtioArrayPath = [number | string];
 type ValtioSetMapOp = ['set', ValtioMapPath, unknown, unknown];
 type ValtioDeleteMapOp = ['delete', ValtioMapPath];
 type ValtioSetArrayOp = ['set', ValtioArrayPath, unknown, unknown];
-type ValtioDeleteArrayOp = ['delete', ValtioArrayPath];
+type ValtioDeleteArrayOp = ['delete', ValtioArrayPath, unknown];
 
 function isSetMapOp(op: unknown): op is ValtioSetMapOp {
   return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'string';
@@ -29,11 +29,15 @@ function isDeleteMapOp(op: unknown): op is ValtioDeleteMapOp {
 }
 
 function isSetArrayOp(op: unknown): op is ValtioSetArrayOp {
-  return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'number';
+  if (!Array.isArray(op) || op[0] !== 'set' || !Array.isArray(op[1]) || op[1].length !== 1) return false;
+  const idx = (op as [string, [number | string]])[1][0];
+  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
 }
 
 function isDeleteArrayOp(op: unknown): op is ValtioDeleteArrayOp {
-  return Array.isArray(op) && op[0] === 'delete' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'number';
+  if (!Array.isArray(op) || op[0] !== 'delete' || !Array.isArray(op[1]) || op[1].length !== 1) return false;
+  const idx = (op as [string, [number | string]])[1][0];
+  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
 }
 
 
@@ -57,20 +61,27 @@ function attachValtioArraySubscription(
   const unsubscribe = subscribe(arrProxy as unknown as object, (ops: unknown[]) => {
     if (context.isReconciling) return;
     try { console.log('[valtio-yjs][controller][array] ops', JSON.stringify(ops)); } catch { /* noop */ }
+    // Process only direct index set/delete and ignore others (e.g., length updates)
     for (const op of ops) {
       if (isSetArrayOp(op)) {
-        const index = op[1][0];
+        const raw = op[1][0];
+        const idx = typeof raw === 'string' ? Number.parseInt(raw, 10) : raw;
+        const opValue = (op as unknown as [string, [number | string], unknown, unknown])[2];
         context.enqueueArraySet(
           yArray,
-          index,
-          () => plainObjectToYType((arrProxy as unknown[])[index], context),
+          idx,
+          () => {
+            const local = (arrProxy as unknown[])[idx];
+            const valueToUse = local !== undefined ? local : opValue;
+            return plainObjectToYType(valueToUse, context);
+          },
           (yValue: unknown) => {
-            const current = (arrProxy as unknown[])[index] as unknown;
+            const current = (arrProxy as unknown[])[idx] as unknown;
             const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
             if (!isAlreadyController && (yValue instanceof Y.Map || yValue instanceof Y.Array)) {
               const newController = createYjsController(context, yValue, doc);
               context.withReconcilingLock(() => {
-                (arrProxy as unknown[])[index] = newController as unknown;
+                (arrProxy as unknown[])[idx] = newController as unknown;
               });
             }
           },
@@ -78,7 +89,8 @@ function attachValtioArraySubscription(
         continue;
       }
       if (isDeleteArrayOp(op)) {
-        const index = op[1][0];
+        const raw = op[1][0];
+        const index = typeof raw === 'string' ? Number.parseInt(raw, 10) : raw;
         context.enqueueArrayDelete(yArray, index);
         continue;
       }

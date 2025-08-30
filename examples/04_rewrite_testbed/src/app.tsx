@@ -195,6 +195,26 @@ const ClientView = ({
                 <button
                   onClick={() => {
                     const arr = (proxyRef.current as any).list as any[];
+                    if (index <= 0) return;
+                    const [moved] = arr.splice(index, 1);
+                    arr.splice(index - 1, 0, moved);
+                  }}
+                >
+                  Up
+                </button>
+                <button
+                  onClick={() => {
+                    const arr = (proxyRef.current as any).list as any[];
+                    if (index >= arr.length - 1) return;
+                    const [moved] = arr.splice(index, 1);
+                    arr.splice(index + 1, 0, moved);
+                  }}
+                >
+                  Down
+                </button>
+                <button
+                  onClick={() => {
+                    const arr = (proxyRef.current as any).list as any[];
                     delete arr[index];
                   }}
                 >

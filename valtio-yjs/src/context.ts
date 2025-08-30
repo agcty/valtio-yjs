@@ -35,6 +35,10 @@ export class SynchronizationContext {
     Map<number, { compute: () => unknown; after?: (yValue: unknown) => void }>
   >();
   private pendingArrayDeletes = new Map<Y.Array<unknown>, Set<number>>();
+  private pendingArrayMoves = new Map<
+    Y.Array<unknown>,
+    Array<{ from: number; to: number }>
+  >();
 
   withReconcilingLock(fn: () => void): void {
     const previous = this.isReconciling;
@@ -129,6 +133,16 @@ export class SynchronizationContext {
     this.scheduleFlush();
   }
 
+  enqueueArrayMove(yArray: Y.Array<unknown>, from: number, to: number): void {
+    let perArr = this.pendingArrayMoves.get(yArray);
+    if (!perArr) {
+      perArr = [];
+      this.pendingArrayMoves.set(yArray, perArr);
+    }
+    perArr.push({ from, to });
+    this.scheduleFlush();
+  }
+
   private scheduleFlush(): void {
     if (this.flushScheduled) return;
     this.flushScheduled = true;
@@ -148,17 +162,20 @@ export class SynchronizationContext {
     const mapDeletes = this.pendingMapDeletes;
     const arraySets = this.pendingArraySets;
     const arrayDeletes = this.pendingArrayDeletes;
+    const arrayMoves = this.pendingArrayMoves;
     this.pendingMapSets = new Map();
     this.pendingMapDeletes = new Map();
     this.pendingArraySets = new Map();
     this.pendingArrayDeletes = new Map();
+    this.pendingArrayMoves = new Map();
     const post: Array<() => void> = [];
 
     if (
       mapSets.size === 0 &&
       mapDeletes.size === 0 &&
       arraySets.size === 0 &&
-      arrayDeletes.size === 0
+      arrayDeletes.size === 0 &&
+      arrayMoves.size === 0
     ) {
       return;
     }
@@ -170,6 +187,7 @@ export class SynchronizationContext {
           if (yMap.has(key)) yMap.delete(key);
         }
       }
+
       // Apply map sets
       for (const [yMap, keyToEntry] of mapSets) {
         const keys = Array.from(keyToEntry.keys());
@@ -183,6 +201,7 @@ export class SynchronizationContext {
           }
         }
       }
+
       // Apply array deletes
       for (const [yArray, indices] of arrayDeletes) {
         const sorted = Array.from(indices).sort((a, b) => b - a);
@@ -206,8 +225,9 @@ export class SynchronizationContext {
                 const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
                 console.log('[valtio-yjs][context] array.replace', { index, length: yArray.length, hasDoc });
               } catch { /* noop */ }
-              yArray.delete(index, 1);
+              // Insert first, then delete the next slot to avoid transient invalid states
               yArray.insert(index, [yValue]);
+              yArray.delete(index + 1, 1);
             } else if (index === yArray.length) {
               try {
                 const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
