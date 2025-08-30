@@ -1,19 +1,20 @@
 import * as Y from 'yjs';
 import { SynchronizationContext } from './context.js';
+import { isYArray, isYMap } from './guards.js';
 
 /**
  * Recursively converts a Yjs shared type (or primitive) into a plain JavaScript object/array.
  */
 export function yTypeToPlainObject(yValue: unknown): unknown {
-  if (yValue instanceof Y.Map) {
-    const entries = Array.from((yValue as Y.Map<unknown>).entries()).map(([key, value]) => [
+  if (isYMap(yValue)) {
+    const entries = Array.from(yValue.entries()).map(([key, value]) => [
       key,
       yTypeToPlainObject(value),
     ] as const);
     return Object.fromEntries(entries);
   }
-  if (yValue instanceof Y.Array) {
-    return (yValue as Y.Array<unknown>).toArray().map(yTypeToPlainObject);
+  if (isYArray(yValue)) {
+    return yValue.toArray().map(yTypeToPlainObject);
   }
   return yValue;
 }

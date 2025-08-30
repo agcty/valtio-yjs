@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import { createYjsController, getValtioProxyForYType } from './controller.js';
 import { SynchronizationContext } from './context.js';
 import type { AnySharedType } from './context.js';
+import { isSharedType } from './guards.js';
 
 // Reconciler layer
 //
@@ -39,7 +40,7 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     for (const key of yKeys) {
       if (!valtioKeys.has(key)) {
         const yValue = yMap.get(key);
-        if (yValue instanceof Y.Map || yValue instanceof Y.Array) {
+        if (isSharedType(yValue)) {
           console.log('[valtio-yjs] materialize nested controller for key', key);
           (valtioProxy as Record<string, unknown>)[key] = createYjsController(context, yValue as AnySharedType, doc);
         } else {
@@ -61,7 +62,7 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     for (const key of yKeys) {
       if (valtioKeys.has(key)) {
         const yValue = yMap.get(key);
-        if (!(yValue instanceof Y.Map || yValue instanceof Y.Array)) {
+        if (!isSharedType(yValue)) {
           const current = (valtioProxy as Record<string, unknown>)[key];
           if (current !== yValue) {
             console.log('[valtio-yjs] update primitive key', key);

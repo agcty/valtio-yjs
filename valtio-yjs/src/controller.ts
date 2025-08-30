@@ -12,22 +12,28 @@ import { proxy, subscribe } from 'valtio/vanilla';
 import { plainObjectToYType } from './converter.js';
 import type { AnySharedType } from './context.js';
 import { SynchronizationContext } from './context.js';
-// Typed representation of Valtio subscribe ops we care about
-type ValtioPath = Array<string | number>;
-type ValtioSetOp = ['set', ValtioPath, unknown, unknown];
-type ValtioDeleteOp = ['delete', ValtioPath];
-// Note: we only use guards, not the union alias directly
+// Refined Valtio operation types and guards
+type ValtioMapPath = [string];
+type ValtioArrayPath = [number];
+type ValtioSetMapOp = ['set', ValtioMapPath, unknown, unknown];
+type ValtioDeleteMapOp = ['delete', ValtioMapPath];
+type ValtioSetArrayOp = ['set', ValtioArrayPath, unknown, unknown];
+type ValtioDeleteArrayOp = ['delete', ValtioArrayPath];
 
-function isArrayOfUnknown(value: unknown): value is unknown[] {
-  return Array.isArray(value);
+function isSetMapOp(op: unknown): op is ValtioSetMapOp {
+  return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'string';
 }
 
-function isSetOp(op: unknown): op is ValtioSetOp {
-  return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]);
+function isDeleteMapOp(op: unknown): op is ValtioDeleteMapOp {
+  return Array.isArray(op) && op[0] === 'delete' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'string';
 }
 
-function isDeleteOp(op: unknown): op is ValtioDeleteOp {
-  return Array.isArray(op) && op[0] === 'delete' && Array.isArray(op[1]);
+function isSetArrayOp(op: unknown): op is ValtioSetArrayOp {
+  return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'number';
+}
+
+function isDeleteArrayOp(op: unknown): op is ValtioDeleteArrayOp {
+  return Array.isArray(op) && op[0] === 'delete' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'number';
 }
 
 
@@ -51,36 +57,30 @@ function attachValtioArraySubscription(
   const unsubscribe = subscribe(arrProxy as unknown as object, (ops: unknown[]) => {
     if (context.isReconciling) return;
     try { console.log('[valtio-yjs][controller][array] ops', JSON.stringify(ops)); } catch { /* noop */ }
-    // Accept direct child mutations; index may be a number or a numeric string
-    const directOps = ops.filter((op) => {
-      if (!(isSetOp(op) || isDeleteOp(op))) return false;
-      const path = op[1];
-      return isArrayOfUnknown(path) && path.length === 1 && /^\d+$/.test(String(path[0] as unknown));
-    }) as (ValtioSetOp | ValtioDeleteOp)[];
-    if (directOps.length === 0) return;
-    for (const op of directOps) {
-      const type = op[0] as string;
-      const index = Number(op[1][0]);
-      if (type === 'set' || type === 'delete') {
-        if (type === 'set') {
-          context.enqueueArraySet(
-            yArray,
-            index,
-            () => plainObjectToYType((arrProxy as unknown[])[index], context),
-            (yValue: unknown) => {
-              const current = (arrProxy as unknown[])[index] as unknown;
-              const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
-              if (!isAlreadyController && (yValue instanceof Y.Map || yValue instanceof Y.Array)) {
-                const newController = createYjsController(context, yValue, doc);
-                context.withReconcilingLock(() => {
-                  (arrProxy as unknown[])[index] = newController as unknown;
-                });
-              }
-            },
-          );
-        } else {
-          context.enqueueArrayDelete(yArray, index);
-        }
+    for (const op of ops) {
+      if (isSetArrayOp(op)) {
+        const index = op[1][0];
+        context.enqueueArraySet(
+          yArray,
+          index,
+          () => plainObjectToYType((arrProxy as unknown[])[index], context),
+          (yValue: unknown) => {
+            const current = (arrProxy as unknown[])[index] as unknown;
+            const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
+            if (!isAlreadyController && (yValue instanceof Y.Map || yValue instanceof Y.Array)) {
+              const newController = createYjsController(context, yValue, doc);
+              context.withReconcilingLock(() => {
+                (arrProxy as unknown[])[index] = newController as unknown;
+              });
+            }
+          },
+        );
+        continue;
+      }
+      if (isDeleteArrayOp(op)) {
+        const index = op[1][0];
+        context.enqueueArrayDelete(yArray, index);
+        continue;
       }
     }
   }, true);
@@ -103,33 +103,30 @@ function attachValtioMapSubscription(
   const unsubscribe = subscribe(objProxy as unknown as object, (ops: unknown[]) => {
     if (context.isReconciling) return;
     try { console.log('[valtio-yjs][controller][map] ops', JSON.stringify(ops)); } catch { /* noop */ }
-    const candidateOps = ops.filter((op) => (isSetOp(op) || isDeleteOp(op)));
-    // Only queue direct children for this controller
-    const directOps = (candidateOps as (ValtioSetOp | ValtioDeleteOp)[]).filter((op) => op[1].length === 1);
-    if (directOps.length === 0) return;
-    for (const op of directOps) {
-      const type = op[0] as string;
-      const key = String(op[1][0]);
-      if (type === 'set' || type === 'delete') {
-        if (type === 'set') {
-          context.enqueueMapSet(
-            yMap,
-            key,
-            () => plainObjectToYType(objProxy[key], context),
-            (yValue: unknown) => {
-              const current = objProxy[key];
-              const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
-              if (!isAlreadyController && (yValue instanceof Y.Map || yValue instanceof Y.Array)) {
-                const newController = createYjsController(context, yValue, doc);
-                context.withReconcilingLock(() => {
-                  (objProxy as Record<string, unknown>)[key] = newController;
-                });
-              }
-            },
-          );
-        } else {
-          context.enqueueMapDelete(yMap, key);
-        }
+    for (const op of ops) {
+      if (isSetMapOp(op)) {
+        const key = op[1][0];
+        context.enqueueMapSet(
+          yMap,
+          key,
+          () => plainObjectToYType(objProxy[key], context),
+          (yValue: unknown) => {
+            const current = objProxy[key];
+            const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
+            if (!isAlreadyController && (yValue instanceof Y.Map || yValue instanceof Y.Array)) {
+              const newController = createYjsController(context, yValue, doc);
+              context.withReconcilingLock(() => {
+                (objProxy as Record<string, unknown>)[key] = newController;
+              });
+            }
+          },
+        );
+        continue;
+      }
+      if (isDeleteMapOp(op)) {
+        const key = op[1][0];
+        context.enqueueMapDelete(yMap, key);
+        continue;
       }
     }
   }, true);

@@ -11,6 +11,8 @@ import { reconcileValtioMap, reconcileValtioArray, reconcileValtioArrayWithDelta
 import type { AnySharedType } from './context.js';
 import { SynchronizationContext } from './context.js';
 import { getValtioProxyForYType } from './controller.js';
+import { isYArrayEvent, type YArrayDelta } from './yjs-events.js';
+import { isYArray, isYMap } from './guards.js';
 // Synchronization strategy
 //
 // We use `observeDeep` on the chosen root container to detect any changes below.
@@ -27,16 +29,13 @@ export function setupSyncListener(
   doc: Y.Doc,
   yRoot: Y.Map<unknown> | Y.Array<unknown>,
 ): () => void {
-  const handleDeep = (events: Y.YEvent<Y.Map<unknown> | Y.Array<unknown>>[], transaction: Y.Transaction) => {
+  const handleDeep = (events: Y.YEvent<Y.AbstractType<unknown>>[], transaction: Y.Transaction) => {
     if (transaction.origin === VALTIO_YJS_ORIGIN) {
       return;
     }
     // Track boundaries to reconcile and capture array deltas when available
     const toReconcile = new Set<AnySharedType>();
-    const arrayBoundaryToDelta = new Map<
-      Y.Array<unknown>,
-      Array<{ retain?: number; delete?: number; insert?: unknown[] }>
-    >();
+    const arrayBoundaryToDelta = new Map<Y.Array<unknown>, YArrayDelta>();
     for (const event of events) {
       let boundary: AnySharedType | null = event.target as unknown as AnySharedType;
       while (boundary && !getValtioProxyForYType(context, boundary as AnySharedType)) {
@@ -46,25 +45,22 @@ export function setupSyncListener(
         boundary = yRoot as unknown as AnySharedType;
       }
       toReconcile.add(boundary);
-      // If the event target is an array, capture its delta and ensure we reconcile it.
-      if ((event.target as unknown) instanceof Y.Array) {
-        const targetArray = event.target as unknown as Y.Array<unknown>;
-        const maybeDelta = (event as unknown as { changes?: { delta?: unknown } }).changes?.delta as
-          | Array<{ retain?: number; delete?: number; insert?: unknown[] }>
-          | undefined;
-        if (Array.isArray(maybeDelta)) {
-          arrayBoundaryToDelta.set(targetArray, maybeDelta);
+      // If it's an array event, capture its delta and ensure we reconcile it.
+      if (isYArrayEvent(event)) {
+        const targetArray = event.target as Y.Array<unknown>;
+        if (event.changes.delta && event.changes.delta.length > 0) {
+          arrayBoundaryToDelta.set(targetArray, event.changes.delta);
         }
         toReconcile.add(targetArray as unknown as AnySharedType);
       }
     }
     for (const target of toReconcile) {
-      if (target instanceof Y.Map) {
+      if (isYMap(target)) {
         reconcileValtioMap(context, target, doc);
-      } else if (target instanceof Y.Array) {
-        const delta = arrayBoundaryToDelta.get(target as Y.Array<unknown>);
+      } else if (isYArray(target)) {
+        const delta = arrayBoundaryToDelta.get(target);
         if (delta && delta.length > 0) {
-          reconcileValtioArrayWithDelta(context, target as Y.Array<unknown>, doc, delta);
+          reconcileValtioArrayWithDelta(context, target, doc, delta);
         } else {
           reconcileValtioArray(context, target, doc);
         }
