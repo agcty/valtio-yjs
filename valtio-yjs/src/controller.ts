@@ -21,12 +21,6 @@ function isPlainObject(value: any): boolean {
   return proto === Object.prototype || proto === null;
 }
 
-function insertArrayContentSafe(yArray: Y.Array<any>, index: number, items: unknown[]): void {
-  const content = Array.isArray(items) ? items.map((v) => (v === undefined ? null : v)) : [];
-  if (content.length === 0) return;
-  yArray.insert(index, content);
-}
-
 // Subscribe to a Valtio array proxy and translate top-level index operations
 // into minimal Y.Array operations.
 // Valtio -> Yjs (array):
@@ -74,14 +68,14 @@ function attachValtioArraySubscription(
           if (index >= 0) {
             if (index < yArray.length) {
               yArray.delete(index, 1);
-              insertArrayContentSafe(yArray, index, [yValue]);
+              yArray.insert(index, [plainObjectToYType(yValue)]);
             } else if (index === yArray.length) {
-              insertArrayContentSafe(yArray, yArray.length, [yValue]);
+              yArray.insert(yArray.length, [plainObjectToYType(yValue)]);
             } else {
               // If someone sets a sparse index, fill with nulls up to that index for Yjs compatibility
               const fillCount = index - yArray.length;
-              if (fillCount > 0) insertArrayContentSafe(yArray, yArray.length, Array.from({ length: fillCount }, () => null));
-              insertArrayContentSafe(yArray, yArray.length, [yValue]);
+              if (fillCount > 0) yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
+              yArray.insert(yArray.length, [plainObjectToYType(yValue)]);
             }
           }
         } else if (type === 'delete') {
