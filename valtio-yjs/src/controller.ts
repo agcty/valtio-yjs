@@ -30,23 +30,34 @@ function attachValtioArraySubscription(
   arrProxy: any[],
   doc: Y.Doc,
 ): () => void {
-  const unsubscribe = subscribe(arrProxy as any, (ops: any[]) => {
-    if (context.isReconciling) return;
-    const rootIndexOps = ops.filter((op) => Array.isArray(op) && Array.isArray(op[1]) && (op[1] as any[]).length === 1 && typeof (op[1] as any[])[0] === 'number');
-    if (rootIndexOps.length === 0) return;
+  // Microtask-batched queue of direct index ops per controller
+  type ArrayOp = { type: 'set' | 'delete'; index: number };
+  const pendingOps = new Map<number, ArrayOp>();
+  let flushScheduled = false;
+
+  const flush = () => {
+    flushScheduled = false;
+    // Collect eager upgrades to run post-transaction
+    const postUpgrades: Array<() => void> = [];
+    // Apply latest op per index deterministically by ascending index
+    const entries = Array.from(pendingOps.values()).sort((a, b) => a.index - b.index);
+    pendingOps.clear();
+    if (entries.length === 0) return;
     doc.transact(() => {
-      for (const op of rootIndexOps) {
-        const type = op[0] as string;
-        const index = (op[1] as (string | number)[])[0] as number;
+      for (const op of entries) {
+        const { type, index } = op;
         if (type === 'set') {
           const nextValue = (arrProxy as any[])[index];
+          try { console.log('[valtio-yjs][controller][array] flush set index', index, { isObject: !!nextValue && typeof nextValue === 'object' }); } catch { /* noop */ }
           const isAlreadyController =
             nextValue && typeof nextValue === 'object' && context.valtioProxyToYType.has(nextValue as object);
           const yValue = plainObjectToYType(nextValue, context);
           if (!isAlreadyController && yValue instanceof Y.AbstractType) {
-            const newController = createYjsController(context, yValue, doc);
-            context.withReconcilingLock(() => {
-              (arrProxy as any[])[index] = newController as any;
+            postUpgrades.push(() => {
+              const newController = createYjsController(context, yValue, doc);
+              context.withReconcilingLock(() => {
+                (arrProxy as any[])[index] = newController as any;
+              });
             });
           }
           if (index >= 0) {
@@ -56,7 +67,6 @@ function attachValtioArraySubscription(
             } else if (index === yArray.length) {
               yArray.insert(yArray.length, [yValue]);
             } else {
-              // If someone sets a sparse index, fill with nulls up to that index for Yjs compatibility
               const fillCount = index - yArray.length;
               if (fillCount > 0) yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
               yArray.insert(yArray.length, [yValue]);
@@ -67,7 +77,28 @@ function attachValtioArraySubscription(
         }
       }
     }, VALTIO_YJS_ORIGIN);
-  });
+    if (postUpgrades.length > 0) {
+      for (const run of postUpgrades) run();
+    }
+  };
+
+  const unsubscribe = subscribe(arrProxy as any, (ops: any[]) => {
+    if (context.isReconciling) return;
+    try { console.log('[valtio-yjs][controller][array] ops', JSON.stringify(ops)); } catch { /* noop */ }
+    const directOps = ops.filter((op) => Array.isArray(op) && Array.isArray(op[1]) && (op[1] as any[]).length === 1 && typeof (op[1] as any[])[0] === 'number');
+    if (directOps.length === 0) return;
+    for (const op of directOps) {
+      const type = op[0] as string;
+      const index = (op[1] as (string | number)[])[0] as number;
+      if (type === 'set' || type === 'delete') {
+        pendingOps.set(index, { type: type as 'set' | 'delete', index });
+      }
+    }
+    if (!flushScheduled) {
+      flushScheduled = true;
+      queueMicrotask(flush);
+    }
+  }, true);
   return unsubscribe;
 }
 
@@ -84,37 +115,64 @@ function attachValtioMapSubscription(
   objProxy: any,
   doc: Y.Doc,
 ): () => void {
-  const unsubscribe = subscribe(objProxy, (ops: any[]) => {
-    if (context.isReconciling) return;
-    // Valtio emits tuple ops: [type, pathArray, value, prev]
-    const candidateOps = ops.filter((op) => Array.isArray(op) && Array.isArray(op[1]));
-    if (candidateOps.length === 0) return;
+  // Microtask-batched queue of direct child ops per controller
+  type MapOp = { type: 'set' | 'delete'; key: string };
+  const pendingOps = new Map<string, MapOp>();
+  let flushScheduled = false;
+
+  const flush = () => {
+    flushScheduled = false;
+    const postUpgrades: Array<() => void> = [];
+    const entries = Array.from(pendingOps.values());
+    pendingOps.clear();
+    if (entries.length === 0) return;
     doc.transact(() => {
-      for (const op of candidateOps) {
-        const type = op[0] as string;
-        const path = op[1] as (string | number)[];
-        // Only handle direct children. Nested edits will be handled by nested controllers.
-        if (path.length === 1) {
-          const key = String(path[0]);
-          if (type === 'set') {
-            const nextValue = (objProxy as any)[key];
-            const isAlreadyController =
-              nextValue && typeof nextValue === 'object' && context.valtioProxyToYType.has(nextValue as object);
-            const yValue = plainObjectToYType(nextValue, context);
-            yMap.set(key, yValue);
-            if (!isAlreadyController && yValue instanceof Y.AbstractType) {
+      for (const op of entries) {
+        const { type, key } = op;
+        if (type === 'set') {
+          const nextValue = (objProxy as any)[key];
+          try { console.log('[valtio-yjs][controller][map] flush set key', key, { isObject: !!nextValue && typeof nextValue === 'object' }); } catch { /* noop */ }
+          const isAlreadyController =
+            nextValue && typeof nextValue === 'object' && context.valtioProxyToYType.has(nextValue as object);
+          const yValue = plainObjectToYType(nextValue, context);
+          yMap.set(key, yValue);
+          if (!isAlreadyController && yValue instanceof Y.AbstractType) {
+            postUpgrades.push(() => {
               const newController = createYjsController(context, yValue, doc);
               context.withReconcilingLock(() => {
                 (objProxy as any)[key] = newController;
               });
-            }
-          } else if (type === 'delete') {
-            if (yMap.has(key)) yMap.delete(key);
+            });
           }
+        } else if (type === 'delete') {
+          if (yMap.has(key)) yMap.delete(key);
         }
       }
     }, VALTIO_YJS_ORIGIN);
-  });
+    if (postUpgrades.length > 0) {
+      for (const run of postUpgrades) run();
+    }
+  };
+
+  const unsubscribe = subscribe(objProxy, (ops: any[]) => {
+    if (context.isReconciling) return;
+    try { console.log('[valtio-yjs][controller][map] ops', JSON.stringify(ops)); } catch { /* noop */ }
+    const candidateOps = ops.filter((op) => Array.isArray(op) && Array.isArray(op[1]));
+    // Only queue direct children for this controller
+    const directOps = candidateOps.filter((op) => (op[1] as (string | number)[]).length === 1);
+    if (directOps.length === 0) return;
+    for (const op of directOps) {
+      const type = op[0] as string;
+      const key = String((op[1] as (string | number)[])[0]);
+      if (type === 'set' || type === 'delete') {
+        pendingOps.set(key, { type: type as 'set' | 'delete', key });
+      }
+    }
+    if (!flushScheduled) {
+      flushScheduled = true;
+      queueMicrotask(flush);
+    }
+  }, true);
   return unsubscribe;
 }
 
