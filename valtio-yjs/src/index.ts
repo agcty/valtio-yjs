@@ -1,5 +1,3 @@
-/* eslint @typescript-eslint/no-explicit-any: "off" */
-
 import * as Y from 'yjs';
 import { createYjsController } from './controller.js';
 import { setupSyncListener } from './synchronizer.js';
@@ -11,7 +9,7 @@ import { SynchronizationContext } from './context.js';
 import { reconcileValtioArray, reconcileValtioMap } from './reconciler.js';
 
 export interface CreateYjsProxyOptions<_T> {
-  getRoot: (doc: Y.Doc) => Y.Map<any> | Y.Array<any>;
+  getRoot: (doc: Y.Doc) => Y.Map<unknown> | Y.Array<unknown>;
 }
 
 export interface YjsProxy<T> {
@@ -40,7 +38,7 @@ export function createYjsProxy<T extends object>(
     }
     doc.transact(() => {
       if (yRoot instanceof Y.Map) {
-        const record = data as unknown as Record<string, any>;
+        const record = data as unknown as Record<string, unknown>;
         for (const key of Object.keys(record)) {
           const value = record[key];
           if (value !== undefined) {
@@ -48,7 +46,7 @@ export function createYjsProxy<T extends object>(
           }
         }
       } else if (yRoot instanceof Y.Array) {
-        const items = (data as unknown as any[]).map((v) => plainObjectToYType(v, context));
+        const items = (data as unknown as unknown[]).map((v) => plainObjectToYType(v, context));
         if (items.length > 0) yRoot.insert(0, items);
       }
     }, VALTIO_YJS_ORIGIN);

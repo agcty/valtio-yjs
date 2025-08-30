@@ -1,20 +1,19 @@
-/* eslint @typescript-eslint/no-explicit-any: "off" */
 import * as Y from 'yjs';
 import { SynchronizationContext } from './context.js';
 
 /**
  * Recursively converts a Yjs shared type (or primitive) into a plain JavaScript object/array.
  */
-export function yTypeToPlainObject(yValue: any): any {
+export function yTypeToPlainObject(yValue: unknown): unknown {
   if (yValue instanceof Y.Map) {
-    const entries = Array.from(yValue.entries()).map(([key, value]) => [
+    const entries = Array.from((yValue as Y.Map<unknown>).entries()).map(([key, value]) => [
       key,
       yTypeToPlainObject(value),
     ] as const);
     return Object.fromEntries(entries);
   }
   if (yValue instanceof Y.Array) {
-    return yValue.toArray().map(yTypeToPlainObject);
+    return (yValue as Y.Array<unknown>).toArray().map(yTypeToPlainObject);
   }
   return yValue;
 }
@@ -22,32 +21,33 @@ export function yTypeToPlainObject(yValue: any): any {
 /**
  * Recursively converts a plain JavaScript object/array (or primitive) into Yjs shared types.
  */
-export function plainObjectToYType(jsValue: any, context: SynchronizationContext): any {
+export function plainObjectToYType(jsValue: unknown, context: SynchronizationContext): unknown {
   if (jsValue instanceof Y.AbstractType) {
     return jsValue;
   }
   if (jsValue === null || typeof jsValue !== 'object') {
-    return jsValue === undefined ? null : jsValue; // Yjs doesn't support undefined
+    // Yjs doesn't support undefined
+    return jsValue === undefined ? null : jsValue;
   }
 
   // If this is one of our controller proxies, return the underlying Y type
   if (context && typeof jsValue === 'object' && context.valtioProxyToYType.has(jsValue as object)) {
-    return context.valtioProxyToYType.get(jsValue as object) as Y.AbstractType<any>;
+    return context.valtioProxyToYType.get(jsValue as object) as Y.AbstractType<unknown>;
   }
 
   if (Array.isArray(jsValue)) {
-    const yArray = new Y.Array();
-    yArray.insert(0, jsValue.map((v: any) => plainObjectToYType(v, context)));
+    const yArray = new Y.Array<unknown>();
+    yArray.insert(0, (jsValue as unknown[]).map((v) => plainObjectToYType(v, context)) as unknown[]);
     return yArray;
   }
 
   // Only convert plain objects. Anything else (e.g., Date) is returned as-is
   const proto = Object.getPrototypeOf(jsValue);
   if (proto === Object.prototype || proto === null) {
-    const yMap = new Y.Map();
-    for (const key in jsValue) {
+    const yMap = new Y.Map<unknown>();
+    for (const key in jsValue as Record<string, unknown>) {
       if (Object.prototype.hasOwnProperty.call(jsValue, key)) {
-        const value = jsValue[key];
+        const value = (jsValue as Record<string, unknown>)[key];
         if (value !== undefined) {
           yMap.set(key, plainObjectToYType(value, context));
         }

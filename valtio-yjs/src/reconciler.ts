@@ -1,7 +1,7 @@
-/* eslint @typescript-eslint/no-explicit-any: "off" */
 import * as Y from 'yjs';
 import { createYjsController, getValtioProxyForYType } from './controller.js';
 import { SynchronizationContext } from './context.js';
+import type { AnySharedType } from './context.js';
 
 // Reconciler layer
 //
@@ -16,8 +16,8 @@ import { SynchronizationContext } from './context.js';
  * Reconciles the structure of a Valtio proxy to match its underlying Y.Map.
  * It creates/deletes properties on the proxy to ensure the "scaffolding" is correct.
  */
-export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<any>, doc: Y.Doc): void {
-  const valtioProxy = getValtioProxyForYType(context, yMap) as Record<string, any> | undefined;
+export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<unknown>, doc: Y.Doc): void {
+  const valtioProxy = getValtioProxyForYType(context, yMap) as Record<string, unknown> | undefined;
   if (!valtioProxy) {
     // This map hasn't been materialized yet, so there's nothing to reconcile.
     console.log('[valtio-yjs] reconcileValtioMap skipped (no proxy)');
@@ -39,12 +39,12 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     for (const key of yKeys) {
       if (!valtioKeys.has(key)) {
         const yValue = yMap.get(key);
-        if (yValue instanceof Y.AbstractType) {
+        if (yValue instanceof Y.Map || yValue instanceof Y.Array) {
           console.log('[valtio-yjs] materialize nested controller for key', key);
-          (valtioProxy as any)[key] = createYjsController(context, yValue, doc);
+          (valtioProxy as Record<string, unknown>)[key] = createYjsController(context, yValue as AnySharedType, doc);
         } else {
           console.log('[valtio-yjs] set primitive key', key);
-          (valtioProxy as any)[key] = yValue;
+          (valtioProxy as Record<string, unknown>)[key] = yValue as unknown;
         }
       }
     }
@@ -53,7 +53,7 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     for (const key of valtioKeys) {
       if (!yKeys.has(key)) {
         console.log('[valtio-yjs] delete key', key);
-        delete (valtioProxy as any)[key];
+        delete (valtioProxy as Record<string, unknown>)[key];
       }
     }
 
@@ -61,11 +61,11 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     for (const key of yKeys) {
       if (valtioKeys.has(key)) {
         const yValue = yMap.get(key);
-        if (!(yValue instanceof Y.AbstractType)) {
-          const current = (valtioProxy as any)[key];
+        if (!(yValue instanceof Y.Map || yValue instanceof Y.Array)) {
+          const current = (valtioProxy as Record<string, unknown>)[key];
           if (current !== yValue) {
             console.log('[valtio-yjs] update primitive key', key);
-            (valtioProxy as any)[key] = yValue;
+            (valtioProxy as Record<string, unknown>)[key] = yValue as unknown;
           }
         }
       }
@@ -80,25 +80,25 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
 
 // TODO: Implement granular delta-based reconciliation for arrays.
 // For now, perform a coarse structural sync using splice.
-export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.Array<any>, doc: Y.Doc): void {
-  const valtioProxy = getValtioProxyForYType(context, yArray) as any[] | undefined;
+export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.Array<unknown>, doc: Y.Doc): void {
+  const valtioProxy = getValtioProxyForYType(context, yArray) as unknown[] | undefined;
   if (!valtioProxy) return;
 
   context.withReconcilingLock(() => {
     try {
       console.log('[valtio-yjs] reconcileValtioArray start', {
         yLength: yArray.length,
-        valtioLength: (valtioProxy as any[]).length,
+        valtioLength: (valtioProxy as unknown[]).length,
       });
     } catch { void 0; }
-    const newContent = yArray.toArray().map((item) =>
-      item instanceof Y.AbstractType ? createYjsController(context, item, doc) : item,
-    );
+    const newContent = yArray
+      .toArray()
+      .map((item) => (item instanceof Y.Map || item instanceof Y.Array ? createYjsController(context, item as AnySharedType, doc) : item));
     console.log('[valtio-yjs] reconcile array splice', newContent.length);
-    (valtioProxy as any[]).splice(0, (valtioProxy as any[]).length, ...newContent);
+    (valtioProxy as unknown[]).splice(0, (valtioProxy as unknown[]).length, ...newContent as unknown[]);
     try {
       console.log('[valtio-yjs] reconcileValtioArray end', {
-        valtioLength: (valtioProxy as any[]).length,
+        valtioLength: (valtioProxy as unknown[]).length,
       });
     } catch { void 0; }
   });
@@ -111,18 +111,18 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
  */
 export function reconcileValtioArrayWithDelta(
   context: SynchronizationContext,
-  yArray: Y.Array<any>,
+  yArray: Y.Array<unknown>,
   doc: Y.Doc,
-  delta: Array<{ retain?: number; delete?: number; insert?: any[] }>,
+  delta: Array<{ retain?: number; delete?: number; insert?: unknown[] }>,
 ): void {
-  const valtioProxy = getValtioProxyForYType(context, yArray) as any[] | undefined;
+  const valtioProxy = getValtioProxyForYType(context, yArray) as unknown[] | undefined;
   if (!valtioProxy) return;
 
   context.withReconcilingLock(() => {
     try {
       console.log('[valtio-yjs] reconcileValtioArrayWithDelta start', {
         delta,
-        valtioLength: (valtioProxy as any[]).length,
+        valtioLength: (valtioProxy as unknown[]).length,
       });
     } catch { void 0; }
 
@@ -135,15 +135,15 @@ export function reconcileValtioArrayWithDelta(
       if (d.delete && d.delete > 0) {
         const deleteCount = d.delete;
         if (deleteCount > 0) {
-          (valtioProxy as any[]).splice(position, deleteCount);
+          (valtioProxy as unknown[]).splice(position, deleteCount);
         }
         continue;
       }
       if (d.insert && d.insert.length > 0) {
         const converted = d.insert.map((item) =>
-          item instanceof Y.AbstractType ? createYjsController(context, item, doc) : item,
+          item instanceof Y.Map || item instanceof Y.Array ? createYjsController(context, item as AnySharedType, doc) : item,
         );
-        (valtioProxy as any[]).splice(position, 0, ...converted);
+        (valtioProxy as unknown[]).splice(position, 0, ...converted as unknown[]);
         position += converted.length;
         continue;
       }
@@ -152,7 +152,7 @@ export function reconcileValtioArrayWithDelta(
 
     try {
       console.log('[valtio-yjs] reconcileValtioArrayWithDelta end', {
-        valtioLength: (valtioProxy as any[]).length,
+        valtioLength: (valtioProxy as unknown[]).length,
       });
     } catch { void 0; }
   });

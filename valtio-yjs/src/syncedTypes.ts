@@ -1,4 +1,3 @@
-/* eslint @typescript-eslint/no-explicit-any: "off" */
 import * as Y from 'yjs';
 
 /**

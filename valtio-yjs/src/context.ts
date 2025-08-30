@@ -1,4 +1,3 @@
-/* eslint @typescript-eslint/no-explicit-any: "off" */
 import * as Y from 'yjs';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
 
@@ -6,13 +5,15 @@ import { VALTIO_YJS_ORIGIN } from './constants.js';
  * Encapsulates all state for a single valtio-yjs instance.
  * Holds caches, subscription disposers, and a reconciliation flag.
  */
+export type AnySharedType = Y.Map<unknown> | Y.Array<unknown>;
+
 export class SynchronizationContext {
   // Caches: Y type <-> Valtio proxy
-  readonly yTypeToValtioProxy = new WeakMap<Y.AbstractType<any>, any>();
-  readonly valtioProxyToYType = new WeakMap<object, Y.AbstractType<any>>();
+  readonly yTypeToValtioProxy = new WeakMap<AnySharedType, object>();
+  readonly valtioProxyToYType = new WeakMap<object, AnySharedType>();
 
   // Track unsubscribe function for Valtio subscriptions per Y type
-  readonly yTypeToUnsubscribe = new WeakMap<Y.AbstractType<any>, () => void>();
+  readonly yTypeToUnsubscribe = new WeakMap<AnySharedType, () => void>();
 
   // Track all unsubscribe functions for a full dispose
   private readonly allUnsubscribers = new Set<() => void>();
@@ -25,15 +26,15 @@ export class SynchronizationContext {
   private flushScheduled = false;
   // Pending ops, deduped per target and key/index
   private pendingMapSets = new Map<
-    Y.Map<any>,
-    Map<string, { compute: () => any; after?: (yValue: any) => void }>
+    Y.Map<unknown>,
+    Map<string, { compute: () => unknown; after?: (yValue: unknown) => void }>
   >();
-  private pendingMapDeletes = new Map<Y.Map<any>, Set<string>>();
+  private pendingMapDeletes = new Map<Y.Map<unknown>, Set<string>>();
   private pendingArraySets = new Map<
-    Y.Array<any>,
-    Map<number, { compute: () => any; after?: (yValue: any) => void }>
+    Y.Array<unknown>,
+    Map<number, { compute: () => unknown; after?: (yValue: unknown) => void }>
   >();
-  private pendingArrayDeletes = new Map<Y.Array<any>, Set<number>>();
+  private pendingArrayDeletes = new Map<Y.Array<unknown>, Set<number>>();
 
   withReconcilingLock(fn: () => void): void {
     const previous = this.isReconciling;
@@ -45,7 +46,7 @@ export class SynchronizationContext {
     }
   }
 
-  registerSubscription(yType: Y.AbstractType<any>, unsubscribe: () => void): void {
+  registerSubscription(yType: AnySharedType, unsubscribe: () => void): void {
     const existing = this.yTypeToUnsubscribe.get(yType);
     if (existing) existing();
     this.yTypeToUnsubscribe.set(yType, unsubscribe);
@@ -69,10 +70,10 @@ export class SynchronizationContext {
 
   // Enqueue operations
   enqueueMapSet(
-    yMap: Y.Map<any>,
+    yMap: Y.Map<unknown>,
     key: string,
-    computeYValue: () => any,
-    postUpgrade?: (yValue: any) => void,
+    computeYValue: () => unknown,
+    postUpgrade?: (yValue: unknown) => void,
   ): void {
     let perMap = this.pendingMapSets.get(yMap);
     if (!perMap) {
@@ -86,7 +87,7 @@ export class SynchronizationContext {
     this.scheduleFlush();
   }
 
-  enqueueMapDelete(yMap: Y.Map<any>, key: string): void {
+  enqueueMapDelete(yMap: Y.Map<unknown>, key: string): void {
     let perMap = this.pendingMapDeletes.get(yMap);
     if (!perMap) {
       perMap = new Set();
@@ -100,10 +101,10 @@ export class SynchronizationContext {
   }
 
   enqueueArraySet(
-    yArray: Y.Array<any>,
+    yArray: Y.Array<unknown>,
     index: number,
-    computeYValue: () => any,
-    postUpgrade?: (yValue: any) => void,
+    computeYValue: () => unknown,
+    postUpgrade?: (yValue: unknown) => void,
   ): void {
     let perArr = this.pendingArraySets.get(yArray);
     if (!perArr) {
@@ -116,7 +117,7 @@ export class SynchronizationContext {
     this.scheduleFlush();
   }
 
-  enqueueArrayDelete(yArray: Y.Array<any>, index: number): void {
+  enqueueArrayDelete(yArray: Y.Array<unknown>, index: number): void {
     let perArr = this.pendingArrayDeletes.get(yArray);
     if (!perArr) {
       perArr = new Set();
@@ -186,7 +187,10 @@ export class SynchronizationContext {
       for (const [yArray, indices] of arrayDeletes) {
         const sorted = Array.from(indices).sort((a, b) => b - a);
         for (const index of sorted) {
-          try { console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc: !!(yArray as any).doc }); } catch { /* noop */ }
+          try {
+            const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+            console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc });
+          } catch { /* noop */ }
           if (index >= 0 && index < yArray.length) yArray.delete(index, 1);
         }
       }
@@ -198,16 +202,25 @@ export class SynchronizationContext {
           const yValue = entry.compute();
           if (index >= 0) {
             if (index < yArray.length) {
-              try { console.log('[valtio-yjs][context] array.replace', { index, length: yArray.length, hasDoc: !!(yArray as any).doc }); } catch { /* noop */ }
+              try {
+                const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+                console.log('[valtio-yjs][context] array.replace', { index, length: yArray.length, hasDoc });
+              } catch { /* noop */ }
               yArray.delete(index, 1);
               yArray.insert(index, [yValue]);
             } else if (index === yArray.length) {
-              try { console.log('[valtio-yjs][context] array.append', { index, length: yArray.length, hasDoc: !!(yArray as any).doc }); } catch { /* noop */ }
+              try {
+                const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+                console.log('[valtio-yjs][context] array.append', { index, length: yArray.length, hasDoc });
+              } catch { /* noop */ }
               yArray.insert(yArray.length, [yValue]);
             } else {
               const fillCount = index - yArray.length;
               if (fillCount > 0) yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
-              try { console.log('[valtio-yjs][context] array.fill+append', { index, length: yArray.length, fillCount, hasDoc: !!(yArray as any).doc }); } catch { /* noop */ }
+              try {
+                const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+                console.log('[valtio-yjs][context] array.fill+append', { index, length: yArray.length, fillCount, hasDoc });
+              } catch { /* noop */ }
               yArray.insert(yArray.length, [yValue]);
             }
           }
