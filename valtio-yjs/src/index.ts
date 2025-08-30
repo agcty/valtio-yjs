@@ -43,11 +43,11 @@ export function createYjsProxy<T extends object>(
         for (const key of Object.keys(record)) {
           const value = record[key];
           if (value !== undefined) {
-            yRoot.set(key, plainObjectToYType(value));
+            yRoot.set(key, plainObjectToYType(value, context));
           }
         }
       } else if (yRoot instanceof Y.Array) {
-        const items = (data as unknown as any[]).map((v) => plainObjectToYType(v));
+        const items = (data as unknown as any[]).map((v) => plainObjectToYType(v, context));
         if (items.length > 0) yRoot.insert(0, items);
       }
     }, VALTIO_YJS_ORIGIN);

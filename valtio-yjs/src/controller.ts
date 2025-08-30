@@ -15,12 +15,6 @@ import { SynchronizationContext } from './context.js';
 
 // All caches are moved into SynchronizationContext
 
-function isPlainObject(value: any): boolean {
-  if (value === null || typeof value !== 'object') return false;
-  const proto = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
-}
-
 // Subscribe to a Valtio array proxy and translate top-level index operations
 // into minimal Y.Array operations.
 // Valtio -> Yjs (array):
@@ -46,36 +40,26 @@ function attachValtioArraySubscription(
         const index = (op[1] as (string | number)[])[0] as number;
         if (type === 'set') {
           const nextValue = (arrProxy as any[])[index];
-          const nestedY = nextValue && typeof nextValue === 'object' ? context.valtioProxyToYType.get(nextValue as object) : undefined;
-          let yValue: any;
-          if (nestedY) {
-            // Already a controller-backed child; just reuse its underlying Y type.
-            yValue = nestedY;
-          } else if (isPlainObject(nextValue) || Array.isArray(nextValue)) {
-            // Eager upgrade on write: convert to Y type and replace the plain value
-            // with a live controller so subsequent nested edits are scoped correctly.
-            const newYType = plainObjectToYType(nextValue);
-            yValue = newYType;
-            const newController = createYjsController(context, newYType, doc);
-            // Use reconciliation lock to prevent this write-back from reflecting
-            // into our own subscription handler.
+          const isAlreadyController =
+            nextValue && typeof nextValue === 'object' && context.valtioProxyToYType.has(nextValue as object);
+          const yValue = plainObjectToYType(nextValue, context);
+          if (!isAlreadyController && yValue instanceof Y.AbstractType) {
+            const newController = createYjsController(context, yValue, doc);
             context.withReconcilingLock(() => {
               (arrProxy as any[])[index] = newController as any;
             });
-          } else {
-            yValue = nextValue;
           }
           if (index >= 0) {
             if (index < yArray.length) {
               yArray.delete(index, 1);
-              yArray.insert(index, [plainObjectToYType(yValue)]);
+              yArray.insert(index, [yValue]);
             } else if (index === yArray.length) {
-              yArray.insert(yArray.length, [plainObjectToYType(yValue)]);
+              yArray.insert(yArray.length, [yValue]);
             } else {
               // If someone sets a sparse index, fill with nulls up to that index for Yjs compatibility
               const fillCount = index - yArray.length;
               if (fillCount > 0) yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
-              yArray.insert(yArray.length, [plainObjectToYType(yValue)]);
+              yArray.insert(yArray.length, [yValue]);
             }
           }
         } else if (type === 'delete') {
@@ -114,29 +98,15 @@ function attachValtioMapSubscription(
           const key = String(path[0]);
           if (type === 'set') {
             const nextValue = (objProxy as any)[key];
-            const nestedY =
-              nextValue && typeof nextValue === 'object'
-                ? context.valtioProxyToYType.get(nextValue as object)
-                : undefined;
-            if (nestedY) {
-              const current = yMap.get(key);
-              if (current !== nestedY) {
-                // Value is already controller-backed; ensure the Y map points to the same Y type.
-                yMap.set(key, nestedY);
-              }
-            } else if (isPlainObject(nextValue) || Array.isArray(nextValue)) {
-              // Eager upgrade on write: convert to a Y type and immediately replace
-              // the plain value in the Valtio proxy with a live controller so that
-              // subsequent nested writes are handled by the child's own subscription.
-              const newYType = plainObjectToYType(nextValue);
-              yMap.set(key, newYType);
-              const newController = createYjsController(context, newYType, doc);
-              // Use reconciliation lock to avoid reflecting this write-back.
+            const isAlreadyController =
+              nextValue && typeof nextValue === 'object' && context.valtioProxyToYType.has(nextValue as object);
+            const yValue = plainObjectToYType(nextValue, context);
+            yMap.set(key, yValue);
+            if (!isAlreadyController && yValue instanceof Y.AbstractType) {
+              const newController = createYjsController(context, yValue, doc);
               context.withReconcilingLock(() => {
                 (objProxy as any)[key] = newController;
               });
-            } else {
-              yMap.set(key, nextValue);
             }
           } else if (type === 'delete') {
             if (yMap.has(key)) yMap.delete(key);
