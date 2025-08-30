@@ -55,6 +55,7 @@ const { proxy: proxy2, dispose: dispose2 } = createYjsProxy<{
 const ClientView = ({ name, stateProxy }: { name: string, stateProxy: typeof proxy1 }) => {
   const snap = useSnapshot(stateProxy);
   const proxyRef = useRef(stateProxy);
+  const [editingId, setEditingId] = useState<number | null>(null);
   useEffect(() => {
     // Dynamically import to avoid bundling the subscribe in examples; valtio is already a dep here though.
     import('valtio/vanilla').then(({ subscribe }) => {
@@ -73,6 +74,7 @@ const ClientView = ({ name, stateProxy }: { name: string, stateProxy: typeof pro
       id,
       text: `Item from ${name}`,
     };
+    setEditingId(id);
   };
 
   const deleteLastItem = () => {
@@ -103,6 +105,43 @@ const ClientView = ({ name, stateProxy }: { name: string, stateProxy: typeof pro
       <div style={{ marginBottom: '10px' }}>
         <button onClick={addItem} style={{ marginRight: '5px' }}>Add Item</button>
         <button onClick={deleteLastItem}>Delete Last Item</button>
+      </div>
+      <div style={{ marginBottom: '10px' }}>
+        <h3>Items</h3>
+        {Object.values(snap.items).length === 0 ? (
+          <div style={{ color: '#666', fontSize: '12px' }}>No items yet. Click "Add Item".</div>
+        ) : (
+          <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            {Object.values(snap.items)
+              .sort((a: any, b: any) => (a as any).id - (b as any).id)
+              .map((item: any) => (
+                <li key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <span style={{ width: 60, color: '#555' }}>#{item.id}</span>
+                  <input
+                    style={{ flex: 1, padding: '4px' }}
+                    value={item.text}
+                    autoFocus={editingId === item.id}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const key = String(item.id);
+                      if ((proxyRef.current.items as any)[key]) {
+                        (proxyRef.current.items as any)[key].text = v;
+                      }
+                    }}
+                    onBlur={() => setEditingId((prev) => (prev === item.id ? null : prev))}
+                  />
+                  <button
+                    onClick={() => {
+                      const key = String(item.id);
+                      delete (proxyRef.current.items as any)[key];
+                    }}
+                  >
+                    Delete
+                  </button>
+                </li>
+              ))}
+          </ul>
+        )}
       </div>
       <h3>Current State:</h3>
       <pre style={{
