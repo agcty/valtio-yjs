@@ -37,6 +37,7 @@ Public API          Controller Layer            Synchronization Layer        Typ
   - Responsibilities:
     1) Intercept local edits via Valtio subscriptions and translate top-level changes to minimal Yjs ops inside `doc.transact(…, VALTIO_YJS_ORIGIN)`.
     2) Lazily materialize nested controllers when encountering nested Y types via `createYjsController`.
+    3) Eagerly upgrade assigned plain objects/arrays into controller-backed Y types on write, replacing the plain value in the Valtio proxy under a reconciliation lock. This ensures nested edits are always handled by the child controller and preserves encapsulation (no parent-level nested routing).
 
 - Synchronizer (`setupSyncListener`) (`valtio-yjs/src/synchronizer.ts`):
   - Listens to `doc.on('afterTransaction')`.

@@ -12,6 +12,8 @@ Scenario: `userProxy.profile.email = '...'` in the UI.
 6. `doc.on('afterTransaction')` fires, but is ignored because `origin === VALTIO_YJS_ORIGIN`.
 7. `doc.on('update')` may fire via the provider and propagate to peers.
 
+Note: When assigning a plain object/array into a controller, the system eagerly upgrades it to a Y type and replaces the plain value with a live controller under a reconciliation lock. This keeps nested edits encapsulated within the child controller and avoids parent-level routing.
+
 ## 2) Remote Change (Network -> Yjs -> UI)
 
 Scenario: A peer inserts a new item into a shared list (a `Y.Array`).
@@ -23,3 +25,5 @@ Scenario: A peer inserts a new item into a shared list (a `Y.Array`).
 5. The reconciler builds new content, materializing controllers for any new Y children (for example, a `Y.Map` for the new list item).
 6. The reconciler splices the Valtio array proxy to match the Y array (the Valtio array holds controller proxies for nested Y objects, not plain objects).
 7. Valtio detects the splice; components using `useSnapshot` of that proxy re-render.
+
+ 

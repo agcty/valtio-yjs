@@ -29,6 +29,13 @@ function insertArrayContentSafe(yArray: Y.Array<any>, index: number, items: unkn
 
 // Subscribe to a Valtio array proxy and translate top-level index operations
 // into minimal Y.Array operations.
+// Valtio -> Yjs (array):
+// - Only translate top-level index operations here. Nested edits are handled by
+//   the nested controller's own subscription once a child has been upgraded to
+//   a live controller proxy.
+// - If a plain object/array is assigned, we eagerly upgrade it: create a Y type
+//   and immediately replace the plain value in the Valtio proxy with a
+//   controller under a reconciliation lock to avoid reflection loops.
 function attachValtioArraySubscription(
   context: SynchronizationContext,
   yArray: Y.Array<any>,
@@ -46,7 +53,24 @@ function attachValtioArraySubscription(
         if (type === 'set') {
           const nextValue = (arrProxy as any[])[index];
           const nestedY = nextValue && typeof nextValue === 'object' ? context.valtioProxyToYType.get(nextValue as object) : undefined;
-          const yValue = nestedY ?? (isPlainObject(nextValue) || Array.isArray(nextValue) ? plainObjectToYType(nextValue) : nextValue);
+          let yValue: any;
+          if (nestedY) {
+            // Already a controller-backed child; just reuse its underlying Y type.
+            yValue = nestedY;
+          } else if (isPlainObject(nextValue) || Array.isArray(nextValue)) {
+            // Eager upgrade on write: convert to Y type and replace the plain value
+            // with a live controller so subsequent nested edits are scoped correctly.
+            const newYType = plainObjectToYType(nextValue);
+            yValue = newYType;
+            const newController = createYjsController(context, newYType, doc);
+            // Use reconciliation lock to prevent this write-back from reflecting
+            // into our own subscription handler.
+            context.withReconcilingLock(() => {
+              (arrProxy as any[])[index] = newController as any;
+            });
+          } else {
+            yValue = nextValue;
+          }
           if (index >= 0) {
             if (index < yArray.length) {
               yArray.delete(index, 1);
@@ -71,6 +95,11 @@ function attachValtioArraySubscription(
 
 // Subscribe to a Valtio object proxy and translate top-level key operations
 // into minimal Y.Map operations. Nested edits are handled by nested controllers.
+// Valtio -> Yjs (map):
+// - Only handle direct children (path.length === 1). No nested routing here; once
+//   a child is upgraded to a controller, its own subscription translates nested edits.
+// - Eagerly upgrade assigned plain objects/arrays into Y types and replace the plain
+//   values with controller proxies under a reconciliation lock to avoid loops.
 function attachValtioMapSubscription(
   context: SynchronizationContext,
   yMap: Y.Map<any>,
@@ -86,6 +115,7 @@ function attachValtioMapSubscription(
       for (const op of candidateOps) {
         const type = op[0] as string;
         const path = op[1] as (string | number)[];
+        // Only handle direct children. Nested edits will be handled by nested controllers.
         if (path.length === 1) {
           const key = String(path[0]);
           if (type === 'set') {
@@ -97,61 +127,25 @@ function attachValtioMapSubscription(
             if (nestedY) {
               const current = yMap.get(key);
               if (current !== nestedY) {
-                // Avoid inserting existing Y types directly; always clone from plain
-                // to prevent cross-parent/cross-doc reattachment issues.
-                yMap.set(key, plainObjectToYType(nextValue));
+                // Value is already controller-backed; ensure the Y map points to the same Y type.
+                yMap.set(key, nestedY);
               }
             } else if (isPlainObject(nextValue) || Array.isArray(nextValue)) {
-              yMap.set(key, plainObjectToYType(nextValue));
+              // Eager upgrade on write: convert to a Y type and immediately replace
+              // the plain value in the Valtio proxy with a live controller so that
+              // subsequent nested writes are handled by the child's own subscription.
+              const newYType = plainObjectToYType(nextValue);
+              yMap.set(key, newYType);
+              const newController = createYjsController(context, newYType, doc);
+              // Use reconciliation lock to avoid reflecting this write-back.
+              context.withReconcilingLock(() => {
+                (objProxy as any)[key] = newController;
+              });
             } else {
               yMap.set(key, nextValue);
             }
           } else if (type === 'delete') {
             if (yMap.has(key)) yMap.delete(key);
-          }
-        } else if (path.length === 2) {
-          // Route one-level nested changes (Map -> child Map/Array) directly
-          const [parentKeyRaw, childKeyRaw] = path;
-          const parentKey = String(parentKeyRaw);
-          const parentProxy = (objProxy as any)[parentKey];
-          const parentY = parentProxy && typeof parentProxy === 'object' ? context.valtioProxyToYType.get(parentProxy as object) : undefined;
-          if (parentY instanceof Y.Map) {
-            const childKey = String(childKeyRaw);
-            if (type === 'set') {
-              const nextValue = (parentProxy as any)[childKey];
-              const nestedY =
-                nextValue && typeof nextValue === 'object'
-                  ? context.valtioProxyToYType.get(nextValue as object)
-                  : undefined;
-              if (nestedY) {
-                const current = parentY.get(childKey);
-                if (current !== nestedY) {
-                  // Avoid inserting existing Y types directly; always clone from plain
-                  parentY.set(childKey, plainObjectToYType(nextValue));
-                }
-              } else if (isPlainObject(nextValue) || Array.isArray(nextValue)) {
-                parentY.set(childKey, plainObjectToYType(nextValue));
-              } else {
-                parentY.set(childKey, nextValue);
-              }
-            } else if (type === 'delete') {
-              if (parentY.has(childKey)) parentY.delete(childKey);
-            }
-          } else if (parentY instanceof Y.Array && typeof childKeyRaw === 'number') {
-            const index = childKeyRaw as number;
-            if (type === 'set') {
-              const nextValue = (parentProxy as any[])[index];
-              const nestedY = nextValue && typeof nextValue === 'object' ? context.valtioProxyToYType.get(nextValue as object) : undefined;
-              const yValue = nestedY ? plainObjectToYType(nextValue) : (isPlainObject(nextValue) || Array.isArray(nextValue) ? plainObjectToYType(nextValue) : nextValue);
-              if (index < parentY.length) {
-                parentY.delete(index, 1);
-                insertArrayContentSafe(parentY, index, [yValue]);
-              } else if (index === parentY.length) {
-                insertArrayContentSafe(parentY, parentY.length, [yValue]);
-              }
-            } else if (type === 'delete') {
-              if (index >= 0 && index < parentY.length) parentY.delete(index, 1);
-            }
           }
         }
       }

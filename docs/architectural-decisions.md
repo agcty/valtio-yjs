@@ -24,3 +24,12 @@
 - Options: Module-level globals vs per-instance `SynchronizationContext`.
 - Decision: Encapsulate in `SynchronizationContext`.
 - Rationale: Prevents cross-instance interference, simplifies tests, and makes lifecycle management explicit (`disposeAll`).
+
+## 4) Eager Upgrade on Local Writes vs Parent-Level Nested Routing
+
+- Problem: Assigning a plain object/array to a controller creates a period where the Valtio tree contains plain values while the Y tree expects live controllers. Subsequent nested edits would surface as deeper paths on the parent, tempting parent listeners to route and mutate grandchildren, violating encapsulation and not scaling with depth.
+- Options:
+  - Parent-level nested routing: detect `path.length > 1` in parent subscriptions and manually forward to child Y types.
+  - Eager upgrade: on write, convert plain values to Y types and immediately replace them with controller proxies under a reconciliation lock.
+- Decision: Eager upgrade on write.
+- Rationale: Restores encapsulation (parents only handle direct children), scales recursively (children handle their own edits), and eliminates brittle, leaky abstractions.

@@ -17,6 +17,7 @@
   - Object-level reactivity native to Valtio; one proxy per Y container.
   - Achieved by a controller tree and targeted structural reconciliation of Valtio proxies after `afterTransaction`.
   - Uses `transaction.changedParentTypes` to identify the precise containers to reconcile.
+  
 
 ## Conclusion
 
