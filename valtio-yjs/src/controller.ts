@@ -21,6 +21,12 @@ function isPlainObject(value: any): boolean {
   return proto === Object.prototype || proto === null;
 }
 
+function insertArrayContentSafe(yArray: Y.Array<any>, index: number, items: unknown[]): void {
+  const content = Array.isArray(items) ? items.map((v) => (v === undefined ? null : v)) : [];
+  if (content.length === 0) return;
+  yArray.insert(index, content);
+}
+
 // Subscribe to a Valtio array proxy and translate top-level index operations
 // into minimal Y.Array operations.
 function attachValtioArraySubscription(
@@ -44,14 +50,14 @@ function attachValtioArraySubscription(
           if (index >= 0) {
             if (index < yArray.length) {
               yArray.delete(index, 1);
-              yArray.insert(index, [yValue]);
+              insertArrayContentSafe(yArray, index, [yValue]);
             } else if (index === yArray.length) {
-              yArray.insert(yArray.length, [yValue]);
+              insertArrayContentSafe(yArray, yArray.length, [yValue]);
             } else {
               // If someone sets a sparse index, fill with nulls up to that index for Yjs compatibility
               const fillCount = index - yArray.length;
-              if (fillCount > 0) yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
-              yArray.insert(yArray.length, [yValue]);
+              if (fillCount > 0) insertArrayContentSafe(yArray, yArray.length, Array.from({ length: fillCount }, () => null));
+              insertArrayContentSafe(yArray, yArray.length, [yValue]);
             }
           }
         } else if (type === 'delete') {
@@ -90,7 +96,11 @@ function attachValtioMapSubscription(
                 : undefined;
             if (nestedY) {
               const current = yMap.get(key);
-              if (current !== nestedY) yMap.set(key, nestedY);
+              if (current !== nestedY) {
+                // Avoid inserting existing Y types directly; always clone from plain
+                // to prevent cross-parent/cross-doc reattachment issues.
+                yMap.set(key, plainObjectToYType(nextValue));
+              }
             } else if (isPlainObject(nextValue) || Array.isArray(nextValue)) {
               yMap.set(key, plainObjectToYType(nextValue));
             } else {
@@ -115,7 +125,10 @@ function attachValtioMapSubscription(
                   : undefined;
               if (nestedY) {
                 const current = parentY.get(childKey);
-                if (current !== nestedY) parentY.set(childKey, nestedY);
+                if (current !== nestedY) {
+                  // Avoid inserting existing Y types directly; always clone from plain
+                  parentY.set(childKey, plainObjectToYType(nextValue));
+                }
               } else if (isPlainObject(nextValue) || Array.isArray(nextValue)) {
                 parentY.set(childKey, plainObjectToYType(nextValue));
               } else {
@@ -129,12 +142,12 @@ function attachValtioMapSubscription(
             if (type === 'set') {
               const nextValue = (parentProxy as any[])[index];
               const nestedY = nextValue && typeof nextValue === 'object' ? context.valtioProxyToYType.get(nextValue as object) : undefined;
-              const yValue = nestedY ?? (isPlainObject(nextValue) || Array.isArray(nextValue) ? plainObjectToYType(nextValue) : nextValue);
+              const yValue = nestedY ? plainObjectToYType(nextValue) : (isPlainObject(nextValue) || Array.isArray(nextValue) ? plainObjectToYType(nextValue) : nextValue);
               if (index < parentY.length) {
                 parentY.delete(index, 1);
-                parentY.insert(index, [yValue]);
+                insertArrayContentSafe(parentY, index, [yValue]);
               } else if (index === parentY.length) {
-                parentY.insert(parentY.length, [yValue]);
+                insertArrayContentSafe(parentY, parentY.length, [yValue]);
               }
             } else if (type === 'delete') {
               if (index >= 0 && index < parentY.length) parentY.delete(index, 1);
