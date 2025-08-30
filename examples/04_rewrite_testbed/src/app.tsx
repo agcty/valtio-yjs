@@ -37,6 +37,7 @@ const {
 } = createYjsProxy<{
   message: string;
   items: { [id: string]: { id: number; text: string } };
+  list: { id: number; text: string }[];
 }>(doc1, {
   getRoot: (doc: Y.Doc) => doc.getMap("sharedState"),
 });
@@ -44,6 +45,7 @@ const {
 const { proxy: proxy2, dispose: dispose2 } = createYjsProxy<{
   message: string;
   items: { [id: string]: { id: number; text: string } };
+  list: { id: number; text: string }[];
 }>(doc2, {
   getRoot: (doc: Y.Doc) => doc.getMap("sharedState"),
   // No initialState here, it should sync from doc1
@@ -54,6 +56,10 @@ bootstrap1({
   items: {
     1: { id: 1, text: "Item 1" },
   },
+  list: [
+    { id: 1, text: "Alpha" },
+    { id: 2, text: "Beta" },
+  ],
 });
 
 // --- 4. CREATE A REUSABLE CLIENT COMPONENT ---
@@ -87,6 +93,37 @@ const ClientView = ({
     }
   };
 
+  // --- Array (Y.Array) operations ---
+  const pushListItem = () => {
+    const id = Date.now();
+    const arr = (proxyRef.current as any).list as any[];
+    arr[arr.length] = { id, text: `List item ${name}` };
+    setEditingId(id);
+  };
+
+  const replaceFirstListItem = () => {
+    const arr = (proxyRef.current as any).list as any[];
+    if (arr.length === 0) return;
+    const id = arr[0]?.id ?? Date.now();
+    arr[0] = { id, text: `Replaced by ${name}` };
+    setEditingId(id);
+  };
+
+  const deleteFirstListItem = () => {
+    const arr = (proxyRef.current as any).list as any[];
+    if (arr.length === 0) return;
+    delete arr[0];
+  };
+
+  const insertWithGap = () => {
+    // Set beyond current length to force a gap fill and an insert delta
+    const arr = (proxyRef.current as any).list as any[];
+    const targetIndex = arr.length + 1;
+    const id = Date.now();
+    arr[targetIndex] = { id, text: `Gap insert by ${name}` };
+    setEditingId(id);
+  };
+
   return (
     <div
       style={{
@@ -114,6 +151,61 @@ const ClientView = ({
           Add Item
         </button>
         <button onClick={deleteLastItem}>Delete Last Item</button>
+      </div>
+      <div style={{ marginBottom: "10px" }}>
+        <h3>List (Array)</h3>
+        <div style={{ marginBottom: "6px" }}>
+          <button onClick={pushListItem} style={{ marginRight: "5px" }}>
+            Push Item
+          </button>
+          <button onClick={replaceFirstListItem} style={{ marginRight: "5px" }}>
+            Replace First
+          </button>
+          <button onClick={deleteFirstListItem} style={{ marginRight: "5px" }}>
+            Delete First
+          </button>
+          <button onClick={insertWithGap}>Insert With Gap</button>
+        </div>
+        {Array.isArray((snap as any).list) && (snap as any).list.length > 0 ? (
+          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+            {((snap as any).list as any[]).map((item: any, index: number) => (
+              <li
+                key={item?.id ?? index}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  marginBottom: "6px",
+                }}
+              >
+                <span style={{ width: 60, color: "#555" }}>
+                  {item ? `#${item.id}` : "<null>"}
+                </span>
+                <input
+                  style={{ flex: 1, padding: "4px" }}
+                  value={item?.text ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    const arr = (proxyRef.current as any).list as any[];
+                    if (arr[index]) {
+                      (arr[index] as any).text = v;
+                    }
+                  }}
+                />
+                <button
+                  onClick={() => {
+                    const arr = (proxyRef.current as any).list as any[];
+                    delete arr[index];
+                  }}
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div style={{ color: "#666", fontSize: "12px" }}>No list items yet.</div>
+        )}
       </div>
       <div style={{ marginBottom: "10px" }}>
         <h3>Items</h3>

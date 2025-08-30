@@ -33,11 +33,18 @@ function attachValtioArraySubscription(
   const unsubscribe = subscribe(arrProxy as any, (ops: any[]) => {
     if (context.isReconciling) return;
     try { console.log('[valtio-yjs][controller][array] ops', JSON.stringify(ops)); } catch { /* noop */ }
-    const directOps = ops.filter((op) => Array.isArray(op) && Array.isArray(op[1]) && (op[1] as any[]).length === 1 && typeof (op[1] as any[])[0] === 'number');
+    // Accept direct child mutations; index may be a number or a numeric string
+    const directOps = ops.filter(
+      (op) =>
+        Array.isArray(op) &&
+        Array.isArray(op[1]) &&
+        (op[1] as any[]).length === 1 &&
+        /^\d+$/.test(String((op[1] as any[])[0]))
+    );
     if (directOps.length === 0) return;
     for (const op of directOps) {
       const type = op[0] as string;
-      const index = (op[1] as (string | number)[])[0] as number;
+      const index = Number((op[1] as (string | number)[])[0]);
       if (type === 'set' || type === 'delete') {
         if (type === 'set') {
           context.enqueueArraySet(

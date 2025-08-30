@@ -104,4 +104,58 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
   });
 }
 
+/**
+ * Applies a granular Yjs delta to the Valtio array proxy, avoiding full re-splices.
+ * The delta format follows Yjs ArrayEvent.changes.delta: an array of ops
+ * where each op is one of { retain: number } | { delete: number } | { insert: any[] }.
+ */
+export function reconcileValtioArrayWithDelta(
+  context: SynchronizationContext,
+  yArray: Y.Array<any>,
+  doc: Y.Doc,
+  delta: Array<{ retain?: number; delete?: number; insert?: any[] }>,
+): void {
+  const valtioProxy = getValtioProxyForYType(context, yArray) as any[] | undefined;
+  if (!valtioProxy) return;
+
+  context.withReconcilingLock(() => {
+    try {
+      console.log('[valtio-yjs] reconcileValtioArrayWithDelta start', {
+        delta,
+        valtioLength: (valtioProxy as any[]).length,
+      });
+    } catch { void 0; }
+
+    let position = 0;
+    for (const d of delta) {
+      if (d.retain && d.retain > 0) {
+        position += d.retain;
+        continue;
+      }
+      if (d.delete && d.delete > 0) {
+        const deleteCount = d.delete;
+        if (deleteCount > 0) {
+          (valtioProxy as any[]).splice(position, deleteCount);
+        }
+        continue;
+      }
+      if (d.insert && d.insert.length > 0) {
+        const converted = d.insert.map((item) =>
+          item instanceof Y.AbstractType ? createYjsController(context, item, doc) : item,
+        );
+        (valtioProxy as any[]).splice(position, 0, ...converted);
+        position += converted.length;
+        continue;
+      }
+      // Unknown or empty op: skip
+    }
+
+    try {
+      console.log('[valtio-yjs] reconcileValtioArrayWithDelta end', {
+        valtioLength: (valtioProxy as any[]).length,
+      });
+    } catch { void 0; }
+  });
+}
+
 

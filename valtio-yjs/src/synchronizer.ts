@@ -8,7 +8,7 @@
 //   reconcile that container to support lazy materialization.
 import * as Y from 'yjs';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
-import { reconcileValtioMap, reconcileValtioArray } from './reconciler.js';
+import { reconcileValtioMap, reconcileValtioArray, reconcileValtioArrayWithDelta } from './reconciler.js';
 import { SynchronizationContext } from './context.js';
 import { getValtioProxyForYType } from './controller.js';
 // Synchronization strategy
@@ -31,7 +31,12 @@ export function setupSyncListener(
     if (transaction.origin === VALTIO_YJS_ORIGIN) {
       return;
     }
+    // Track boundaries to reconcile and capture array deltas when available
     const toReconcile = new Set<Y.AbstractType<any>>();
+    const arrayBoundaryToDelta = new Map<
+      Y.Array<any>,
+      Array<{ retain?: number; delete?: number; insert?: any[] }>
+    >();
     for (const event of events) {
       let boundary: Y.AbstractType<any> | null = event.target as Y.AbstractType<any>;
       while (boundary && !getValtioProxyForYType(context, boundary)) {
@@ -41,12 +46,28 @@ export function setupSyncListener(
         boundary = yRoot as Y.AbstractType<any>;
       }
       toReconcile.add(boundary);
+      // If the event target is an array, capture its delta and ensure we reconcile it.
+      if ((event.target as any) instanceof Y.Array) {
+        const targetArray = event.target as unknown as Y.Array<any>;
+        const maybeDelta = (event as unknown as { changes?: { delta?: unknown } }).changes?.delta as
+          | Array<{ retain?: number; delete?: number; insert?: any[] }>
+          | undefined;
+        if (Array.isArray(maybeDelta)) {
+          arrayBoundaryToDelta.set(targetArray, maybeDelta);
+        }
+        toReconcile.add(targetArray as unknown as Y.AbstractType<any>);
+      }
     }
     for (const target of toReconcile) {
       if (target instanceof Y.Map) {
         reconcileValtioMap(context, target, doc);
       } else if (target instanceof Y.Array) {
-        reconcileValtioArray(context, target, doc);
+        const delta = arrayBoundaryToDelta.get(target as Y.Array<any>);
+        if (delta && delta.length > 0) {
+          reconcileValtioArrayWithDelta(context, target as Y.Array<any>, doc, delta);
+        } else {
+          reconcileValtioArray(context, target, doc);
+        }
       }
     }
   };
