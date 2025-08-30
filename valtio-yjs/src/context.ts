@@ -146,7 +146,7 @@ export class SynchronizationContext {
   private scheduleFlush(): void {
     if (this.flushScheduled) return;
     this.flushScheduled = true;
-    try { console.log('[valtio-yjs][context] scheduleFlush'); } catch { /* noop */ }
+    console.log('[valtio-yjs][context] scheduleFlush');
     queueMicrotask(() => this.flush());
   }
 
@@ -154,9 +154,7 @@ export class SynchronizationContext {
     this.flushScheduled = false;
     if (!this.boundDoc) return;
     const doc = this.boundDoc;
-    try {
-      console.log('[valtio-yjs][context] flush start');
-    } catch { /* noop */ }
+    console.log('[valtio-yjs][context] flush start');
     // Snapshot pending and clear before running to avoid re-entrancy issues
     const mapSets = this.pendingMapSets;
     const mapDeletes = this.pendingMapDeletes;
@@ -194,7 +192,7 @@ export class SynchronizationContext {
         for (const key of keys) {
           const entry = keyToEntry.get(key)!;
           const yValue = entry.compute();
-          try { console.log('[valtio-yjs][context] map.set', { key }); } catch { /* noop */ }
+          console.log('[valtio-yjs][context] map.set', { key });
           yMap.set(key, yValue);
           if (entry.after) {
             post.push(() => entry.after!(yValue));
@@ -206,10 +204,8 @@ export class SynchronizationContext {
       for (const [yArray, indices] of arrayDeletes) {
         const sorted = Array.from(indices).sort((a, b) => b - a);
         for (const index of sorted) {
-          try {
-            const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
-            console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc });
-          } catch { /* noop */ }
+          const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+          console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc });
           if (index >= 0 && index < yArray.length) yArray.delete(index, 1);
         }
       }
@@ -221,26 +217,20 @@ export class SynchronizationContext {
           const yValue = entry.compute();
           if (index >= 0) {
             if (index < yArray.length) {
-              try {
-                const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
-                console.log('[valtio-yjs][context] array.replace', { index, length: yArray.length, hasDoc });
-              } catch { /* noop */ }
-              // Insert first, then delete the next slot to avoid transient invalid states
+              const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+              console.log('[valtio-yjs][context] array.replace', { index, length: yArray.length, hasDoc });
+              // Correct replacement order: delete first, then insert
+              yArray.delete(index, 1);
               yArray.insert(index, [yValue]);
-              yArray.delete(index + 1, 1);
             } else if (index === yArray.length) {
-              try {
-                const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
-                console.log('[valtio-yjs][context] array.append', { index, length: yArray.length, hasDoc });
-              } catch { /* noop */ }
+              const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+              console.log('[valtio-yjs][context] array.append', { index, length: yArray.length, hasDoc });
               yArray.insert(yArray.length, [yValue]);
             } else {
               const fillCount = index - yArray.length;
               if (fillCount > 0) yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
-              try {
-                const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
-                console.log('[valtio-yjs][context] array.fill+append', { index, length: yArray.length, fillCount, hasDoc });
-              } catch { /* noop */ }
+              const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+              console.log('[valtio-yjs][context] array.fill+append', { index, length: yArray.length, fillCount, hasDoc });
               yArray.insert(yArray.length, [yValue]);
             }
           }

@@ -12,9 +12,10 @@ import { proxy, subscribe } from 'valtio/vanilla';
 import { plainObjectToYType } from './converter.js';
 import type { AnySharedType } from './context.js';
 import { SynchronizationContext } from './context.js';
+import { isSharedType } from './guards.js';
 // Refined Valtio operation types and guards
 type ValtioMapPath = [string];
-type ValtioArrayPath = [number | string];
+type ValtioArrayPath = [number];
 type ValtioSetMapOp = ['set', ValtioMapPath, unknown, unknown];
 type ValtioDeleteMapOp = ['delete', ValtioMapPath];
 type ValtioSetArrayOp = ['set', ValtioArrayPath, unknown, unknown];
@@ -29,15 +30,11 @@ function isDeleteMapOp(op: unknown): op is ValtioDeleteMapOp {
 }
 
 function isSetArrayOp(op: unknown): op is ValtioSetArrayOp {
-  if (!Array.isArray(op) || op[0] !== 'set' || !Array.isArray(op[1]) || op[1].length !== 1) return false;
-  const idx = (op as [string, [number | string]])[1][0];
-  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
+  return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'number';
 }
 
 function isDeleteArrayOp(op: unknown): op is ValtioDeleteArrayOp {
-  if (!Array.isArray(op) || op[0] !== 'delete' || !Array.isArray(op[1]) || op[1].length !== 1) return false;
-  const idx = (op as [string, [number | string]])[1][0];
-  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
+  return Array.isArray(op) && op[0] === 'delete' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'number';
 }
 
 
@@ -60,21 +57,15 @@ function attachValtioArraySubscription(
 ): () => void {
   const unsubscribe = subscribe(arrProxy as unknown as object, (ops: unknown[]) => {
     if (context.isReconciling) return;
-    try { console.log('[valtio-yjs][controller][array] ops', JSON.stringify(ops)); } catch { /* noop */ }
+    console.log('[valtio-yjs][controller][array] ops', JSON.stringify(ops));
     // Process only direct index set/delete and ignore others (e.g., length updates)
     for (const op of ops) {
       if (isSetArrayOp(op)) {
-        const raw = op[1][0];
-        const idx = typeof raw === 'string' ? Number.parseInt(raw, 10) : raw;
-        const opValue = (op as unknown as [string, [number | string], unknown, unknown])[2];
+        const idx = op[1][0];
         context.enqueueArraySet(
           yArray,
           idx,
-          () => {
-            const local = (arrProxy as unknown[])[idx];
-            const valueToUse = local !== undefined ? local : opValue;
-            return plainObjectToYType(valueToUse, context);
-          },
+          () => plainObjectToYType((arrProxy as unknown[])[idx], context),
           (yValue: unknown) => {
             const current = (arrProxy as unknown[])[idx] as unknown;
             const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
@@ -89,8 +80,7 @@ function attachValtioArraySubscription(
         continue;
       }
       if (isDeleteArrayOp(op)) {
-        const raw = op[1][0];
-        const index = typeof raw === 'string' ? Number.parseInt(raw, 10) : raw;
+        const index = op[1][0];
         context.enqueueArrayDelete(yArray, index);
         continue;
       }
@@ -114,7 +104,7 @@ function attachValtioMapSubscription(
 ): () => void {
   const unsubscribe = subscribe(objProxy as unknown as object, (ops: unknown[]) => {
     if (context.isReconciling) return;
-    try { console.log('[valtio-yjs][controller][map] ops', JSON.stringify(ops)); } catch { /* noop */ }
+    console.log('[valtio-yjs][controller][map] ops', JSON.stringify(ops));
     for (const op of ops) {
       if (isSetMapOp(op)) {
         const key = op[1][0];
@@ -153,7 +143,7 @@ function materializeMapToValtio(context: SynchronizationContext, yMap: Y.Map<unk
 
   const initialObj: Record<string, unknown> = {};
   for (const [key, value] of yMap.entries()) {
-    if (value instanceof Y.Map || value instanceof Y.Array) {
+    if (isSharedType(value)) {
       initialObj[key] = createYjsController(context, value as AnySharedType, doc);
     } else {
       initialObj[key] = value;
@@ -175,7 +165,7 @@ function materializeArrayToValtio(context: SynchronizationContext, yArray: Y.Arr
   if (existing) return existing;
   const initialItems = yArray
     .toArray()
-    .map((value) => (value instanceof Y.Map || value instanceof Y.Array ? createYjsController(context, value as AnySharedType, doc) : value));
+    .map((value) => (isSharedType(value) ? createYjsController(context, value as AnySharedType, doc) : value));
   const arrProxy = proxy(initialItems) as unknown as unknown[];
   context.yTypeToValtioProxy.set(yArray as unknown as AnySharedType, arrProxy as unknown as object);
   context.valtioProxyToYType.set(arrProxy as unknown as object, yArray as unknown as AnySharedType);

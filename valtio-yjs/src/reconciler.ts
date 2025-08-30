@@ -26,13 +26,11 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
   }
 
   context.withReconcilingLock(() => {
-    try {
-      console.log('[valtio-yjs] reconcileValtioMap start', {
-        yKeys: Array.from(yMap.keys()),
-        valtioKeys: Object.keys(valtioProxy),
-        yJson: typeof yMap.toJSON === 'function' ? yMap.toJSON() : undefined,
-      });
-    } catch { void 0; }
+    console.log('[valtio-yjs] reconcileValtioMap start', {
+      yKeys: Array.from(yMap.keys()),
+      valtioKeys: Object.keys(valtioProxy),
+      yJson: typeof yMap.toJSON === 'function' ? yMap.toJSON() : undefined,
+    });
     const yKeys = new Set(Array.from(yMap.keys()).map((k) => String(k)));
     const valtioKeys = new Set(Object.keys(valtioProxy));
 
@@ -71,11 +69,9 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
         }
       }
     }
-    try {
-      console.log('[valtio-yjs] reconcileValtioMap end', {
-        valtioKeys: Object.keys(valtioProxy),
-      });
-    } catch { void 0; }
+    console.log('[valtio-yjs] reconcileValtioMap end', {
+      valtioKeys: Object.keys(valtioProxy),
+    });
   });
 }
 
@@ -86,22 +82,18 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
   if (!valtioProxy) return;
 
   context.withReconcilingLock(() => {
-    try {
-      console.log('[valtio-yjs] reconcileValtioArray start', {
-        yLength: yArray.length,
-        valtioLength: (valtioProxy as unknown[]).length,
-      });
-    } catch { void 0; }
+    console.log('[valtio-yjs] reconcileValtioArray start', {
+      yLength: yArray.length,
+      valtioLength: (valtioProxy as unknown[]).length,
+    });
     const newContent = yArray
       .toArray()
       .map((item) => (item instanceof Y.Map || item instanceof Y.Array ? createYjsController(context, item as AnySharedType, doc) : item));
     console.log('[valtio-yjs] reconcile array splice', newContent.length);
     (valtioProxy as unknown[]).splice(0, (valtioProxy as unknown[]).length, ...newContent as unknown[]);
-    try {
-      console.log('[valtio-yjs] reconcileValtioArray end', {
-        valtioLength: (valtioProxy as unknown[]).length,
-      });
-    } catch { void 0; }
+    console.log('[valtio-yjs] reconcileValtioArray end', {
+      valtioLength: (valtioProxy as unknown[]).length,
+    });
   });
 }
 
@@ -120,12 +112,10 @@ export function reconcileValtioArrayWithDelta(
   if (!valtioProxy) return;
 
   context.withReconcilingLock(() => {
-    try {
-      console.log('[valtio-yjs] reconcileValtioArrayWithDelta start', {
-        delta,
-        valtioLength: (valtioProxy as unknown[]).length,
-      });
-    } catch { void 0; }
+    console.log('[valtio-yjs] reconcileValtioArrayWithDelta start', {
+      delta,
+      valtioLength: (valtioProxy as unknown[]).length,
+    });
 
     let position = 0;
     for (const d of delta) {
@@ -151,11 +141,9 @@ export function reconcileValtioArrayWithDelta(
       // Unknown or empty op: skip
     }
 
-    try {
-      console.log('[valtio-yjs] reconcileValtioArrayWithDelta end', {
-        valtioLength: (valtioProxy as unknown[]).length,
-      });
-    } catch { void 0; }
+    console.log('[valtio-yjs] reconcileValtioArrayWithDelta end', {
+      valtioLength: (valtioProxy as unknown[]).length,
+    });
   });
 }
 
