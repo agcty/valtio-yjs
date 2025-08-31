@@ -1,7 +1,6 @@
 import * as Y from 'yjs';
-import { isYArray, isYMap, isYSharedContainer } from './guards.js';
+import { isYArray, isYMap } from './guards.js';
 import { reconcileValtioArray, reconcileValtioMap } from './reconciler.js';
-import { plainObjectToYType, yTypeToPlainObject } from './converter.js';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
 import type { YSharedContainer } from './yjs-types.js';
 
@@ -15,7 +14,6 @@ export type AnySharedType = YSharedContainer;
 type PendingEntry = {
   compute: () => unknown;
   after?: (yValue: unknown) => void; // used for map keys only
-  plain?: unknown;
 };
 
 export class SynchronizationContext {
@@ -109,15 +107,13 @@ export class SynchronizationContext {
     yArray: Y.Array<unknown>,
     index: number,
     computeYValue: () => unknown,
-    _postUpgrade?: (yValue: unknown) => void,
-    plainSnapshot?: unknown,
   ): void {
     let perArr = this.pendingArraySets.get(yArray);
     if (!perArr) {
       perArr = new Map();
       this.pendingArraySets.set(yArray, perArr);
     }
-    perArr.set(index, { compute: computeYValue, plain: plainSnapshot });
+    perArr.set(index, { compute: computeYValue });
     this.scheduleFlush();
   }
 
@@ -241,7 +237,7 @@ export class SynchronizationContext {
       // Defer insert value materialization until after deletes are applied.
       // This lets us detect that a shared type became detached by earlier deletes
       // in this same flush and clone it at insert-time to avoid reintegration hazards.
-      type PendingInsert = { plain: unknown };
+      type PendingInsert = { value: unknown };
       const insertsToApply = new Map<number, PendingInsert[]>();
       const sortedSetIndices = Array.from(setsForArray.keys()).sort((a, b) => a - b);
 
@@ -263,28 +259,12 @@ export class SynchronizationContext {
         });
 
 
-        // Model a 'set' as delete + insert at the same index. Snapshot the
-        // plain representation now, before deletes apply, so we can safely
-        // reconstruct a fresh Y type even if the original gets GC'd.
+        // Model a 'set' as delete + insert at the same index. Carry the
+        // computed Y value directly; sets are only allowed when no deletes
+        // exist (push/replace), so this is safe and avoids move semantics.
         indicesToDelete.add(index);
         const existing = insertsToApply.get(index) ?? [];
-        // Choose snapshot source carefully:
-        // - If yValue is a shared type with a doc, derive from Y (authoritative).
-        // - If yValue is a shared type without a doc (prelim), prefer the controller's plain snapshot
-        //   because converting from prelim Y can yield empty content before integration.
-        // - Otherwise, fall back to the provided plain or raw value.
-        let snapshotPlain: unknown;
-        if (isYSharedContainer(yValue)) {
-          const valueDocNow = this.getYDoc(yValue);
-          if (valueDocNow) {
-            snapshotPlain = yTypeToPlainObject(yValue);
-          } else {
-            snapshotPlain = entry.plain ?? yTypeToPlainObject(yValue);
-          }
-        } else {
-          snapshotPlain = entry.plain ?? yValue;
-        }
-        existing.push({ plain: snapshotPlain });
+        existing.push({ value: yValue });
         insertsToApply.set(index, existing);
       }
 
@@ -312,7 +292,7 @@ export class SynchronizationContext {
 
         // Materialize actual items now from the captured plain snapshot so
         // content survives deletes/GC within this transaction.
-        const items: unknown[] = pendingItems.map((p) => plainObjectToYType(p.plain, this));
+        const items: unknown[] = pendingItems.map((p) => p.value);
 
         const targetIndex = index > yArray.length ? yArray.length : index;
         // Inspect first item metadata before insert to detect integration hazards

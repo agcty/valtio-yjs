@@ -133,11 +133,6 @@ function attachValtioArraySubscription(
         yArray,
         idx,
         () => plainObjectToYType(arrProxy[idx], context),
-        undefined,
-        // For pushes/replacements with no deletes, pass plain snapshot only if object-like
-        Array.isArray(arrProxy[idx]) || (arrProxy[idx] && typeof arrProxy[idx] === 'object')
-          ? JSON.parse(JSON.stringify(arrProxy[idx]))
-          : arrProxy[idx],
       );
     }
   }, true);
