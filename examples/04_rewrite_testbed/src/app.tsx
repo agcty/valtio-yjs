@@ -11,6 +11,27 @@ const doc2 = new Y.Doc();
 // Tag relayed updates with an origin so we can ignore them on the receiving side.
 const RELAY_ORIGIN = Symbol("relay-origin");
 
+// Helper to log state of a doc's sharedState map
+function logDocState(doc: Y.Doc, label: string, docName: string) {
+  try {
+    const map = doc.getMap("sharedState");
+    // Convert Y.Map to plain object for logging
+    const obj: any = {};
+    for (const [k, v] of map.entries()) {
+      if (v instanceof Y.Map) {
+        obj[k] = Object.fromEntries((v as Y.Map<any>).entries());
+      } else if (v instanceof Y.Array) {
+        obj[k] = (v as Y.Array<any>).toArray();
+      } else {
+        obj[k] = v;
+      }
+    }
+    console.log(`[${docName}] ${label}:`, JSON.stringify(obj, null, 2));
+  } catch (e) {
+    console.log(`[${docName}] ${label}: <error reading state>`);
+  }
+}
+
 // When doc1 changes, apply the update to doc2
 doc1.on("update", (update: Uint8Array, origin: unknown) => {
   if (origin === RELAY_ORIGIN) return;
@@ -18,6 +39,8 @@ doc1.on("update", (update: Uint8Array, origin: unknown) => {
     Y.applyUpdate(doc2, update);
   }, RELAY_ORIGIN);
   console.log("Relay Doc1 -> Doc2 (bytes:", update.byteLength, ")");
+  logDocState(doc1, "Doc1 state after local change", "Doc1");
+  logDocState(doc2, "Doc2 state after receiving update", "Doc2");
 });
 // When doc2 changes, apply the update to doc1
 doc2.on("update", (update: Uint8Array, origin: unknown) => {
@@ -26,10 +49,14 @@ doc2.on("update", (update: Uint8Array, origin: unknown) => {
     Y.applyUpdate(doc1, update);
   }, RELAY_ORIGIN);
   console.log("Relay Doc2 -> Doc1 (bytes:", update.byteLength, ")");
+  logDocState(doc2, "Doc2 state after local change", "Doc2");
+  logDocState(doc1, "Doc1 state after receiving update", "Doc1");
 });
 
 // --- 3. CREATE TWO INDEPENDENT PROXIES ---
 // Let's test a Map-based root state
+const yRoot1 = doc1.getMap("sharedState");
+const yRoot2 = doc2.getMap("sharedState");
 const {
   proxy: proxy1,
   dispose: dispose1,
@@ -66,13 +93,32 @@ bootstrap1({
 const ClientView = ({
   name,
   stateProxy,
+  yRoot,
 }: {
   name: string;
   stateProxy: typeof proxy1;
+  yRoot: Y.Map<unknown>;
 }) => {
   const snap = useSnapshot(stateProxy, { sync: true });
   const proxyRef = useRef(stateProxy);
   const [editingId, setEditingId] = useState<number | null>(null);
+
+  const logState = (label: string) => {
+    try {
+      console.log(`[testbed][${name}] ${label}`, JSON.stringify(proxyRef.current, null, 2));
+    } catch {
+      // ignore stringify errors
+    }
+    // Improved logs: show state after microtask (post-reconciliation) and raw Yjs root
+    queueMicrotask(() => {
+      try {
+        console.log(`[testbed][${name}] ${label} (after microtask)`, JSON.stringify(proxyRef.current, null, 2));
+      } catch {}
+      try {
+        console.log(`[testbed][${name}] ${label} (yRoot.toJSON)`, yRoot.toJSON());
+      } catch {}
+    });
+  };
 
   const addItem = () => {
     const id = Date.now();
@@ -81,6 +127,7 @@ const ClientView = ({
       text: `Item from ${name}`,
     };
     setEditingId(id);
+    logState('items.add');
   };
 
   const deleteLastItem = () => {
@@ -89,6 +136,7 @@ const ClientView = ({
       const lastKey = keys.pop();
       if (lastKey) {
         delete proxyRef.current.items[lastKey];
+        logState(`items.delete(${lastKey})`);
       }
     }
   };
@@ -99,6 +147,7 @@ const ClientView = ({
     const arr = (proxyRef.current as any).list as any[];
     arr[arr.length] = { id, text: `List item ${name}` };
     setEditingId(id);
+    logState('list.push');
   };
 
   const replaceFirstListItem = () => {
@@ -107,12 +156,14 @@ const ClientView = ({
     const id = arr[0]?.id ?? Date.now();
     arr[0] = { id, text: `Replaced by ${name}` };
     setEditingId(id);
+    logState('list.replace(0)');
   };
 
   const deleteFirstListItem = () => {
     const arr = (proxyRef.current as any).list as any[];
     if (arr.length === 0) return;
-    delete arr[0];
+    arr.splice(0, 1);
+    logState('list.splice(0, 1)');
   };
 
   const insertWithGap = () => {
@@ -122,6 +173,7 @@ const ClientView = ({
     const id = Date.now();
     arr[targetIndex] = { id, text: `Gap insert by ${name}` };
     setEditingId(id);
+    logState(`list.set(${targetIndex})`);
   };
 
   return (
@@ -198,6 +250,7 @@ const ClientView = ({
                     if (index <= 0) return;
                     const [moved] = arr.splice(index, 1);
                     arr.splice(index - 1, 0, moved);
+                    logState(`list.move(${index} -> ${index - 1})`);
                   }}
                 >
                   Up
@@ -208,6 +261,7 @@ const ClientView = ({
                     if (index >= arr.length - 1) return;
                     const [moved] = arr.splice(index, 1);
                     arr.splice(index + 1, 0, moved);
+                    logState(`list.move(${index} -> ${index + 1})`);
                   }}
                 >
                   Down
@@ -215,7 +269,8 @@ const ClientView = ({
                 <button
                   onClick={() => {
                     const arr = (proxyRef.current as any).list as any[];
-                    delete arr[index];
+                    arr.splice(index, 1);
+                    logState(`list.splice(${index}, 1)`);
                   }}
                 >
                   Delete
@@ -267,6 +322,7 @@ const ClientView = ({
                     onClick={() => {
                       const key = String(item.id);
                       delete (proxyRef.current.items as any)[key];
+                      logState(`items.delete(${key})`);
                     }}
                   >
                     Delete
@@ -353,8 +409,8 @@ const App = () => {
       </div>
 
       <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
-        <ClientView name="Client 1" stateProxy={proxy1} />
-        <ClientView name="Client 2" stateProxy={proxy2} />
+        <ClientView name="Client 1" stateProxy={proxy1} yRoot={yRoot1} />
+        <ClientView name="Client 2" stateProxy={proxy2} yRoot={yRoot2} />
       </div>
 
       {(client1Disconnected || client2Disconnected) && (

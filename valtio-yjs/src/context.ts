@@ -1,5 +1,7 @@
 import * as Y from 'yjs';
 import { isYArray, isYMap, isYSharedContainer } from './guards.js';
+import { reconcileValtioArray, reconcileValtioMap } from './reconciler.js';
+import { plainObjectToYType, yTypeToPlainObject } from './converter.js';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
 import type { YSharedContainer } from './yjs-types.js';
 
@@ -10,7 +12,12 @@ import type { YSharedContainer } from './yjs-types.js';
 export type AnySharedType = YSharedContainer;
 
 // Internal type used for pending compute entries in batched operations
-type PendingEntry = { compute: () => unknown; after?: (yValue: unknown) => void };
+type PendingEntry = {
+  compute: () => unknown;
+  after?: (yValue: unknown) => void;
+  plain?: unknown;
+  isGapSet?: boolean;
+};
 
 export class SynchronizationContext {
   // Caches: Y type <-> Valtio proxy
@@ -104,15 +111,15 @@ export class SynchronizationContext {
     index: number,
     computeYValue: () => unknown,
     postUpgrade?: (yValue: unknown) => void,
+    plainSnapshot?: unknown,
+    isGapSet?: boolean,
   ): void {
     let perArr = this.pendingArraySets.get(yArray);
     if (!perArr) {
       perArr = new Map();
       this.pendingArraySets.set(yArray, perArr);
     }
-    perArr.set(index, { compute: computeYValue, after: postUpgrade });
-    const delSet = this.pendingArrayDeletes.get(yArray);
-    if (delSet) delSet.delete(index);
+    perArr.set(index, { compute: computeYValue, after: postUpgrade, plain: plainSnapshot, isGapSet });
     this.scheduleFlush();
   }
 
@@ -123,8 +130,6 @@ export class SynchronizationContext {
       this.pendingArrayDeletes.set(yArray, perArr);
     }
     perArr.add(index);
-    const setMap = this.pendingArraySets.get(yArray);
-    if (setMap) setMap.delete(index);
     this.scheduleFlush();
   }
 
@@ -205,25 +210,16 @@ export class SynchronizationContext {
     }
   }
 
-  // Helper to clone shared Y types when we detect a detached instance re-insert
+  // Helper to clone shared Y types robustly by round-tripping through converters
   private cloneShared(val: unknown): unknown {
-    if (isYMap(val)) {
-      const cloned = new Y.Map<unknown>();
-      for (const [k, v] of val.entries()) {
-        cloned.set(k, this.cloneShared(v));
-      }
-      return cloned;
-    }
-    if (isYArray(val)) {
-      const cloned = new Y.Array<unknown>();
-      const items = val.toArray().map((it) => this.cloneShared(it));
-      if (items.length > 0) cloned.insert(0, items);
-      return cloned;
+    if (isYSharedContainer(val)) {
+      const plain = yTypeToPlainObject(val);
+      return plainObjectToYType(plain, this);
     }
     return val;
   }
 
-  // Execute array operations per-array (delete then set)
+  // Execute array operations per-array using unified delete+insert canonicalization
   private applyArrayOperations(
     arraySets: Map<Y.Array<unknown>, Map<number, PendingEntry>>,
     arrayDeletes: Map<Y.Array<unknown>, Set<number>>,
@@ -233,18 +229,33 @@ export class SynchronizationContext {
     for (const a of arraySets.keys()) allArrays.add(a);
     for (const a of arrayDeletes.keys()) allArrays.add(a);
     for (const yArray of allArrays) {
-      const idxToEntry = arraySets.get(yArray) ?? new Map<number, PendingEntry>();
-      const pendingDeletes = new Set<number>(Array.from(arrayDeletes.get(yArray) ?? []));
-      const indices = Array.from(idxToEntry.keys()).sort((a, b) => a - b);
-      // Apply all deletes in descending order
-      for (const index of Array.from(pendingDeletes).sort((a, b) => b - a)) {
-        const hasDoc = this.hasYDoc(yArray);
-        console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc });
-        if (index >= 0 && index < yArray.length) yArray.delete(index, 1);
+      let setsForArray = arraySets.get(yArray) ?? new Map<number, PendingEntry>();
+      const deletesForArray = arrayDeletes.get(yArray) ?? new Set<number>();
+
+      // Moves not supported at library level: if any deletes exist for this array
+      // in the current batch, ignore all sets (which in this context mostly
+      // represent shifts). This keeps the library focused on structural CRUD
+      // and avoids reinsert/clone complexity for moved items.
+      if (deletesForArray.size > 0) {
+        setsForArray = new Map();
       }
-      // Apply sets (replace/append/fill)
-      for (const index of indices) {
-        const entry = idxToEntry.get(index)!;
+
+      // Phase 1: Canonicalization — unify into deletes and inserts
+      const indicesToDelete = new Set<number>(deletesForArray);
+      // Defer insert value materialization until after deletes are applied.
+      // This lets us detect that a shared type became detached by earlier deletes
+      // in this same flush and clone it at insert-time to avoid reintegration hazards.
+      type PendingInsert = { plain: unknown; after?: (yValue: unknown) => void; allowGapFill?: boolean };
+      const insertsToApply = new Map<number, PendingInsert[]>();
+      const sortedSetIndices = Array.from(setsForArray.keys()).sort((a, b) => a - b);
+
+      // For shift-detection, count only original deletes (not synthetic deletes from sets)
+      const originalDeletesAsc = Array.from(deletesForArray).sort((a, b) => a - b);
+      let deletePtr = 0;
+      let deletesCountThroughIndex = 0;
+
+      for (const index of sortedSetIndices) {
+        const entry = setsForArray.get(index)!;
         const yValue = entry.compute();
         const arrayDoc = this.getYDoc(yArray);
         const valueDoc = this.getYDoc(yValue);
@@ -259,37 +270,146 @@ export class SynchronizationContext {
           parentType: valueParent ? valueParent.constructor.name : null,
           parentIsArray: valueParent === yArray,
         });
-        // Safety: if we are about to insert a detached Y type that belongs to the same doc, clone it to avoid re-integration edge-cases
-        let toInsert = yValue;
-        if (this.shouldCloneBeforeInsert(yValue, yArray)) {
-          console.warn('[valtio-yjs][context] array.set: cloning detached shared type before insert to avoid re-integration issues', {
-            index,
-            type: valueType,
-          });
-          toInsert = this.cloneShared(yValue);
+
+        // Advance delete pointer and compute how many pure deletes affect positions <= this index
+        while (deletePtr < originalDeletesAsc.length && originalDeletesAsc[deletePtr]! <= index) {
+          deletePtr++;
         }
-        if (index >= 0) {
-          if (index < yArray.length) {
-            const hasDoc = this.hasYDoc(yArray);
-            console.log('[valtio-yjs][context] array.replace', { index, length: yArray.length, hasDoc });
-            // Correct replacement order: delete first, then insert
-            yArray.delete(index, 1);
-            yArray.insert(index, [toInsert]);
-          } else if (index === yArray.length) {
-            const hasDoc = this.hasYDoc(yArray);
-            console.log('[valtio-yjs][context] array.append', { index, length: yArray.length, hasDoc });
-            yArray.insert(yArray.length, [toInsert]);
-          } else {
-            const fillCount = index - yArray.length;
-            if (fillCount > 0) yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
-            const hasDoc = this.hasYDoc(yArray);
-            console.log('[valtio-yjs][context] array.fill+append', { index, length: yArray.length, fillCount, hasDoc });
-            yArray.insert(yArray.length, [toInsert]);
+        deletesCountThroughIndex = deletePtr;
+
+        // Skip sets that are just shifts caused by earlier deletes
+        const compareIndex = index + deletesCountThroughIndex;
+        if (compareIndex >= 0 && compareIndex < yArray.length) {
+          const currentAtShiftedIndex = yArray.get(compareIndex);
+          if (currentAtShiftedIndex === yValue) {
+            if (entry.after) {
+              const insertedForAfter = currentAtShiftedIndex;
+              post.push(() => entry.after!(insertedForAfter));
+            }
+            continue;
+          }
+        } else if (index >= 0 && index < yArray.length) {
+          // Also skip true no-op sets (same identity already present at index)
+          const currentAtIndex = yArray.get(index);
+          if (currentAtIndex === yValue) {
+            if (entry.after) {
+              const insertedForAfter = currentAtIndex;
+              post.push(() => entry.after!(insertedForAfter));
+            }
+            continue;
           }
         }
-        if (entry.after) {
-          const insertedForAfter = toInsert;
-          post.push(() => entry.after!(insertedForAfter));
+
+        // Model a 'set' as delete + insert at the same index. Snapshot the
+        // plain representation now, before deletes apply, so we can safely
+        // reconstruct a fresh Y type even if the original gets GC'd.
+        indicesToDelete.add(index);
+        const existing = insertsToApply.get(index) ?? [];
+        // Choose snapshot source carefully:
+        // - If yValue is a shared type with a doc, derive from Y (authoritative).
+        // - If yValue is a shared type without a doc (prelim), prefer the controller's plain snapshot
+        //   because converting from prelim Y can yield empty content before integration.
+        // - Otherwise, fall back to the provided plain or raw value.
+        let snapshotPlain: unknown;
+        if (isYSharedContainer(yValue)) {
+          const valueDocNow = this.getYDoc(yValue);
+          if (valueDocNow) {
+            snapshotPlain = yTypeToPlainObject(yValue);
+          } else {
+            snapshotPlain = entry.plain ?? yTypeToPlainObject(yValue);
+          }
+        } else {
+          snapshotPlain = entry.plain ?? yValue;
+        }
+        existing.push({ plain: snapshotPlain, after: entry.after, allowGapFill: entry.isGapSet === true });
+        insertsToApply.set(index, existing);
+      }
+
+      // Phase 2: Execute deletes in descending order to avoid index shifts
+      const sortedDeletes = Array.from(indicesToDelete).sort((a, b) => b - a);
+      for (const index of sortedDeletes) {
+        const hasDoc = this.hasYDoc(yArray);
+        console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc });
+        if (index >= 0 && index < yArray.length) yArray.delete(index, 1);
+      }
+
+      // Phase 3: Execute inserts in descending order using precomputed values
+      const sortedInsertIndices = Array.from(insertsToApply.keys()).sort((a, b) => b - a);
+      for (const index of sortedInsertIndices) {
+        const pendingItems = insertsToApply.get(index)!;
+
+        // Materialize actual items now from the captured plain snapshot so
+        // content survives deletes/GC within this transaction.
+        const items: unknown[] = pendingItems.map((p) => {
+          const v = plainObjectToYType(p.plain, this);
+          if (p.after) {
+            const insertedForAfter = v;
+            post.push(() => p.after!(insertedForAfter));
+          }
+          return v;
+        });
+
+        let targetIndex = index;
+        if (index > yArray.length) {
+          const firstMeta = pendingItems[0];
+          if (firstMeta && firstMeta.allowGapFill) {
+            const fillCount = index - yArray.length;
+            if (fillCount > 0) {
+              yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
+            }
+          } else {
+            targetIndex = yArray.length; // clamp to append to avoid unintended null gaps
+          }
+        }
+        // Inspect first item metadata before insert to detect integration hazards
+        const arrayDocNow = this.getYDoc(yArray);
+        const first = items[0];
+        const firstDoc = this.getYDoc(first);
+        const firstParent = this.getParent(first);
+        const firstType = isYMap(first) ? 'Y.Map' : isYArray(first) ? 'Y.Array' : typeof first;
+        if (targetIndex === yArray.length) {
+          const hasDoc = this.hasYDoc(yArray);
+          console.log('[valtio-yjs][context] array.append', { index: targetIndex, length: yArray.length, hasDoc });
+          console.log('[valtio-yjs][context] array.insert.inspect', {
+            index: targetIndex,
+            count: items.length,
+            firstType,
+            firstHasDoc: !!firstDoc,
+            arrayHasDoc: !!arrayDocNow,
+            sameDoc: !!firstDoc && !!arrayDocNow ? firstDoc === arrayDocNow : undefined,
+            firstParentType: firstParent ? firstParent.constructor.name : null,
+            firstParentIsArray: firstParent === yArray,
+          });
+          yArray.insert(yArray.length, items);
+          // After integration, reconcile inserted shared containers locally to populate proxies
+          for (const it of items) {
+            if (isYMap(it)) {
+              post.push(() => reconcileValtioMap(this, it, arrayDocNow!));
+            } else if (isYArray(it)) {
+              post.push(() => reconcileValtioArray(this, it, arrayDocNow!));
+            }
+          }
+        } else if (targetIndex < yArray.length) {
+          const hasDoc = this.hasYDoc(yArray);
+          console.log('[valtio-yjs][context] array.insert', { index: targetIndex, length: yArray.length, hasDoc });
+          console.log('[valtio-yjs][context] array.insert.inspect', {
+            index: targetIndex,
+            count: items.length,
+            firstType,
+            firstHasDoc: !!firstDoc,
+            arrayHasDoc: !!arrayDocNow,
+            sameDoc: !!firstDoc && !!arrayDocNow ? firstDoc === arrayDocNow : undefined,
+            firstParentType: firstParent ? firstParent.constructor.name : null,
+            firstParentIsArray: firstParent === yArray,
+          });
+          yArray.insert(targetIndex, items);
+          for (const it of items) {
+            if (isYMap(it)) {
+              post.push(() => reconcileValtioMap(this, it, arrayDocNow!));
+            } else if (isYArray(it)) {
+              post.push(() => reconcileValtioArray(this, it, arrayDocNow!));
+            }
+          }
         }
       }
     }
@@ -311,8 +431,7 @@ export class SynchronizationContext {
   private shouldCloneBeforeInsert(yValue: unknown, yArray: Y.Array<unknown>): boolean {
     const valueDoc = this.getYDoc(yValue);
     const arrayDoc = this.getYDoc(yArray);
-    const valueParent = this.getParent(yValue);
-    return isYSharedContainer(yValue) && !!valueDoc && !!arrayDoc && valueDoc === arrayDoc && valueParent === null;
+    return isYSharedContainer(yValue) && !!valueDoc && !!arrayDoc && valueDoc === arrayDoc;
   }
 }
 

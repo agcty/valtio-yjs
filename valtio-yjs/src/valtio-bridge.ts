@@ -107,17 +107,38 @@ function attachValtioArraySubscription(
         sets.set(idx, op[2]);
       }
     }
+    // Phase 2: enqueue high-level operations
+    // Structural batch: if there are deletes, keep only replacement sets where index is also deleted.
+    if (deletes.size > 0) {
+      const indicesToDelete = Array.from(deletes.keys()).sort((a, b) => b - a);
+      const replacementSetIndices = Array.from(sets.keys()).filter((i) => deletes.has(i)).sort((a, b) => a - b);
+      console.log('[valtio-yjs][controller][array] categorized (structural)', {
+        deletes: indicesToDelete,
+        replacementSets: replacementSetIndices,
+        setsIgnored: Array.from(sets.keys()).filter((i) => !deletes.has(i)),
+      });
+      // Enqueue deletes first (descending)
+      for (const index of indicesToDelete) {
+        console.log('[valtio-yjs][controller][array] enqueue.delete (structural)', { index });
+        context.enqueueArrayDelete(yArray, index);
+      }
+      // Then enqueue replacement set(s) at same indices
+      for (const idx of replacementSetIndices) {
+        console.log('[valtio-yjs][controller][array] enqueue.set (replacement)', { index: idx });
+        context.enqueueArraySet(
+          yArray,
+          idx,
+          () => plainObjectToYType(arrProxy[idx], context),
+          (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, idx, yValue, doc),
+        );
+      }
+      return;
+    }
+
     console.log('[valtio-yjs][controller][array] categorized', {
-      deletes: Array.from(deletes.keys()),
+      deletes: [],
       sets: Array.from(sets.keys()),
     });
-
-    // Phase 2: enqueue high-level operations
-    // For stability, do not emit explicit moves; rely on set/delete path only
-    for (const [index] of deletes.entries()) {
-      console.log('[valtio-yjs][controller][array] enqueue.delete', { index });
-      context.enqueueArrayDelete(yArray, index);
-    }
     for (const [idx] of sets.entries()) {
       console.log('[valtio-yjs][controller][array] enqueue.set', { index: idx });
       context.enqueueArraySet(
@@ -125,6 +146,21 @@ function attachValtioArraySubscription(
         idx,
         () => plainObjectToYType(arrProxy[idx], context),
         (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, idx, yValue, doc),
+        // Pass a plain snapshot so context can reconstruct even if value isn't integrated yet
+        Array.isArray(arrProxy[idx]) || (arrProxy[idx] && typeof arrProxy[idx] === 'object')
+          ? JSON.parse(JSON.stringify(arrProxy[idx]))
+          : arrProxy[idx],
+        false,
+      );
+      context.enqueueArraySet(
+        yArray,
+        idx,
+        () => plainObjectToYType(arrProxy[idx], context),
+        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, idx, yValue, doc),
+        Array.isArray(arrProxy[idx]) || (arrProxy[idx] && typeof arrProxy[idx] === 'object')
+          ? JSON.parse(JSON.stringify(arrProxy[idx]))
+          : arrProxy[idx],
+        false,
       );
     }
   }, true);
