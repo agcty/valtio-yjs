@@ -33,6 +33,14 @@ export function setupSyncListener(
     if (transaction.origin === VALTIO_YJS_ORIGIN) {
       return;
     }
+    console.log('[valtio-yjs][sync] deep', {
+      events: events.map((e) => ({
+        target: e.target.constructor.name,
+        path: (e.path ?? []).slice(),
+        isArray: e.target instanceof Y.Array,
+        isMap: e.target instanceof Y.Map,
+      })),
+    });
     // Track boundaries to reconcile and capture array deltas when available
     const toReconcile = new Set<AnySharedType>();
     const arrayBoundaryToDelta = new Map<Y.Array<unknown>, YArrayDelta>();

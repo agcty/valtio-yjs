@@ -76,6 +76,13 @@ function upgradeChildIfNeeded(
   }
 }
 
+function debugDescribe(value: unknown): unknown {
+  if (value instanceof Y.Map) return { type: 'Y.Map', size: value.size };
+  if (value instanceof Y.Array) return { type: 'Y.Array', length: value.length };
+  if (value && typeof value === 'object') return { type: 'object', keys: Object.keys(value as Record<string, unknown>).slice(0, 5) };
+  return value;
+}
+
 // Subscribe to a Valtio array proxy and translate top-level index operations
 // into minimal Y.Array operations.
 // Valtio -> Yjs (array):
@@ -106,32 +113,19 @@ function attachValtioArraySubscription(
         sets.set(idx, (op as unknown as [string, [number | string], unknown, unknown])[2]);
       }
     }
+    console.log('[valtio-yjs][controller][array] categorized', {
+      deletes: Array.from(deletes.entries()).map(([i, v]) => [i, debugDescribe(v)]),
+      sets: Array.from(sets.entries()).map(([i, v]) => [i, debugDescribe(v)]),
+    });
 
-    // Phase 2: detect intra-array moves by identity
-    const moves: Array<{ from: number; to: number }> = [];
-    for (const [deleteIndex, deletedValue] of Array.from(deletes.entries())) {
-      if (!deletedValue || typeof deletedValue !== 'object') continue;
-      let matched = false;
-      for (const [setIndex, setValue] of Array.from(sets.entries())) {
-        if (setValue === deletedValue) {
-          moves.push({ from: deleteIndex, to: setIndex });
-          deletes.delete(deleteIndex);
-          sets.delete(setIndex);
-          matched = true;
-          break;
-        }
-      }
-      if (matched) continue;
-    }
-
-    // Phase 3: enqueue high-level operations
-    for (const move of moves) {
-      context.enqueueArrayMove(yArray, move.from, move.to);
-    }
+    // Phase 2: enqueue high-level operations
+    // For stability, do not emit explicit moves; rely on set/delete path only
     for (const [index] of deletes.entries()) {
+      console.log('[valtio-yjs][controller][array] enqueue.delete', { index });
       context.enqueueArrayDelete(yArray, index);
     }
     for (const [idx] of sets.entries()) {
+      console.log('[valtio-yjs][controller][array] enqueue.set', { index: idx, value: debugDescribe((arrProxy as unknown[])[idx]) });
       context.enqueueArraySet(
         yArray,
         idx,

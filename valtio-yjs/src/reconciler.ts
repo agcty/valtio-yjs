@@ -118,7 +118,9 @@ export function reconcileValtioArrayWithDelta(
     });
 
     let position = 0;
+    let step = 0;
     for (const d of delta) {
+      console.log('[valtio-yjs] delta.step', { step: step++, d, position });
       if (d.retain && d.retain > 0) {
         position += d.retain;
         continue;
@@ -134,6 +136,7 @@ export function reconcileValtioArrayWithDelta(
         const converted = d.insert.map((item) =>
           item instanceof Y.Map || item instanceof Y.Array ? createYjsController(context, item as AnySharedType, doc) : item,
         );
+        console.log('[valtio-yjs] delta.insert', { at: position, count: converted.length });
         (valtioProxy as unknown[]).splice(position, 0, ...converted as unknown[]);
         position += converted.length;
         continue;

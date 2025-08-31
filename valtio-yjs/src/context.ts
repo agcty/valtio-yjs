@@ -35,10 +35,6 @@ export class SynchronizationContext {
     Map<number, { compute: () => unknown; after?: (yValue: unknown) => void }>
   >();
   private pendingArrayDeletes = new Map<Y.Array<unknown>, Set<number>>();
-  private pendingArrayMoves = new Map<
-    Y.Array<unknown>,
-    Array<{ from: number; to: number }>
-  >();
 
   withReconcilingLock(fn: () => void): void {
     const previous = this.isReconciling;
@@ -133,15 +129,7 @@ export class SynchronizationContext {
     this.scheduleFlush();
   }
 
-  enqueueArrayMove(yArray: Y.Array<unknown>, from: number, to: number): void {
-    let perArr = this.pendingArrayMoves.get(yArray);
-    if (!perArr) {
-      perArr = [];
-      this.pendingArrayMoves.set(yArray, perArr);
-    }
-    perArr.push({ from, to });
-    this.scheduleFlush();
-  }
+  // Moves are not handled at the library level. Use app-level fractional indexing instead.
 
   private scheduleFlush(): void {
     if (this.flushScheduled) return;
@@ -155,17 +143,24 @@ export class SynchronizationContext {
     if (!this.boundDoc) return;
     const doc = this.boundDoc;
     console.log('[valtio-yjs][context] flush start');
+    // console.log('[valtio-yjs][context] pending', {
+    //   mapSets: Array.from(mapSets.keys()).length,
+    //   mapDeletes: Array.from(mapDeletes.keys()).length,
+    //   arraySets: Array.from(arraySets.keys()).length,
+    //   arrayDeletes: Array.from(arrayDeletes.keys()).length,
+    //   arrayMoves: Array.from(arrayMoves.keys()).length,
+    // });
     // Snapshot pending and clear before running to avoid re-entrancy issues
     const mapSets = this.pendingMapSets;
     const mapDeletes = this.pendingMapDeletes;
     const arraySets = this.pendingArraySets;
     const arrayDeletes = this.pendingArrayDeletes;
-    const arrayMoves = this.pendingArrayMoves;
+    const arrayMoves = new Map<Y.Array<unknown>, Array<{ from: number; to: number }>>();
     this.pendingMapSets = new Map();
     this.pendingMapDeletes = new Map();
     this.pendingArraySets = new Map();
     this.pendingArrayDeletes = new Map();
-    this.pendingArrayMoves = new Map();
+    // no-op
     const post: Array<() => void> = [];
 
     if (
@@ -200,90 +195,85 @@ export class SynchronizationContext {
         }
       }
 
-      // Execute array moves and deletes in a robust order
-      // 1) Build combined delete sets (pure deletes + move sources) and capture move values
-      const combinedDeletes = new Map<Y.Array<unknown>, Set<number>>();
-      const moveInserts = new Map<Y.Array<unknown>, Array<{ to: number; value: unknown }>>();
-      for (const [yArray, moves] of arrayMoves) {
-        let del = combinedDeletes.get(yArray);
-        if (!del) {
-          del = new Set<number>();
-          combinedDeletes.set(yArray, del);
-        }
-        for (const m of moves) {
-          // Capture the value before any mutation
-          const captured = (yArray as Y.Array<unknown>).get(m.from);
-          let inserts = moveInserts.get(yArray);
-          if (!inserts) {
-            inserts = [];
-            moveInserts.set(yArray, inserts);
+      // Execute array operations per-array (delete then set)
+      const allArrays = new Set<Y.Array<unknown>>();
+      for (const a of arraySets.keys()) allArrays.add(a);
+      for (const a of arrayDeletes.keys()) allArrays.add(a);
+      for (const yArray of allArrays) {
+        const idxToEntry = arraySets.get(yArray) ?? new Map<number, { compute: () => unknown; after?: (yValue: unknown) => void }>();
+        const pendingDeletes = new Set<number>(Array.from(arrayDeletes.get(yArray) ?? []));
+        const indices = Array.from(idxToEntry.keys()).sort((a, b) => a - b);
+        // Helper to clone shared Y types when we detect a detached instance re-insert
+        const cloneShared = (val: unknown): unknown => {
+          if (val instanceof Y.Map) {
+            const cloned = new Y.Map<unknown>();
+            for (const [k, v] of val.entries()) {
+              cloned.set(k as string, cloneShared(v));
+            }
+            return cloned;
           }
-          inserts.push({ to: m.to, value: captured });
-          del.add(m.from);
-        }
-      }
-      for (const [yArray, indices] of arrayDeletes) {
-        let del = combinedDeletes.get(yArray);
-        if (!del) {
-          del = new Set<number>();
-          combinedDeletes.set(yArray, del);
-        }
-        for (const i of indices) del.add(i);
-      }
-
-      // 2) Apply all deletes in descending order
-      for (const [yArray, indices] of combinedDeletes) {
-        const sorted = Array.from(indices).sort((a, b) => b - a);
-        for (const index of sorted) {
+          if (val instanceof Y.Array) {
+            const cloned = new Y.Array<unknown>();
+            const items = (val as Y.Array<unknown>).toArray().map((it) => cloneShared(it));
+            if (items.length > 0) cloned.insert(0, items as unknown[]);
+            return cloned;
+          }
+          return val;
+        };
+        // Apply all deletes in descending order
+        for (const index of Array.from(pendingDeletes).sort((a, b) => b - a)) {
           const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
           console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc });
           if (index >= 0 && index < yArray.length) yArray.delete(index, 1);
         }
-      }
-
-      // 3) Insert moved items at adjusted positions after deletes
-      for (const [yArray, inserts] of moveInserts) {
-        const del = combinedDeletes.get(yArray) ?? new Set<number>();
-        const adjusted = inserts.map((ins) => {
-          let shift = 0;
-          for (const d of del) if (d < ins.to) shift++;
-          const target = Math.max(0, Math.min(ins.to - shift, yArray.length));
-          return { to: target, value: ins.value };
-        });
-        // Insert from higher to lower indices to avoid shifting subsequent targets
-        adjusted.sort((a, b) => b.to - a.to);
-        for (const ins of adjusted) {
-          console.log('[valtio-yjs][context] array.move-insert', { to: ins.to, length: yArray.length });
-          (yArray as Y.Array<unknown>).insert(ins.to, [ins.value]);
-        }
-      }
-      // Apply array sets (replace/append/fill)
-      for (const [yArray, idxToEntry] of arraySets) {
-        const indices = Array.from(idxToEntry.keys()).sort((a, b) => a - b);
+        // Apply sets (replace/append/fill)
         for (const index of indices) {
           const entry = idxToEntry.get(index)!;
           const yValue = entry.compute();
+          const arrayDoc = (yArray as unknown as { doc?: Y.Doc | undefined }).doc;
+          const valueDoc = (yValue as unknown as { doc?: Y.Doc | undefined })?.doc;
+          const valueParent = (yValue as unknown as { parent?: Y.AbstractType<unknown> | null })?.parent ?? null;
+          const valueType = yValue instanceof Y.Map ? 'Y.Map' : yValue instanceof Y.Array ? 'Y.Array' : typeof yValue;
+          console.log('[valtio-yjs][context] array.set.compute', {
+            index,
+            type: valueType,
+            valueHasDoc: !!valueDoc,
+            arrayHasDoc: !!arrayDoc,
+            sameDoc: !!valueDoc && !!arrayDoc ? valueDoc === arrayDoc : undefined,
+            parentType: valueParent ? valueParent.constructor.name : null,
+            parentIsArray: valueParent === (yArray as unknown as Y.AbstractType<unknown>),
+          });
+          // Safety: if we are about to insert a detached Y type that belongs to the same doc, clone it to avoid re-integration edge-cases
+          let toInsert = yValue as unknown;
+          if ((yValue instanceof Y.Map || yValue instanceof Y.Array) && valueDoc && arrayDoc && valueDoc === arrayDoc && valueParent === null) {
+            console.warn('[valtio-yjs][context] array.set: cloning detached shared type before insert to avoid re-integration issues', {
+              index,
+              type: valueType,
+            });
+            toInsert = cloneShared(yValue);
+          }
           if (index >= 0) {
             if (index < yArray.length) {
               const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
               console.log('[valtio-yjs][context] array.replace', { index, length: yArray.length, hasDoc });
               // Correct replacement order: delete first, then insert
               yArray.delete(index, 1);
-              yArray.insert(index, [yValue]);
+              yArray.insert(index, [toInsert]);
             } else if (index === yArray.length) {
               const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
               console.log('[valtio-yjs][context] array.append', { index, length: yArray.length, hasDoc });
-              yArray.insert(yArray.length, [yValue]);
+              yArray.insert(yArray.length, [toInsert]);
             } else {
               const fillCount = index - yArray.length;
               if (fillCount > 0) yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
               const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
               console.log('[valtio-yjs][context] array.fill+append', { index, length: yArray.length, fillCount, hasDoc });
-              yArray.insert(yArray.length, [yValue]);
+              yArray.insert(yArray.length, [toInsert]);
             }
           }
           if (entry.after) {
-            post.push(() => entry.after!(yValue));
+            const insertedForAfter = toInsert;
+            post.push(() => entry.after!(insertedForAfter));
           }
         }
       }
