@@ -88,7 +88,7 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
     });
     const newContent = yArray
       .toArray()
-      .map((item) => (item instanceof Y.Map || item instanceof Y.Array ? getOrCreateValtioProxy(context, item as AnySharedType, doc) : item));
+      .map((item) => (isSharedType(item) ? getOrCreateValtioProxy(context, item as AnySharedType, doc) : item));
     console.log('[valtio-yjs] reconcile array splice', newContent.length);
     (valtioProxy as unknown[]).splice(0, (valtioProxy as unknown[]).length, ...newContent as unknown[]);
     console.log('[valtio-yjs] reconcileValtioArray end', {
@@ -133,9 +133,7 @@ export function reconcileValtioArrayWithDelta(
         continue;
       }
       if (d.insert && d.insert.length > 0) {
-        const converted = d.insert.map((item) =>
-          item instanceof Y.Map || item instanceof Y.Array ? getOrCreateValtioProxy(context, item as AnySharedType, doc) : item,
-        );
+        const converted = d.insert.map((item) => (isSharedType(item) ? getOrCreateValtioProxy(context, item as AnySharedType, doc) : item));
         console.log('[valtio-yjs] delta.insert', { at: position, count: converted.length });
         (valtioProxy as unknown[]).splice(position, 0, ...converted as unknown[]);
         position += converted.length;

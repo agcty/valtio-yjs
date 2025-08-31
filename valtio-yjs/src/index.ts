@@ -6,6 +6,7 @@ import { VALTIO_YJS_ORIGIN } from './constants.js';
 export { VALTIO_YJS_ORIGIN } from './constants.js';
 export { syncedText } from './syncedTypes.js';
 import { SynchronizationContext } from './context.js';
+import { isYArray, isYMap } from './guards.js';
 import { reconcileValtioArray, reconcileValtioMap } from './reconciler.js';
 
 export interface CreateYjsProxyOptions<_T> {
@@ -32,12 +33,12 @@ export function createYjsProxy<T extends object>(
 
   // 2. Provide developer-driven bootstrap for initial data.
   const bootstrap = (data: T) => {
-    if ((yRoot instanceof Y.Map && yRoot.size > 0) || (yRoot instanceof Y.Array && yRoot.length > 0)) {
+    if ((isYMap(yRoot) && yRoot.size > 0) || (isYArray(yRoot) && yRoot.length > 0)) {
       console.warn('[valtio-yjs] bootstrap called on a non-empty document. Aborting to prevent data loss.');
       return;
     }
     doc.transact(() => {
-      if (yRoot instanceof Y.Map) {
+      if (isYMap(yRoot)) {
         const record = data as unknown as Record<string, unknown>;
         for (const key of Object.keys(record)) {
           const value = record[key];
@@ -45,7 +46,7 @@ export function createYjsProxy<T extends object>(
             yRoot.set(key, plainObjectToYType(value, context));
           }
         }
-      } else if (yRoot instanceof Y.Array) {
+      } else if (isYArray(yRoot)) {
         const items = (data as unknown as unknown[]).map((v) => plainObjectToYType(v, context));
         if (items.length > 0) yRoot.insert(0, items);
       }
@@ -53,9 +54,9 @@ export function createYjsProxy<T extends object>(
 
     // Our listener ignores our origin to avoid loops, so we must explicitly
     // reconcile locally to materialize the proxy after bootstrap.
-    if (yRoot instanceof Y.Map) {
+    if (isYMap(yRoot)) {
       reconcileValtioMap(context, yRoot, doc);
-    } else if (yRoot instanceof Y.Array) {
+    } else if (isYArray(yRoot)) {
       reconcileValtioArray(context, yRoot, doc);
     }
   };

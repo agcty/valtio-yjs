@@ -37,8 +37,8 @@ export function setupSyncListener(
       events: events.map((e) => ({
         target: e.target.constructor.name,
         path: (e.path ?? []).slice(),
-        isArray: e.target instanceof Y.Array,
-        isMap: e.target instanceof Y.Map,
+        isArray: isYArray(e.target),
+        isMap: isYMap(e.target),
       })),
     });
     // Track boundaries to reconcile and capture array deltas when available

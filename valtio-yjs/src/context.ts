@@ -1,4 +1,5 @@
 import * as Y from 'yjs';
+import { isYArray, isYMap } from './guards.js';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
 
 /**
@@ -198,14 +199,14 @@ export class SynchronizationContext {
         const indices = Array.from(idxToEntry.keys()).sort((a, b) => a - b);
         // Helper to clone shared Y types when we detect a detached instance re-insert
         const cloneShared = (val: unknown): unknown => {
-          if (val instanceof Y.Map) {
+          if (isYMap(val)) {
             const cloned = new Y.Map<unknown>();
             for (const [k, v] of val.entries()) {
               cloned.set(k as string, cloneShared(v));
             }
             return cloned;
           }
-          if (val instanceof Y.Array) {
+          if (isYArray(val)) {
             const cloned = new Y.Array<unknown>();
             const items = (val as Y.Array<unknown>).toArray().map((it) => cloneShared(it));
             if (items.length > 0) cloned.insert(0, items as unknown[]);
@@ -226,7 +227,7 @@ export class SynchronizationContext {
           const arrayDoc = (yArray as unknown as { doc?: Y.Doc | undefined }).doc;
           const valueDoc = (yValue as unknown as { doc?: Y.Doc | undefined })?.doc;
           const valueParent = (yValue as unknown as { parent?: Y.AbstractType<unknown> | null })?.parent ?? null;
-          const valueType = yValue instanceof Y.Map ? 'Y.Map' : yValue instanceof Y.Array ? 'Y.Array' : typeof yValue;
+          const valueType = isYMap(yValue) ? 'Y.Map' : isYArray(yValue) ? 'Y.Array' : typeof yValue;
           console.log('[valtio-yjs][context] array.set.compute', {
             index,
             type: valueType,
@@ -238,7 +239,7 @@ export class SynchronizationContext {
           });
           // Safety: if we are about to insert a detached Y type that belongs to the same doc, clone it to avoid re-integration edge-cases
           let toInsert = yValue as unknown;
-          if ((yValue instanceof Y.Map || yValue instanceof Y.Array) && valueDoc && arrayDoc && valueDoc === arrayDoc && valueParent === null) {
+          if ((isYMap(yValue) || isYArray(yValue)) && valueDoc && arrayDoc && valueDoc === arrayDoc && valueParent === null) {
             console.warn('[valtio-yjs][context] array.set: cloning detached shared type before insert to avoid re-integration issues', {
               index,
               type: valueType,

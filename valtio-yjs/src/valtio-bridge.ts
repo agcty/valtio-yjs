@@ -64,7 +64,7 @@ function upgradeChildIfNeeded(
 ): void {
   const current = (container as Record<string, unknown> | unknown[])[key as keyof typeof container] as unknown;
   const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
-  if (!isAlreadyController && (yValue instanceof Y.Map || yValue instanceof Y.Array)) {
+  if (!isAlreadyController && isSharedType(yValue)) {
     const newController = getOrCreateValtioProxy(context, yValue as AnySharedType, doc);
     context.withReconcilingLock(() => {
       if (Array.isArray(container) && typeof key === 'number') {

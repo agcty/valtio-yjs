@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
 import { SynchronizationContext } from './context.js';
-import { isYArray, isYMap } from './guards.js';
+import { isYArray, isYMap, isYAbstractType } from './guards.js';
 
 /**
  * Recursively converts a Yjs shared type (or primitive) into a plain JavaScript object/array.
@@ -23,7 +23,7 @@ export function yTypeToPlainObject(yValue: unknown): unknown {
  * Recursively converts a plain JavaScript object/array (or primitive) into Yjs shared types.
  */
 export function plainObjectToYType(jsValue: unknown, context: SynchronizationContext): unknown {
-  if (jsValue instanceof Y.AbstractType) {
+  if (isYAbstractType(jsValue)) {
     return jsValue;
   }
   if (jsValue === null || typeof jsValue !== 'object') {
