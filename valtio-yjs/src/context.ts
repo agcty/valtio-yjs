@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { isYArray, isYMap } from './guards.js';
+import { isYArray, isYMap, isYSharedContainer } from './guards.js';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
 import type { YSharedContainer } from './yjs-types.js';
 
@@ -238,7 +238,7 @@ export class SynchronizationContext {
       const indices = Array.from(idxToEntry.keys()).sort((a, b) => a - b);
       // Apply all deletes in descending order
       for (const index of Array.from(pendingDeletes).sort((a, b) => b - a)) {
-        const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+        const hasDoc = this.hasYDoc(yArray);
         console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc });
         if (index >= 0 && index < yArray.length) yArray.delete(index, 1);
       }
@@ -246,9 +246,9 @@ export class SynchronizationContext {
       for (const index of indices) {
         const entry = idxToEntry.get(index)!;
         const yValue = entry.compute();
-        const arrayDoc = (yArray as unknown as { doc?: Y.Doc | undefined }).doc;
-        const valueDoc = (yValue as unknown as { doc?: Y.Doc | undefined })?.doc;
-        const valueParent = (yValue as unknown as { parent?: Y.AbstractType<unknown> | null })?.parent ?? null;
+        const arrayDoc = this.getYDoc(yArray);
+        const valueDoc = this.getYDoc(yValue);
+        const valueParent = this.getParent(yValue);
         const valueType = isYMap(yValue) ? 'Y.Map' : isYArray(yValue) ? 'Y.Array' : typeof yValue;
         console.log('[valtio-yjs][context] array.set.compute', {
           index,
@@ -261,7 +261,7 @@ export class SynchronizationContext {
         });
         // Safety: if we are about to insert a detached Y type that belongs to the same doc, clone it to avoid re-integration edge-cases
         let toInsert = yValue;
-        if ((isYMap(yValue) || isYArray(yValue)) && valueDoc && arrayDoc && valueDoc === arrayDoc && valueParent === null) {
+        if (this.shouldCloneBeforeInsert(yValue, yArray)) {
           console.warn('[valtio-yjs][context] array.set: cloning detached shared type before insert to avoid re-integration issues', {
             index,
             type: valueType,
@@ -270,19 +270,19 @@ export class SynchronizationContext {
         }
         if (index >= 0) {
           if (index < yArray.length) {
-            const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+            const hasDoc = this.hasYDoc(yArray);
             console.log('[valtio-yjs][context] array.replace', { index, length: yArray.length, hasDoc });
             // Correct replacement order: delete first, then insert
             yArray.delete(index, 1);
             yArray.insert(index, [toInsert]);
           } else if (index === yArray.length) {
-            const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+            const hasDoc = this.hasYDoc(yArray);
             console.log('[valtio-yjs][context] array.append', { index, length: yArray.length, hasDoc });
             yArray.insert(yArray.length, [toInsert]);
           } else {
             const fillCount = index - yArray.length;
             if (fillCount > 0) yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
-            const hasDoc = !!(yArray as unknown as { doc?: unknown }).doc;
+            const hasDoc = this.hasYDoc(yArray);
             console.log('[valtio-yjs][context] array.fill+append', { index, length: yArray.length, fillCount, hasDoc });
             yArray.insert(yArray.length, [toInsert]);
           }
@@ -293,6 +293,26 @@ export class SynchronizationContext {
         }
       }
     }
+  }
+
+  // Yjs helpers
+  private hasYDoc(target: unknown): boolean {
+    return !!(target as { doc?: unknown }).doc;
+  }
+
+  private getYDoc(target: unknown): Y.Doc | undefined {
+    return (target as { doc?: Y.Doc | undefined })?.doc;
+  }
+
+  private getParent(target: unknown): Y.AbstractType<unknown> | null {
+    return (target as { parent?: Y.AbstractType<unknown> | null })?.parent ?? null;
+  }
+
+  private shouldCloneBeforeInsert(yValue: unknown, yArray: Y.Array<unknown>): boolean {
+    const valueDoc = this.getYDoc(yValue);
+    const arrayDoc = this.getYDoc(yArray);
+    const valueParent = this.getParent(yValue);
+    return isYSharedContainer(yValue) && !!valueDoc && !!arrayDoc && valueDoc === arrayDoc && valueParent === null;
   }
 }
 
