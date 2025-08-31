@@ -54,13 +54,12 @@ export function setupSyncListener(
         boundary = yRoot;
       }
       toReconcile.add(boundary);
-      // If it's an array event, capture its delta and ensure we reconcile it.
-      if (isYArrayEvent(event)) {
-        const targetArray = event.target;
+      // Only store delta when the event target is the materialized boundary.
+      // For nested, unmaterialized arrays, we fall back to full reconciliation on the boundary.
+      if (isYArrayEvent(event) && event.target === boundary) {
         if (event.changes.delta && event.changes.delta.length > 0) {
-          arrayBoundaryToDelta.set(targetArray, event.changes.delta);
+          arrayBoundaryToDelta.set(boundary as Y.Array<unknown>, event.changes.delta);
         }
-        toReconcile.add(targetArray);
       }
     }
     for (const target of toReconcile) {
@@ -78,6 +77,7 @@ export function setupSyncListener(
   };
 
   yRoot.observeDeep(handleDeep);
+
   return () => {
     yRoot.unobserveDeep(handleDeep);
   };

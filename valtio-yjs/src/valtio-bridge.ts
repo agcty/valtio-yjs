@@ -42,7 +42,6 @@ function isDeleteArrayOp(op: unknown): op is ValtioDeleteArrayOp {
   return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
 }
 
-
 // All caches are moved into SynchronizationContext
 
 // Normalize array path indices coming from Valtio subscribe.
@@ -76,7 +75,6 @@ function upgradeChildIfNeeded(
     });
   }
 }
-
 
 
 // Subscribe to a Valtio array proxy and translate top-level index operations
