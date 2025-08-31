@@ -3,6 +3,13 @@ import { useSnapshot } from "valtio";
 import { createYjsProxy } from "valtio-yjs";
 import { useEffect, useRef, useState } from "react";
 
+// Simple recursive list item type with optional children
+type ListItem = {
+  id: number;
+  text: string;
+  children?: ListItem[];
+};
+
 // --- 1. SETUP TWO Y.DOCS ---
 const doc1 = new Y.Doc();
 const doc2 = new Y.Doc();
@@ -64,7 +71,7 @@ const {
 } = createYjsProxy<{
   message: string;
   items: { [id: string]: { id: number; text: string } };
-  list: { id: number; text: string }[];
+  list: ListItem[];
 }>(doc1, {
   getRoot: (doc: Y.Doc) => doc.getMap("sharedState"),
 });
@@ -72,7 +79,7 @@ const {
 const { proxy: proxy2, dispose: dispose2 } = createYjsProxy<{
   message: string;
   items: { [id: string]: { id: number; text: string } };
-  list: { id: number; text: string }[];
+  list: ListItem[];
 }>(doc2, {
   getRoot: (doc: Y.Doc) => doc.getMap("sharedState"),
   // No initialState here, it should sync from doc1
@@ -84,7 +91,14 @@ bootstrap1({
     1: { id: 1, text: "Item 1" },
   },
   list: [
-    { id: 1, text: "Alpha" },
+    {
+      id: 1,
+      text: "Alpha",
+      children: [
+        { id: 1001, text: "Alpha - Child A" },
+        { id: 1002, text: "Alpha - Child B" },
+      ],
+    },
     { id: 2, text: "Beta" },
   ],
 });
@@ -145,7 +159,7 @@ const ClientView = ({
   const pushListItem = () => {
     const id = Date.now();
     const arr = (proxyRef.current as any).list as any[];
-    arr[arr.length] = { id, text: `List item ${name}` };
+    arr[arr.length] = { id, text: `List item ${name}`, children: [] };
     setEditingId(id);
     logState('list.push');
   };
@@ -154,7 +168,8 @@ const ClientView = ({
     const arr = (proxyRef.current as any).list as any[];
     if (arr.length === 0) return;
     const id = arr[0]?.id ?? Date.now();
-    arr[0] = { id, text: `Replaced by ${name}` };
+    const existingChildren = (arr[0] as any)?.children;
+    arr[0] = { id, text: `Replaced by ${name}`, children: existingChildren };
     setEditingId(id);
     logState('list.replace(0)');
   };
@@ -221,60 +236,153 @@ const ClientView = ({
         {Array.isArray((snap as any).list) && (snap as any).list.length > 0 ? (
           <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
             {((snap as any).list as any[]).map((item: any, index: number) => (
-              <li
-                key={item?.id ?? index}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  marginBottom: "6px",
-                }}
-              >
-                <span style={{ width: 60, color: "#555" }}>
-                  {item ? `#${item.id}` : "<null>"}
-                </span>
-                <input
-                  style={{ flex: 1, padding: "4px" }}
-                  value={item?.text ?? ""}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    const arr = (proxyRef.current as any).list as any[];
-                    if (arr[index]) {
-                      (arr[index] as any).text = v;
-                    }
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    const arr = (proxyRef.current as any).list as any[];
-                    if (index <= 0) return;
-                    const [moved] = arr.splice(index, 1);
-                    arr.splice(index - 1, 0, moved);
-                    logState(`list.move(${index} -> ${index - 1})`);
+              <li key={item?.id ?? index} style={{ marginBottom: "8px" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    marginBottom: "6px",
                   }}
                 >
-                  Up
-                </button>
-                <button
-                  onClick={() => {
-                    const arr = (proxyRef.current as any).list as any[];
-                    if (index >= arr.length - 1) return;
-                    const [moved] = arr.splice(index, 1);
-                    arr.splice(index + 1, 0, moved);
-                    logState(`list.move(${index} -> ${index + 1})`);
-                  }}
-                >
-                  Down
-                </button>
-                <button
-                  onClick={() => {
-                    const arr = (proxyRef.current as any).list as any[];
-                    arr.splice(index, 1);
-                    logState(`list.splice(${index}, 1)`);
-                  }}
-                >
-                  Delete
-                </button>
+                  <span style={{ width: 60, color: "#555" }}>
+                    {item ? `#${item.id}` : "<null>"}
+                  </span>
+                  <input
+                    style={{ flex: 1, padding: "4px" }}
+                    value={item?.text ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      const arr = (proxyRef.current as any).list as any[];
+                      if (arr[index]) {
+                        (arr[index] as any).text = v;
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={() => {
+                      const arr = (proxyRef.current as any).list as any[];
+                      if (index <= 0) return;
+                      const [moved] = arr.splice(index, 1);
+                      arr.splice(index - 1, 0, moved);
+                      logState(`list.move(${index} -> ${index - 1})`);
+                    }}
+                  >
+                    Up
+                  </button>
+                  <button
+                    onClick={() => {
+                      const arr = (proxyRef.current as any).list as any[];
+                      if (index >= arr.length - 1) return;
+                      const [moved] = arr.splice(index, 1);
+                      arr.splice(index + 1, 0, moved);
+                      logState(`list.move(${index} -> ${index + 1})`);
+                    }}
+                  >
+                    Down
+                  </button>
+                  <button
+                    onClick={() => {
+                      const arr = (proxyRef.current as any).list as any[];
+                      arr.splice(index, 1);
+                      logState(`list.splice(${index}, 1)`);
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+                <div style={{ marginLeft: 24 }}>
+                  <div style={{ marginBottom: 6 }}>
+                    <button
+                      onClick={() => {
+                        const arr = (proxyRef.current as any).list as any[];
+                        const target = (arr[index] as any);
+                        if (!Array.isArray(target.children)) target.children = [];
+                        const childId = Date.now();
+                        (target.children as any[])[(target.children as any[]).length] = {
+                          id: childId,
+                          text: `Child of #${item?.id} by ${name}`,
+                        };
+                        setEditingId(childId);
+                        logState(`list[${index}].children.push`);
+                      }}
+                      style={{ marginRight: 6 }}
+                    >
+                      Add Child
+                    </button>
+                  </div>
+                  {Array.isArray(item?.children) && item.children.length > 0 ? (
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                      {(item.children as any[]).map((child: any, cIndex: number) => (
+                        <li
+                          key={child?.id ?? cIndex}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "6px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <span style={{ width: 60, color: "#777" }}>
+                            {child ? `↳ #${child.id}` : "<null>"}
+                          </span>
+                          <input
+                            style={{ flex: 1, padding: "4px" }}
+                            value={child?.text ?? ""}
+                            autoFocus={editingId === child?.id}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              const arr = (proxyRef.current as any).list as any[];
+                              const target = (arr[index] as any);
+                              if (Array.isArray(target.children) && target.children[cIndex]) {
+                                (target.children[cIndex] as any).text = v;
+                              }
+                            }}
+                          />
+                          <button
+                            onClick={() => {
+                              const arr = (proxyRef.current as any).list as any[];
+                              const target = (arr[index] as any);
+                              if (!Array.isArray(target.children)) return;
+                              if (cIndex <= 0) return;
+                              const [moved] = target.children.splice(cIndex, 1);
+                              target.children.splice(cIndex - 1, 0, moved);
+                              logState(`list[${index}].children.move(${cIndex} -> ${cIndex - 1})`);
+                            }}
+                          >
+                            Up
+                          </button>
+                          <button
+                            onClick={() => {
+                              const arr = (proxyRef.current as any).list as any[];
+                              const target = (arr[index] as any);
+                              if (!Array.isArray(target.children)) return;
+                              if (cIndex >= target.children.length - 1) return;
+                              const [moved] = target.children.splice(cIndex, 1);
+                              target.children.splice(cIndex + 1, 0, moved);
+                              logState(`list[${index}].children.move(${cIndex} -> ${cIndex + 1})`);
+                            }}
+                          >
+                            Down
+                          </button>
+                          <button
+                            onClick={() => {
+                              const arr = (proxyRef.current as any).list as any[];
+                              const target = (arr[index] as any);
+                              if (!Array.isArray(target.children)) return;
+                              target.children.splice(cIndex, 1);
+                              logState(`list[${index}].children.splice(${cIndex}, 1)`);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div style={{ color: "#777", fontSize: "12px" }}>No children</div>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
