@@ -12,7 +12,7 @@ import { proxy, subscribe } from 'valtio/vanilla';
 import { plainObjectToYType } from './converter.js';
 import type { AnySharedType } from './context.js';
 import { SynchronizationContext } from './context.js';
-import { isSharedType } from './guards.js';
+import { isSharedType, isYArray, isYMap } from './guards.js';
 // Refined Valtio operation types and guards
 type ValtioMapPath = [string];
 type ValtioArrayPath = [number | string];
@@ -222,10 +222,10 @@ export function getYTypeForValtioProxy(context: SynchronizationContext, obj: obj
  * appropriate Valtio proxy controller for it, creating it if it doesn't exist.
  */
 export function getOrCreateValtioProxy(context: SynchronizationContext, yType: AnySharedType, doc: Y.Doc): object {
-  if (yType instanceof Y.Map) {
+  if (isYMap(yType)) {
     return getOrCreateValtioProxyForYMap(context, yType, doc);
   }
-  if (yType instanceof Y.Array) {
+  if (isYArray(yType)) {
     return getOrCreateValtioProxyForYArray(context, yType, doc) as unknown as object;
   }
   // if (yType instanceof Y.Text) {
