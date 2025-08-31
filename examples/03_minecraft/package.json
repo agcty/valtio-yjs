@@ -23,6 +23,6 @@
     "vite": "latest"
   },
   "scripts": {
-    "dev": "vite"
+    "dev": "PORT=4444 node node_modules/y-webrtc/bin/server.js & vite"
   }
 }
