@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { getOrCreateValtioProxy } from './controller.js';
+import { getOrCreateValtioProxy } from './valtio-bridge.js';
 import { setupSyncListener } from './synchronizer.js';
 import { plainObjectToYType } from './converter.js';
 import { VALTIO_YJS_ORIGIN } from './constants.js';

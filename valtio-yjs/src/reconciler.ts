@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { getOrCreateValtioProxy, getValtioProxyForYType } from './controller.js';
+import { getOrCreateValtioProxy, getValtioProxyForYType } from './valtio-bridge.js';
 import { SynchronizationContext } from './context.js';
 import type { AnySharedType } from './context.js';
 import { isSharedType } from './guards.js';

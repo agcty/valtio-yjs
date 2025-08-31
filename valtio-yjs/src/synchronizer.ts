@@ -10,7 +10,7 @@ import { VALTIO_YJS_ORIGIN } from './constants.js';
 import { reconcileValtioMap, reconcileValtioArray, reconcileValtioArrayWithDelta } from './reconciler.js';
 import type { AnySharedType } from './context.js';
 import { SynchronizationContext } from './context.js';
-import { getValtioProxyForYType } from './controller.js';
+import { getValtioProxyForYType } from './valtio-bridge.js';
 import { isYArrayEvent, type YArrayDelta } from './yjs-events.js';
 import { isYArray, isYMap } from './guards.js';
 // Synchronization strategy
