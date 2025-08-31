@@ -51,3 +51,15 @@
   - Add a reconciliation lock at the Valtio layer: mark a critical section so controller-proxy subscriptions no-op while the reconciler (or post-transaction eager upgrades) mutate the proxy.
 - Decision: Use a reconciliation lock (`withReconcilingLock`).
 - Rationale: Separates responsibilities and keeps flows one-way during inbound updates. The origin guard stops Yjs-level echo; the lock stops Valtio-level reflection. Together they avoid feedback loops, reduce redundant writes/relay traffic, and ensure deterministic, cheap reconciliation.
+
+## 7) No implicit array move handling in the library
+
+- Problem: Treating Valtio array "set" ops that appear alongside "delete" ops as content replacements effectively manufactures array moves. Yjs has no native move primitive; recommended practice is handling ordering at the app layer (e.g., fractional indexing).
+- Decision:
+  - If an array batch contains any deletes, ignore all set ops for that array in that flush. The library performs structural CRUD only: delete, push (set with no deletes), and true replace (set with no deletes). Ordering belongs to the application.
+- Consequences:
+  - Eliminates reinsert/clone of existing Y types within the same document and the associated corruption hazards.
+  - Simplifies batching: delete first; apply inserts only when there were sets without deletes.
+  - Removes the need for deep-clone/"plain snapshot" mechanisms during array ops. Converters remain only at boundaries (bootstrap, creating new items for push/replace), not for runtime cloning.
+  - After array inserts, reconcile inserted Y.Map/Y.Array locally to materialize Valtio proxies immediately.
+  - Aligns library behavior with Yjs first principles and avoids timing races.
