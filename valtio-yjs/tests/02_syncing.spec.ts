@@ -2,8 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { proxy } from 'valtio/vanilla';
-import { bind } from 'valtio-yjs';
+import { createYjsProxy } from 'valtio-yjs';
 
 describe('https://codesandbox.io/s/ni1fk', () => {
   it('update proxy value through ydoc', async () => {
@@ -17,27 +16,26 @@ describe('https://codesandbox.io/s/ni1fk', () => {
       Y.applyUpdate(doc1, update);
     });
 
-    const p1 = proxy<{ foo?: string }>({});
-    const m1 = doc1.getMap('map');
-    bind(p1, m1);
-
-    const p2 = proxy<{ foo?: string }>({});
-    const m2 = doc2.getMap('map');
-    bind(p2, m2);
+    const { proxy: p1 } = createYjsProxy<{ foo?: string }>(doc1, {
+      getRoot: (d) => d.getMap('map'),
+    });
+    const { proxy: p2 } = createYjsProxy<{ foo?: string }>(doc2, {
+      getRoot: (d) => d.getMap('map'),
+    });
 
     p1.foo = 'a';
     await Promise.resolve();
     expect(p1.foo).toBe('a');
-    expect(m1.get('foo')).toBe('a');
-    expect(m2.get('foo')).toBe('a');
+    expect(doc1.getMap('map').get('foo')).toBe('a');
+    expect(doc2.getMap('map').get('foo')).toBe('a');
     expect(p2.foo).toBe('a');
 
     await Promise.resolve();
     p1.foo = 'b';
     await Promise.resolve();
     expect(p1.foo).toBe('b');
-    expect(m1.get('foo')).toBe('b');
-    expect(m2.get('foo')).toBe('b');
+    expect(doc1.getMap('map').get('foo')).toBe('b');
+    expect(doc2.getMap('map').get('foo')).toBe('b');
     expect(p2.foo).toBe('b');
   });
 
@@ -52,27 +50,26 @@ describe('https://codesandbox.io/s/ni1fk', () => {
       Y.applyUpdate(doc1, update);
     });
 
-    const p1 = proxy<{ foo?: { bar?: string } }>({});
-    const m1 = doc1.getMap('map') as any;
-    bind(p1, m1);
-
-    const p2 = proxy<{ foo?: { bar?: string } }>({});
-    const m2 = doc2.getMap('map') as any;
-    bind(p2, m2);
+    const { proxy: p1 } = createYjsProxy<{ foo?: { bar?: string } }>(doc1, {
+      getRoot: (d) => d.getMap('map'),
+    });
+    const { proxy: p2 } = createYjsProxy<{ foo?: { bar?: string } }>(doc2, {
+      getRoot: (d) => d.getMap('map'),
+    });
 
     p1.foo = { bar: 'a' };
     await Promise.resolve();
     expect(p1.foo.bar).toBe('a');
-    expect(m1.get('foo').get('bar')).toBe('a');
-    expect(m2.get('foo').get('bar')).toBe('a');
+    expect((doc1.getMap('map') as any).get('foo').get('bar')).toBe('a');
+    expect((doc2.getMap('map') as any).get('foo').get('bar')).toBe('a');
     expect(p2.foo?.bar).toBe('a');
 
     await Promise.resolve();
     p1.foo.bar = 'b';
     await Promise.resolve();
     expect(p1.foo.bar).toBe('b');
-    expect(m1.get('foo').get('bar')).toBe('b');
-    expect(m2.get('foo').get('bar')).toBe('b');
+    expect((doc1.getMap('map') as any).get('foo').get('bar')).toBe('b');
+    expect((doc2.getMap('map') as any).get('foo').get('bar')).toBe('b');
     expect(p2.foo?.bar).toBe('b');
   });
 });
@@ -89,27 +86,27 @@ describe('nested objects and arrays', () => {
       Y.applyUpdate(doc1, update);
     });
 
-    const p1 = proxy<{ texts: string[] }>({ texts: [] });
-    const m1 = doc1.getMap('map') as any;
-    bind(p1, m1);
-
-    const p2 = proxy<{ texts: string[] }>({ texts: [] });
-    const m2 = doc2.getMap('map') as any;
-    bind(p2, m2);
+    const { proxy: p1, bootstrap: boot1 } = createYjsProxy<{ texts: string[] }>(doc1, {
+      getRoot: (d) => d.getMap('map'),
+    });
+    const { proxy: p2 } = createYjsProxy<{ texts: string[] }>(doc2, {
+      getRoot: (d) => d.getMap('map'),
+    });
+    boot1({ texts: [] });
 
     p1.texts.push('a');
     await Promise.resolve();
     expect(p1.texts[0]).toBe('a');
-    expect(m1.get('texts').get(0)).toBe('a');
-    expect(m2.get('texts').get(0)).toBe('a');
+    expect((doc1.getMap('map') as any).get('texts').get(0)).toBe('a');
+    expect((doc2.getMap('map') as any).get('texts').get(0)).toBe('a');
     expect(p2.texts[0]).toBe('a');
 
     await Promise.resolve();
     p1.texts.push('b');
     await Promise.resolve();
     expect(p1.texts[1]).toBe('b');
-    expect(m1.get('texts').get(1)).toBe('b');
-    expect(m2.get('texts').get(1)).toBe('b');
+    expect((doc1.getMap('map') as any).get('texts').get(1)).toBe('b');
+    expect((doc2.getMap('map') as any).get('texts').get(1)).toBe('b');
     expect(p2.texts[1]).toBe('b');
   });
 
@@ -125,27 +122,27 @@ describe('nested objects and arrays', () => {
     });
 
     type FooObj = { foo: string };
-    const p1 = proxy<FooObj[]>([]);
-    const a1 = doc1.getArray<FooObj>('arr');
-    bind(p1, a1);
-
-    const p2 = proxy<FooObj[]>([]);
-    const a2 = doc2.getArray<FooObj>('arr');
-    bind(p2, a2);
+    const { proxy: p1, bootstrap: boot1 } = createYjsProxy<FooObj[]>(doc1, {
+      getRoot: (d) => d.getArray('arr'),
+    });
+    const { proxy: p2 } = createYjsProxy<FooObj[]>(doc2, {
+      getRoot: (d) => d.getArray('arr'),
+    });
+    boot1([]);
 
     p1.push({ foo: 'a' });
     await Promise.resolve();
     expect(p1[0]!.foo).toBe('a');
-    expect((a1.get(0) as unknown as Y.Map<FooObj>).get('foo')).toBe('a');
-    expect((a2.get(0) as unknown as Y.Map<FooObj>).get('foo')).toBe('a');
+    expect((doc1.getArray('arr').get(0) as unknown as Y.Map<FooObj>).get('foo')).toBe('a');
+    expect((doc2.getArray('arr').get(0) as unknown as Y.Map<FooObj>).get('foo')).toBe('a');
     expect(p2[0]!.foo).toBe('a');
 
     await Promise.resolve();
     p1.push({ foo: 'b' });
     await Promise.resolve();
     expect(p1[1]!.foo).toBe('b');
-    expect((a1.get(1) as unknown as Y.Map<FooObj>).get('foo')).toBe('b');
-    expect((a2.get(1) as unknown as Y.Map<FooObj>).get('foo')).toBe('b');
+    expect((doc1.getArray('arr').get(1) as unknown as Y.Map<FooObj>).get('foo')).toBe('b');
+    expect((doc2.getArray('arr').get(1) as unknown as Y.Map<FooObj>).get('foo')).toBe('b');
     expect(p2[1]!.foo).toBe('b');
   });
 
@@ -160,27 +157,27 @@ describe('nested objects and arrays', () => {
       Y.applyUpdate(doc1, update);
     });
 
-    const p1 = proxy<string[][]>([]);
-    const a1 = doc1.getArray<string[]>('arr');
-    bind(p1, a1);
-
-    const p2 = proxy<string[][]>([]);
-    const a2 = doc2.getArray<string[]>('arr');
-    bind(p2, a2);
+    const { proxy: p1, bootstrap: boot1 } = createYjsProxy<string[][]>(doc1, {
+      getRoot: (d) => d.getArray('arr'),
+    });
+    const { proxy: p2 } = createYjsProxy<string[][]>(doc2, {
+      getRoot: (d) => d.getArray('arr'),
+    });
+    boot1([]);
 
     p1.push(['a']);
     await Promise.resolve();
     expect(p1[0]![0]).toBe('a');
-    expect((a1.get(0) as unknown as Y.Array<string[]>).get(0)).toBe('a');
-    expect((a2.get(0) as unknown as Y.Array<string[]>).get(0)).toBe('a');
+    expect((doc1.getArray('arr').get(0) as unknown as Y.Array<string[]>).get(0)).toBe('a');
+    expect((doc2.getArray('arr').get(0) as unknown as Y.Array<string[]>).get(0)).toBe('a');
     expect(p2[0]![0]).toBe('a');
 
     await Promise.resolve();
     p1.push(['b']);
     await Promise.resolve();
     expect(p1[1]![0]).toBe('b');
-    expect((a1.get(1) as unknown as Y.Array<string[]>).get(0)).toBe('b');
-    expect((a2.get(1) as unknown as Y.Array<string[]>).get(0)).toBe('b');
+    expect((doc1.getArray('arr').get(1) as unknown as Y.Array<string[]>).get(0)).toBe('b');
+    expect((doc2.getArray('arr').get(1) as unknown as Y.Array<string[]>).get(0)).toBe('b');
     expect(p2[1]![0]).toBe('b');
   });
 });
