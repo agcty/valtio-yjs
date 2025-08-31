@@ -143,13 +143,6 @@ export class SynchronizationContext {
     if (!this.boundDoc) return;
     const doc = this.boundDoc;
     console.log('[valtio-yjs][context] flush start');
-    // console.log('[valtio-yjs][context] pending', {
-    //   mapSets: Array.from(mapSets.keys()).length,
-    //   mapDeletes: Array.from(mapDeletes.keys()).length,
-    //   arraySets: Array.from(arraySets.keys()).length,
-    //   arrayDeletes: Array.from(arrayDeletes.keys()).length,
-    //   arrayMoves: Array.from(arrayMoves.keys()).length,
-    // });
     // Snapshot pending and clear before running to avoid re-entrancy issues
     const mapSets = this.pendingMapSets;
     const mapDeletes = this.pendingMapDeletes;
