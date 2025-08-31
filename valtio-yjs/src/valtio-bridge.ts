@@ -1,4 +1,4 @@
-// Controller layer
+// Bridge/Router layer
 //
 // Responsibility:
 // - Materialize real Valtio proxies for Yjs shared types (currently Y.Map).
@@ -215,9 +215,6 @@ export function getValtioProxyForYType(context: SynchronizationContext, yType: A
 export function getYTypeForValtioProxy(context: SynchronizationContext, obj: object): AnySharedType | undefined {
   return context.valtioProxyToYType.get(obj);
 }
-
-// Reflection lock is handled by context.isReconciling; no unsubscribe/resubscribe required.
-
 
 
 /**
