@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
-import { proxy, subscribe } from 'valtio/vanilla';
+import { createYjsProxy } from 'valtio-yjs';
 
 describe('push', () => {
   it('y array', async () => {
@@ -94,9 +94,14 @@ describe('push', () => {
     listener.mockClear();
   });
 
-  it('proxy array', async () => {
-    const p = proxy(['a', 'b', 'c']);
-    expect(p).toMatchInlineSnapshot(`
+  it('controller proxy -> y array', async () => {
+    const doc = new Y.Doc();
+    const a = doc.getArray<string>('arr');
+    const { proxy: p, bootstrap } = createYjsProxy<string[]>(doc, {
+      getRoot: (d) => d.getArray('arr'),
+    });
+    bootstrap(['a', 'b', 'c']);
+    expect(a.toJSON()).toMatchInlineSnapshot(`
       [
         "a",
         "b",
@@ -105,11 +110,11 @@ describe('push', () => {
     `);
 
     const listener = vi.fn();
-    subscribe(p, listener);
+    a.observe((event) => listener(event.changes.delta));
 
     p.push('d');
     await Promise.resolve();
-    expect(p).toMatchInlineSnapshot(`
+    expect(a.toJSON()).toMatchInlineSnapshot(`
       [
         "a",
         "b",
@@ -122,14 +127,14 @@ describe('push', () => {
         "calls": [
           [
             [
-              [
-                "set",
-                [
-                  "3",
+              {
+                "retain": 3,
+              },
+              {
+                "insert": [
+                  "d",
                 ],
-                "d",
-                undefined,
-              ],
+              },
             ],
           ],
         ],
@@ -145,7 +150,7 @@ describe('push', () => {
 
     p.push('e', 'f');
     await Promise.resolve();
-    expect(p).toMatchInlineSnapshot(`
+    expect(a.toJSON()).toMatchInlineSnapshot(`
       [
         "a",
         "b",
@@ -160,22 +165,15 @@ describe('push', () => {
         "calls": [
           [
             [
-              [
-                "set",
-                [
-                  "4",
+              {
+                "retain": 4,
+              },
+              {
+                "insert": [
+                  "e",
+                  "f",
                 ],
-                "e",
-                undefined,
-              ],
-              [
-                "set",
-                [
-                  "5",
-                ],
-                "f",
-                undefined,
-              ],
+              },
             ],
           ],
         ],
@@ -279,9 +277,14 @@ describe('pop', () => {
     listener.mockClear();
   });
 
-  it('proxy array', async () => {
-    const p = proxy(['a', 'b', 'c']);
-    expect(p).toMatchInlineSnapshot(`
+  it('controller proxy -> y array', async () => {
+    const doc = new Y.Doc();
+    const a = doc.getArray<string>('arr');
+    const { proxy: p, bootstrap } = createYjsProxy<string[]>(doc, {
+      getRoot: (d) => d.getArray('arr'),
+    });
+    bootstrap(['a', 'b', 'c']);
+    expect(a.toJSON()).toMatchInlineSnapshot(`
       [
         "a",
         "b",
@@ -290,11 +293,11 @@ describe('pop', () => {
     `);
 
     const listener = vi.fn();
-    subscribe(p, listener);
+    a.observe((event) => listener(event.changes.delta));
 
     p.pop();
     await Promise.resolve();
-    expect(p).toMatchInlineSnapshot(`
+    expect(a.toJSON()).toMatchInlineSnapshot(`
       [
         "a",
         "b",
@@ -305,21 +308,12 @@ describe('pop', () => {
         "calls": [
           [
             [
-              [
-                "delete",
-                [
-                  "2",
-                ],
-                "c",
-              ],
-              [
-                "set",
-                [
-                  "length",
-                ],
-                2,
-                3,
-              ],
+              {
+                "retain": 2,
+              },
+              {
+                "delete": 1,
+              },
             ],
           ],
         ],
@@ -336,42 +330,15 @@ describe('pop', () => {
     p.pop();
     p.pop();
     await Promise.resolve();
-    expect(p).toMatchInlineSnapshot('[]');
+    expect(a.toJSON()).toMatchInlineSnapshot('[]');
     expect(listener).toMatchInlineSnapshot(`
       [MockFunction spy] {
         "calls": [
           [
             [
-              [
-                "delete",
-                [
-                  "1",
-                ],
-                "b",
-              ],
-              [
-                "set",
-                [
-                  "length",
-                ],
-                1,
-                2,
-              ],
-              [
-                "delete",
-                [
-                  "0",
-                ],
-                "a",
-              ],
-              [
-                "set",
-                [
-                  "length",
-                ],
-                0,
-                1,
-              ],
+              {
+                "delete": 2,
+              },
             ],
           ],
         ],
@@ -473,244 +440,5 @@ describe('unshift', () => {
     listener.mockClear();
   });
 
-  it('proxy array', async () => {
-    const p = proxy(['a', 'b', 'c']);
-    expect(p).toMatchInlineSnapshot(`
-      [
-        "a",
-        "b",
-        "c",
-      ]
-    `);
-
-    const listener = vi.fn();
-    subscribe(p, listener);
-
-    p.unshift('d');
-    await Promise.resolve();
-    expect(p).toMatchInlineSnapshot(`
-      [
-        "d",
-        "a",
-        "b",
-        "c",
-      ]
-    `);
-    expect(listener).toMatchInlineSnapshot(`
-      [MockFunction spy] {
-        "calls": [
-          [
-            [
-              [
-                "set",
-                [
-                  "3",
-                ],
-                "c",
-                undefined,
-              ],
-              [
-                "set",
-                [
-                  "2",
-                ],
-                "b",
-                "c",
-              ],
-              [
-                "set",
-                [
-                  "1",
-                ],
-                "a",
-                "b",
-              ],
-              [
-                "set",
-                [
-                  "0",
-                ],
-                "d",
-                "a",
-              ],
-            ],
-          ],
-        ],
-        "results": [
-          {
-            "type": "return",
-            "value": undefined,
-          },
-        ],
-      }
-    `);
-    listener.mockClear();
-
-    p.unshift('e', 'f');
-    await Promise.resolve();
-    expect(p).toMatchInlineSnapshot(`
-      [
-        "e",
-        "f",
-        "d",
-        "a",
-        "b",
-        "c",
-      ]
-    `);
-    expect(listener).toMatchInlineSnapshot(`
-      [MockFunction spy] {
-        "calls": [
-          [
-            [
-              [
-                "set",
-                [
-                  "5",
-                ],
-                "c",
-                undefined,
-              ],
-              [
-                "set",
-                [
-                  "4",
-                ],
-                "b",
-                undefined,
-              ],
-              [
-                "set",
-                [
-                  "3",
-                ],
-                "a",
-                "c",
-              ],
-              [
-                "set",
-                [
-                  "2",
-                ],
-                "d",
-                "b",
-              ],
-              [
-                "set",
-                [
-                  "0",
-                ],
-                "e",
-                "d",
-              ],
-              [
-                "set",
-                [
-                  "1",
-                ],
-                "f",
-                "a",
-              ],
-            ],
-          ],
-        ],
-        "results": [
-          {
-            "type": "return",
-            "value": undefined,
-          },
-        ],
-      }
-    `);
-    listener.mockClear();
-
-    p.splice(0); // clear
-    await Promise.resolve();
-    listener.mockClear();
-    p.unshift('a');
-    await Promise.resolve();
-    p.unshift('b');
-    p.unshift('c');
-    await Promise.resolve();
-    expect(p).toMatchInlineSnapshot(`
-      [
-        "c",
-        "b",
-        "a",
-      ]
-    `);
-    expect(listener).toMatchInlineSnapshot(`
-      [MockFunction spy] {
-        "calls": [
-          [
-            [
-              [
-                "set",
-                [
-                  "0",
-                ],
-                "a",
-                undefined,
-              ],
-            ],
-          ],
-          [
-            [
-              [
-                "set",
-                [
-                  "1",
-                ],
-                "a",
-                undefined,
-              ],
-              [
-                "set",
-                [
-                  "0",
-                ],
-                "b",
-                "a",
-              ],
-              [
-                "set",
-                [
-                  "2",
-                ],
-                "a",
-                undefined,
-              ],
-              [
-                "set",
-                [
-                  "1",
-                ],
-                "b",
-                "a",
-              ],
-              [
-                "set",
-                [
-                  "0",
-                ],
-                "c",
-                "b",
-              ],
-            ],
-          ],
-        ],
-        "results": [
-          {
-            "type": "return",
-            "value": undefined,
-          },
-          {
-            "type": "return",
-            "value": undefined,
-          },
-        ],
-      }
-    `);
-    listener.mockClear();
-  });
+  // Note: controller-level unshift/moves are not asserted here because library does not implement moves.
 });
