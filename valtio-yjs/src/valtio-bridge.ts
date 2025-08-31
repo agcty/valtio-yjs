@@ -90,7 +90,7 @@ function attachValtioArraySubscription(
   context: SynchronizationContext,
   yArray: Y.Array<unknown>,
   arrProxy: unknown[],
-  doc: Y.Doc,
+  _doc: Y.Doc,
 ): () => void {
   const unsubscribe = subscribe(arrProxy, (ops: unknown[]) => {
     if (context.isReconciling) return;
@@ -108,29 +108,17 @@ function attachValtioArraySubscription(
       }
     }
     // Phase 2: enqueue high-level operations
-    // Structural batch: if there are deletes, keep only replacement sets where index is also deleted.
+    // If a batch includes any deletes, ignore all sets (moves are not handled here)
     if (deletes.size > 0) {
       const indicesToDelete = Array.from(deletes.keys()).sort((a, b) => b - a);
-      const replacementSetIndices = Array.from(sets.keys()).filter((i) => deletes.has(i)).sort((a, b) => a - b);
       console.log('[valtio-yjs][controller][array] categorized (structural)', {
         deletes: indicesToDelete,
-        replacementSets: replacementSetIndices,
-        setsIgnored: Array.from(sets.keys()).filter((i) => !deletes.has(i)),
+        replacementSets: [],
+        setsIgnored: Array.from(sets.keys()),
       });
-      // Enqueue deletes first (descending)
       for (const index of indicesToDelete) {
         console.log('[valtio-yjs][controller][array] enqueue.delete (structural)', { index });
         context.enqueueArrayDelete(yArray, index);
-      }
-      // Then enqueue replacement set(s) at same indices
-      for (const idx of replacementSetIndices) {
-        console.log('[valtio-yjs][controller][array] enqueue.set (replacement)', { index: idx });
-        context.enqueueArraySet(
-          yArray,
-          idx,
-          () => plainObjectToYType(arrProxy[idx], context),
-          (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, idx, yValue, doc),
-        );
       }
       return;
     }
@@ -145,22 +133,11 @@ function attachValtioArraySubscription(
         yArray,
         idx,
         () => plainObjectToYType(arrProxy[idx], context),
-        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, idx, yValue, doc),
-        // Pass a plain snapshot so context can reconstruct even if value isn't integrated yet
+        undefined,
+        // For pushes/replacements with no deletes, pass plain snapshot only if object-like
         Array.isArray(arrProxy[idx]) || (arrProxy[idx] && typeof arrProxy[idx] === 'object')
           ? JSON.parse(JSON.stringify(arrProxy[idx]))
           : arrProxy[idx],
-        false,
-      );
-      context.enqueueArraySet(
-        yArray,
-        idx,
-        () => plainObjectToYType(arrProxy[idx], context),
-        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, idx, yValue, doc),
-        Array.isArray(arrProxy[idx]) || (arrProxy[idx] && typeof arrProxy[idx] === 'object')
-          ? JSON.parse(JSON.stringify(arrProxy[idx]))
-          : arrProxy[idx],
-        false,
       );
     }
   }, true);

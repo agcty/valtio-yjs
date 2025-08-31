@@ -14,9 +14,8 @@ export type AnySharedType = YSharedContainer;
 // Internal type used for pending compute entries in batched operations
 type PendingEntry = {
   compute: () => unknown;
-  after?: (yValue: unknown) => void;
+  after?: (yValue: unknown) => void; // used for map keys only
   plain?: unknown;
-  isGapSet?: boolean;
 };
 
 export class SynchronizationContext {
@@ -110,16 +109,15 @@ export class SynchronizationContext {
     yArray: Y.Array<unknown>,
     index: number,
     computeYValue: () => unknown,
-    postUpgrade?: (yValue: unknown) => void,
+    _postUpgrade?: (yValue: unknown) => void,
     plainSnapshot?: unknown,
-    isGapSet?: boolean,
   ): void {
     let perArr = this.pendingArraySets.get(yArray);
     if (!perArr) {
       perArr = new Map();
       this.pendingArraySets.set(yArray, perArr);
     }
-    perArr.set(index, { compute: computeYValue, after: postUpgrade, plain: plainSnapshot, isGapSet });
+    perArr.set(index, { compute: computeYValue, plain: plainSnapshot });
     this.scheduleFlush();
   }
 
@@ -210,14 +208,6 @@ export class SynchronizationContext {
     }
   }
 
-  // Helper to clone shared Y types robustly by round-tripping through converters
-  private cloneShared(val: unknown): unknown {
-    if (isYSharedContainer(val)) {
-      const plain = yTypeToPlainObject(val);
-      return plainObjectToYType(plain, this);
-    }
-    return val;
-  }
 
   // Execute array operations per-array using unified delete+insert canonicalization
   private applyArrayOperations(
@@ -234,9 +224,15 @@ export class SynchronizationContext {
 
       // Moves not supported at library level: if any deletes exist for this array
       // in the current batch, ignore all sets (which in this context mostly
-      // represent shifts). This keeps the library focused on structural CRUD
-      // and avoids reinsert/clone complexity for moved items.
-      if (deletesForArray.size > 0) {
+      // represent shifts). To preserve splice semantics, remap deletes to the
+      // earliest set index if sets were present.
+      let spliceBaseIndex: number | null = null;
+      let remapDeleteCount = 0;
+      if (deletesForArray.size > 0 && setsForArray.size > 0) {
+        spliceBaseIndex = Math.min(...Array.from(setsForArray.keys()));
+        remapDeleteCount = deletesForArray.size;
+        setsForArray = new Map();
+      } else if (deletesForArray.size > 0) {
         setsForArray = new Map();
       }
 
@@ -245,14 +241,9 @@ export class SynchronizationContext {
       // Defer insert value materialization until after deletes are applied.
       // This lets us detect that a shared type became detached by earlier deletes
       // in this same flush and clone it at insert-time to avoid reintegration hazards.
-      type PendingInsert = { plain: unknown; after?: (yValue: unknown) => void; allowGapFill?: boolean };
+      type PendingInsert = { plain: unknown };
       const insertsToApply = new Map<number, PendingInsert[]>();
       const sortedSetIndices = Array.from(setsForArray.keys()).sort((a, b) => a - b);
-
-      // For shift-detection, count only original deletes (not synthetic deletes from sets)
-      const originalDeletesAsc = Array.from(deletesForArray).sort((a, b) => a - b);
-      let deletePtr = 0;
-      let deletesCountThroughIndex = 0;
 
       for (const index of sortedSetIndices) {
         const entry = setsForArray.get(index)!;
@@ -271,34 +262,6 @@ export class SynchronizationContext {
           parentIsArray: valueParent === yArray,
         });
 
-        // Advance delete pointer and compute how many pure deletes affect positions <= this index
-        while (deletePtr < originalDeletesAsc.length && originalDeletesAsc[deletePtr]! <= index) {
-          deletePtr++;
-        }
-        deletesCountThroughIndex = deletePtr;
-
-        // Skip sets that are just shifts caused by earlier deletes
-        const compareIndex = index + deletesCountThroughIndex;
-        if (compareIndex >= 0 && compareIndex < yArray.length) {
-          const currentAtShiftedIndex = yArray.get(compareIndex);
-          if (currentAtShiftedIndex === yValue) {
-            if (entry.after) {
-              const insertedForAfter = currentAtShiftedIndex;
-              post.push(() => entry.after!(insertedForAfter));
-            }
-            continue;
-          }
-        } else if (index >= 0 && index < yArray.length) {
-          // Also skip true no-op sets (same identity already present at index)
-          const currentAtIndex = yArray.get(index);
-          if (currentAtIndex === yValue) {
-            if (entry.after) {
-              const insertedForAfter = currentAtIndex;
-              post.push(() => entry.after!(insertedForAfter));
-            }
-            continue;
-          }
-        }
 
         // Model a 'set' as delete + insert at the same index. Snapshot the
         // plain representation now, before deletes apply, so we can safely
@@ -321,16 +284,25 @@ export class SynchronizationContext {
         } else {
           snapshotPlain = entry.plain ?? yValue;
         }
-        existing.push({ plain: snapshotPlain, after: entry.after, allowGapFill: entry.isGapSet === true });
+        existing.push({ plain: snapshotPlain });
         insertsToApply.set(index, existing);
       }
 
       // Phase 2: Execute deletes in descending order to avoid index shifts
-      const sortedDeletes = Array.from(indicesToDelete).sort((a, b) => b - a);
-      for (const index of sortedDeletes) {
-        const hasDoc = this.hasYDoc(yArray);
-        console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc });
-        if (index >= 0 && index < yArray.length) yArray.delete(index, 1);
+      if (spliceBaseIndex !== null && remapDeleteCount > 0) {
+        for (let i = 0; i < remapDeleteCount; i++) {
+          const idx = spliceBaseIndex;
+          const hasDoc = this.hasYDoc(yArray);
+          console.log('[valtio-yjs][context] array.delete', { index: idx, length: yArray.length, hasDoc });
+          if (idx >= 0 && idx < yArray.length) yArray.delete(idx, 1);
+        }
+      } else {
+        const sortedDeletes = Array.from(indicesToDelete).sort((a, b) => b - a);
+        for (const index of sortedDeletes) {
+          const hasDoc = this.hasYDoc(yArray);
+          console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc });
+          if (index >= 0 && index < yArray.length) yArray.delete(index, 1);
+        }
       }
 
       // Phase 3: Execute inserts in descending order using precomputed values
@@ -340,27 +312,9 @@ export class SynchronizationContext {
 
         // Materialize actual items now from the captured plain snapshot so
         // content survives deletes/GC within this transaction.
-        const items: unknown[] = pendingItems.map((p) => {
-          const v = plainObjectToYType(p.plain, this);
-          if (p.after) {
-            const insertedForAfter = v;
-            post.push(() => p.after!(insertedForAfter));
-          }
-          return v;
-        });
+        const items: unknown[] = pendingItems.map((p) => plainObjectToYType(p.plain, this));
 
-        let targetIndex = index;
-        if (index > yArray.length) {
-          const firstMeta = pendingItems[0];
-          if (firstMeta && firstMeta.allowGapFill) {
-            const fillCount = index - yArray.length;
-            if (fillCount > 0) {
-              yArray.insert(yArray.length, Array.from({ length: fillCount }, () => null));
-            }
-          } else {
-            targetIndex = yArray.length; // clamp to append to avoid unintended null gaps
-          }
-        }
+        const targetIndex = index > yArray.length ? yArray.length : index;
         // Inspect first item metadata before insert to detect integration hazards
         const arrayDocNow = this.getYDoc(yArray);
         const first = items[0];
@@ -426,12 +380,6 @@ export class SynchronizationContext {
 
   private getParent(target: unknown): Y.AbstractType<unknown> | null {
     return (target as { parent?: Y.AbstractType<unknown> | null })?.parent ?? null;
-  }
-
-  private shouldCloneBeforeInsert(yValue: unknown, yArray: Y.Array<unknown>): boolean {
-    const valueDoc = this.getYDoc(yValue);
-    const arrayDoc = this.getYDoc(yArray);
-    return isYSharedContainer(yValue) && !!valueDoc && !!arrayDoc && valueDoc === arrayDoc;
   }
 }
 
