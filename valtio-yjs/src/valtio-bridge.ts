@@ -146,7 +146,7 @@ function attachValtioMapSubscription(
   objProxy: Record<string, unknown>,
   doc: Y.Doc,
 ): () => void {
-  const unsubscribe = subscribe(objProxy as unknown as object, (ops: unknown[]) => {
+  const unsubscribe = subscribe(objProxy, (ops: unknown[]) => {
     if (context.isReconciling) return;
     console.log('[valtio-yjs][controller][map] ops', JSON.stringify(ops));
     for (const op of ops) {

@@ -47,7 +47,7 @@ export function setupSyncListener(
     for (const event of events) {
       let boundary: YSharedContainer | null = isYSharedContainer(event.target) ? event.target : null;
       while (boundary && !getValtioProxyForYType(context, boundary)) {
-        const parent = (boundary as Y.AbstractType<unknown>).parent;
+        const parent = boundary.parent;
         boundary = parent && isYSharedContainer(parent) ? parent : null;
       }
       if (!boundary) {
