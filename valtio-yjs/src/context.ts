@@ -1,12 +1,13 @@
 import * as Y from 'yjs';
 import { isYArray, isYMap } from './guards.js';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
+import type { YSharedContainer } from './yjs-types.js';
 
 /**
  * Encapsulates all state for a single valtio-yjs instance.
  * Holds caches, subscription disposers, and a reconciliation flag.
  */
-export type AnySharedType = Y.Map<unknown> | Y.Array<unknown>;
+export type AnySharedType = YSharedContainer;
 
 export class SynchronizationContext {
   // Caches: Y type <-> Valtio proxy

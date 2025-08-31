@@ -8,10 +8,10 @@
 import * as Y from 'yjs';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
 import { reconcileValtioMap, reconcileValtioArray, reconcileValtioArrayWithDelta } from './reconciler.js';
-import type { AnySharedType } from './context.js';
+import type { YSharedContainer, YArrayDelta } from './yjs-types.js';
 import { SynchronizationContext } from './context.js';
 import { getValtioProxyForYType } from './valtio-bridge.js';
-import { isYArrayEvent, type YArrayDelta } from './yjs-events.js';
+import { isYArrayEvent } from './yjs-events.js';
 import { isYArray, isYMap } from './guards.js';
 // Synchronization strategy
 //
@@ -42,15 +42,15 @@ export function setupSyncListener(
       })),
     });
     // Track boundaries to reconcile and capture array deltas when available
-    const toReconcile = new Set<AnySharedType>();
+    const toReconcile = new Set<YSharedContainer>();
     const arrayBoundaryToDelta = new Map<Y.Array<unknown>, YArrayDelta>();
     for (const event of events) {
-      let boundary: AnySharedType | null = event.target as unknown as AnySharedType;
-      while (boundary && !getValtioProxyForYType(context, boundary as AnySharedType)) {
-        boundary = (boundary as unknown as { parent: AnySharedType | null }).parent ?? null;
+      let boundary: YSharedContainer | null = event.target as unknown as YSharedContainer;
+      while (boundary && !getValtioProxyForYType(context, boundary as YSharedContainer)) {
+        boundary = (boundary as unknown as { parent: YSharedContainer | null }).parent ?? null;
       }
       if (!boundary) {
-        boundary = yRoot as unknown as AnySharedType;
+        boundary = yRoot as unknown as YSharedContainer;
       }
       toReconcile.add(boundary);
       // If it's an array event, capture its delta and ensure we reconcile it.
@@ -59,7 +59,7 @@ export function setupSyncListener(
         if (event.changes.delta && event.changes.delta.length > 0) {
           arrayBoundaryToDelta.set(targetArray, event.changes.delta);
         }
-        toReconcile.add(targetArray as unknown as AnySharedType);
+        toReconcile.add(targetArray as unknown as YSharedContainer);
       }
     }
     for (const target of toReconcile) {

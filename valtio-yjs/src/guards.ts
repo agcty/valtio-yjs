@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
-import type { AnySharedType } from './context.js';
+import type { YSharedContainer } from './yjs-types.js';
 
-export function isSharedType(value: unknown): value is AnySharedType {
+export function isYSharedContainer(value: unknown): value is YSharedContainer {
   return value instanceof Y.Map || value instanceof Y.Array;
 }
 

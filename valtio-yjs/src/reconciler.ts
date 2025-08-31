@@ -1,8 +1,8 @@
 import * as Y from 'yjs';
 import { getOrCreateValtioProxy, getValtioProxyForYType } from './valtio-bridge.js';
 import { SynchronizationContext } from './context.js';
-import type { AnySharedType } from './context.js';
-import { isSharedType } from './guards.js';
+import type { YSharedContainer } from './yjs-types.js';
+import { isYSharedContainer } from './guards.js';
 
 // Reconciler layer
 //
@@ -38,9 +38,9 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     for (const key of yKeys) {
       if (!valtioKeys.has(key)) {
         const yValue = yMap.get(key);
-        if (isSharedType(yValue)) {
+        if (isYSharedContainer(yValue)) {
           console.log('[valtio-yjs] materialize nested controller for key', key);
-          (valtioProxy as Record<string, unknown>)[key] = getOrCreateValtioProxy(context, yValue as AnySharedType, doc);
+          (valtioProxy as Record<string, unknown>)[key] = getOrCreateValtioProxy(context, yValue as YSharedContainer, doc);
         } else {
           console.log('[valtio-yjs] set primitive key', key);
           (valtioProxy as Record<string, unknown>)[key] = yValue as unknown;
@@ -60,7 +60,7 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     for (const key of yKeys) {
       if (valtioKeys.has(key)) {
         const yValue = yMap.get(key);
-        if (!isSharedType(yValue)) {
+        if (!isYSharedContainer(yValue)) {
           const current = (valtioProxy as Record<string, unknown>)[key];
           if (current !== yValue) {
             console.log('[valtio-yjs] update primitive key', key);
@@ -88,7 +88,7 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
     });
     const newContent = yArray
       .toArray()
-      .map((item) => (isSharedType(item) ? getOrCreateValtioProxy(context, item as AnySharedType, doc) : item));
+      .map((item) => (isYSharedContainer(item) ? getOrCreateValtioProxy(context, item as YSharedContainer, doc) : item));
     console.log('[valtio-yjs] reconcile array splice', newContent.length);
     (valtioProxy as unknown[]).splice(0, (valtioProxy as unknown[]).length, ...newContent as unknown[]);
     console.log('[valtio-yjs] reconcileValtioArray end', {
@@ -133,7 +133,7 @@ export function reconcileValtioArrayWithDelta(
         continue;
       }
       if (d.insert && d.insert.length > 0) {
-        const converted = d.insert.map((item) => (isSharedType(item) ? getOrCreateValtioProxy(context, item as AnySharedType, doc) : item));
+        const converted = d.insert.map((item) => (isYSharedContainer(item) ? getOrCreateValtioProxy(context, item as YSharedContainer, doc) : item));
         console.log('[valtio-yjs] delta.insert', { at: position, count: converted.length });
         (valtioProxy as unknown[]).splice(position, 0, ...converted as unknown[]);
         position += converted.length;
