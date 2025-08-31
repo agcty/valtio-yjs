@@ -32,8 +32,8 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
   }
 
   // If this is one of our controller proxies, return the underlying Y type
-  if (context && typeof jsValue === 'object' && context.valtioProxyToYType.has(jsValue as object)) {
-    return context.valtioProxyToYType.get(jsValue as object) as Y.AbstractType<unknown>;
+  if (context && typeof jsValue === 'object' && context.valtioProxyToYType.has(jsValue)) {
+    return context.valtioProxyToYType.get(jsValue);
   }
 
   if (Array.isArray(jsValue)) {

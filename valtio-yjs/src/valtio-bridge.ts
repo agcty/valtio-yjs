@@ -66,7 +66,7 @@ function upgradeChildIfNeeded(
   const current = (container as Record<string, unknown> | unknown[])[key as keyof typeof container] as unknown;
   const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
   if (!isAlreadyController && isYSharedContainer(yValue)) {
-    const newController = getOrCreateValtioProxy(context, yValue as YSharedContainer, doc);
+    const newController = getOrCreateValtioProxy(context, yValue, doc);
     context.withReconcilingLock(() => {
       if (Array.isArray(container) && typeof key === 'number') {
         (container as unknown[])[key] = newController as unknown;
@@ -94,7 +94,7 @@ function attachValtioArraySubscription(
   arrProxy: unknown[],
   doc: Y.Doc,
 ): () => void {
-  const unsubscribe = subscribe(arrProxy as unknown as object, (ops: unknown[]) => {
+  const unsubscribe = subscribe(arrProxy, (ops: unknown[]) => {
     if (context.isReconciling) return;
     console.log('[valtio-yjs][controller][array] ops', JSON.stringify(ops));
     // Phase 1: categorize actionable ops (ignore length changes etc.)
@@ -103,10 +103,10 @@ function attachValtioArraySubscription(
     for (const op of ops) {
       if (isDeleteArrayOp(op)) {
         const idx = normalizeIndex(op[1][0]);
-        deletes.set(idx, (op as unknown as [string, [number | string], unknown])[2]);
+        deletes.set(idx, op[2]);
       } else if (isSetArrayOp(op)) {
         const idx = normalizeIndex(op[1][0]);
-        sets.set(idx, (op as unknown as [string, [number | string], unknown, unknown])[2]);
+        sets.set(idx, op[2]);
       }
     }
     console.log('[valtio-yjs][controller][array] categorized', {
@@ -125,8 +125,8 @@ function attachValtioArraySubscription(
       context.enqueueArraySet(
         yArray,
         idx,
-        () => plainObjectToYType((arrProxy as unknown[])[idx], context),
-        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy as unknown[], idx, yValue, doc),
+        () => plainObjectToYType(arrProxy[idx], context),
+        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, idx, yValue, doc),
       );
     }
   }, true);
@@ -173,39 +173,39 @@ function attachValtioMapSubscription(
 // Create (or reuse from cache) a Valtio proxy that mirrors a Y.Map.
 // Nested Y types are recursively materialized via getOrCreateValtioProxy.
 function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.Map<unknown>, doc: Y.Doc): object {
-  const existing = context.yTypeToValtioProxy.get(yMap as unknown as YSharedContainer);
+  const existing = context.yTypeToValtioProxy.get(yMap);
   if (existing) return existing;
 
   const initialObj: Record<string, unknown> = {};
   for (const [key, value] of yMap.entries()) {
     if (isYSharedContainer(value)) {
-      initialObj[key] = getOrCreateValtioProxy(context, value as YSharedContainer, doc);
+      initialObj[key] = getOrCreateValtioProxy(context, value, doc);
     } else {
       initialObj[key] = value;
     }
   }
   const objProxy = proxy(initialObj);
 
-  context.yTypeToValtioProxy.set(yMap as unknown as YSharedContainer, objProxy);
-  context.valtioProxyToYType.set(objProxy, yMap as unknown as YSharedContainer);
+  context.yTypeToValtioProxy.set(yMap, objProxy);
+  context.valtioProxyToYType.set(objProxy, yMap);
 
   const unsubscribe = attachValtioMapSubscription(context, yMap, objProxy, doc);
-  context.registerSubscription(yMap as unknown as YSharedContainer, unsubscribe);
+  context.registerSubscription(yMap, unsubscribe);
 
-  return objProxy as unknown as object;
+  return objProxy;
 }
 
 function getOrCreateValtioProxyForYArray(context: SynchronizationContext, yArray: Y.Array<unknown>, doc: Y.Doc): unknown[] {
-  const existing = context.yTypeToValtioProxy.get(yArray as unknown as YSharedContainer) as unknown[] | undefined;
+  const existing = context.yTypeToValtioProxy.get(yArray) as unknown[] | undefined;
   if (existing) return existing;
   const initialItems = yArray
     .toArray()
-    .map((value) => (isYSharedContainer(value) ? getOrCreateValtioProxy(context, value as YSharedContainer, doc) : value));
-  const arrProxy = proxy(initialItems) as unknown as unknown[];
-  context.yTypeToValtioProxy.set(yArray as unknown as YSharedContainer, arrProxy as unknown as object);
-  context.valtioProxyToYType.set(arrProxy as unknown as object, yArray as unknown as YSharedContainer);
+    .map((value) => (isYSharedContainer(value) ? getOrCreateValtioProxy(context, value, doc) : value));
+  const arrProxy = proxy(initialItems);
+  context.yTypeToValtioProxy.set(yArray, arrProxy);
+  context.valtioProxyToYType.set(arrProxy, yArray);
   const unsubscribe = attachValtioArraySubscription(context, yArray, arrProxy, doc);
-  context.registerSubscription(yArray as unknown as YSharedContainer, unsubscribe);
+  context.registerSubscription(yArray, unsubscribe);
   return arrProxy;
 }
 
@@ -227,7 +227,7 @@ export function getOrCreateValtioProxy(context: SynchronizationContext, yType: Y
     return getOrCreateValtioProxyForYMap(context, yType, doc);
   }
   if (isYArray(yType)) {
-    return getOrCreateValtioProxyForYArray(context, yType, doc) as unknown as object;
+    return getOrCreateValtioProxyForYArray(context, yType, doc);
   }
   // if (yType instanceof Y.Text) {
   //   return createYTextController(yType, doc);

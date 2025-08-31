@@ -12,7 +12,7 @@ import type { YSharedContainer, YArrayDelta } from './yjs-types.js';
 import { SynchronizationContext } from './context.js';
 import { getValtioProxyForYType } from './valtio-bridge.js';
 import { isYArrayEvent } from './yjs-events.js';
-import { isYArray, isYMap } from './guards.js';
+import { isYArray, isYMap, isYSharedContainer } from './guards.js';
 // Synchronization strategy
 //
 // We use `observeDeep` on the chosen root container to detect any changes below.
@@ -45,21 +45,22 @@ export function setupSyncListener(
     const toReconcile = new Set<YSharedContainer>();
     const arrayBoundaryToDelta = new Map<Y.Array<unknown>, YArrayDelta>();
     for (const event of events) {
-      let boundary: YSharedContainer | null = event.target as unknown as YSharedContainer;
-      while (boundary && !getValtioProxyForYType(context, boundary as YSharedContainer)) {
-        boundary = (boundary as unknown as { parent: YSharedContainer | null }).parent ?? null;
+      let boundary: YSharedContainer | null = isYSharedContainer(event.target) ? event.target : null;
+      while (boundary && !getValtioProxyForYType(context, boundary)) {
+        const parent = (boundary as Y.AbstractType<unknown>).parent;
+        boundary = parent && isYSharedContainer(parent) ? parent : null;
       }
       if (!boundary) {
-        boundary = yRoot as unknown as YSharedContainer;
+        boundary = yRoot;
       }
       toReconcile.add(boundary);
       // If it's an array event, capture its delta and ensure we reconcile it.
       if (isYArrayEvent(event)) {
-        const targetArray = event.target as Y.Array<unknown>;
+        const targetArray = event.target;
         if (event.changes.delta && event.changes.delta.length > 0) {
           arrayBoundaryToDelta.set(targetArray, event.changes.delta);
         }
-        toReconcile.add(targetArray as unknown as YSharedContainer);
+        toReconcile.add(targetArray);
       }
     }
     for (const target of toReconcile) {

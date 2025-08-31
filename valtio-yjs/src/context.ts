@@ -203,13 +203,13 @@ export class SynchronizationContext {
           if (isYMap(val)) {
             const cloned = new Y.Map<unknown>();
             for (const [k, v] of val.entries()) {
-              cloned.set(k as string, cloneShared(v));
+              cloned.set(k, cloneShared(v));
             }
             return cloned;
           }
           if (isYArray(val)) {
             const cloned = new Y.Array<unknown>();
-            const items = (val as Y.Array<unknown>).toArray().map((it) => cloneShared(it));
+            const items = val.toArray().map((it) => cloneShared(it));
             if (items.length > 0) cloned.insert(0, items);
             return cloned;
           }
@@ -236,10 +236,10 @@ export class SynchronizationContext {
             arrayHasDoc: !!arrayDoc,
             sameDoc: !!valueDoc && !!arrayDoc ? valueDoc === arrayDoc : undefined,
             parentType: valueParent ? valueParent.constructor.name : null,
-            parentIsArray: valueParent === (yArray as unknown as Y.AbstractType<unknown>),
+            parentIsArray: valueParent === yArray,
           });
           // Safety: if we are about to insert a detached Y type that belongs to the same doc, clone it to avoid re-integration edge-cases
-          let toInsert = yValue as unknown;
+          let toInsert = yValue;
           if ((isYMap(yValue) || isYArray(yValue)) && valueDoc && arrayDoc && valueDoc === arrayDoc && valueParent === null) {
             console.warn('[valtio-yjs][context] array.set: cloning detached shared type before insert to avoid re-integration issues', {
               index,
