@@ -15,8 +15,6 @@ import dirt from './assets/dirt.jpg';
 
 const ydoc = new Y.Doc();
 
-const yRoot = ydoc.getMap('map');
-
 const provider = new WebrtcProvider('minecraft-valtio-yjs-demo-3', ydoc, {
   signaling: ['ws://localhost:4444'],
 });
