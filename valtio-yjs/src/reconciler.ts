@@ -84,15 +84,15 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
   context.withReconcilingLock(() => {
     console.log('[valtio-yjs] reconcileValtioArray start', {
       yLength: yArray.length,
-      valtioLength: (valtioProxy as unknown[]).length,
+      valtioLength: valtioProxy.length,
     });
     const newContent = yArray
       .toArray()
       .map((item) => (isYSharedContainer(item) ? getOrCreateValtioProxy(context, item as YSharedContainer, doc) : item));
     console.log('[valtio-yjs] reconcile array splice', newContent.length);
-    (valtioProxy as unknown[]).splice(0, (valtioProxy as unknown[]).length, ...newContent as unknown[]);
+    valtioProxy.splice(0, valtioProxy.length, ...newContent as unknown[]);
     console.log('[valtio-yjs] reconcileValtioArray end', {
-      valtioLength: (valtioProxy as unknown[]).length,
+      valtioLength: valtioProxy.length,
     });
   });
 }
@@ -114,7 +114,7 @@ export function reconcileValtioArrayWithDelta(
   context.withReconcilingLock(() => {
     console.log('[valtio-yjs] reconcileValtioArrayWithDelta start', {
       delta,
-      valtioLength: (valtioProxy as unknown[]).length,
+      valtioLength: valtioProxy.length,
     });
 
     let position = 0;
@@ -128,14 +128,14 @@ export function reconcileValtioArrayWithDelta(
       if (d.delete && d.delete > 0) {
         const deleteCount = d.delete;
         if (deleteCount > 0) {
-          (valtioProxy as unknown[]).splice(position, deleteCount);
+          valtioProxy.splice(position, deleteCount);
         }
         continue;
       }
       if (d.insert && d.insert.length > 0) {
         const converted = d.insert.map((item) => (isYSharedContainer(item) ? getOrCreateValtioProxy(context, item as YSharedContainer, doc) : item));
         console.log('[valtio-yjs] delta.insert', { at: position, count: converted.length });
-        (valtioProxy as unknown[]).splice(position, 0, ...converted as unknown[]);
+        valtioProxy.splice(position, 0, ...converted as unknown[]);
         position += converted.length;
         continue;
       }
@@ -143,7 +143,7 @@ export function reconcileValtioArrayWithDelta(
     }
 
     console.log('[valtio-yjs] reconcileValtioArrayWithDelta end', {
-      valtioLength: (valtioProxy as unknown[]).length,
+      valtioLength: valtioProxy.length,
     });
   });
 }

@@ -210,7 +210,7 @@ export class SynchronizationContext {
           if (isYArray(val)) {
             const cloned = new Y.Array<unknown>();
             const items = (val as Y.Array<unknown>).toArray().map((it) => cloneShared(it));
-            if (items.length > 0) cloned.insert(0, items as unknown[]);
+            if (items.length > 0) cloned.insert(0, items);
             return cloned;
           }
           return val;

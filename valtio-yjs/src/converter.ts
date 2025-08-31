@@ -38,7 +38,7 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
 
   if (Array.isArray(jsValue)) {
     const yArray = new Y.Array<unknown>();
-    yArray.insert(0, (jsValue as unknown[]).map((v) => plainObjectToYType(v, context)) as unknown[]);
+    yArray.insert(0, jsValue.map((v) => plainObjectToYType(v, context)));
     return yArray;
   }
 
