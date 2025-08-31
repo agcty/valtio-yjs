@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { createYjsController, getValtioProxyForYType } from './controller.js';
+import { getOrCreateValtioProxy, getValtioProxyForYType } from './controller.js';
 import { SynchronizationContext } from './context.js';
 import type { AnySharedType } from './context.js';
 import { isSharedType } from './guards.js';
@@ -40,7 +40,7 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
         const yValue = yMap.get(key);
         if (isSharedType(yValue)) {
           console.log('[valtio-yjs] materialize nested controller for key', key);
-          (valtioProxy as Record<string, unknown>)[key] = createYjsController(context, yValue as AnySharedType, doc);
+          (valtioProxy as Record<string, unknown>)[key] = getOrCreateValtioProxy(context, yValue as AnySharedType, doc);
         } else {
           console.log('[valtio-yjs] set primitive key', key);
           (valtioProxy as Record<string, unknown>)[key] = yValue as unknown;
@@ -88,7 +88,7 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
     });
     const newContent = yArray
       .toArray()
-      .map((item) => (item instanceof Y.Map || item instanceof Y.Array ? createYjsController(context, item as AnySharedType, doc) : item));
+      .map((item) => (item instanceof Y.Map || item instanceof Y.Array ? getOrCreateValtioProxy(context, item as AnySharedType, doc) : item));
     console.log('[valtio-yjs] reconcile array splice', newContent.length);
     (valtioProxy as unknown[]).splice(0, (valtioProxy as unknown[]).length, ...newContent as unknown[]);
     console.log('[valtio-yjs] reconcileValtioArray end', {
@@ -134,7 +134,7 @@ export function reconcileValtioArrayWithDelta(
       }
       if (d.insert && d.insert.length > 0) {
         const converted = d.insert.map((item) =>
-          item instanceof Y.Map || item instanceof Y.Array ? createYjsController(context, item as AnySharedType, doc) : item,
+          item instanceof Y.Map || item instanceof Y.Array ? getOrCreateValtioProxy(context, item as AnySharedType, doc) : item,
         );
         console.log('[valtio-yjs] delta.insert', { at: position, count: converted.length });
         (valtioProxy as unknown[]).splice(position, 0, ...converted as unknown[]);

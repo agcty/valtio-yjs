@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { createYjsController } from './controller.js';
+import { getOrCreateValtioProxy } from './controller.js';
 import { setupSyncListener } from './synchronizer.js';
 import { plainObjectToYType } from './converter.js';
 import { VALTIO_YJS_ORIGIN } from './constants.js';
@@ -28,7 +28,7 @@ export function createYjsProxy<T extends object>(
   // 1. Create the root controller proxy (returns a real Valtio proxy).
   const context = new SynchronizationContext();
   context.bindDoc(doc);
-  const stateProxy = createYjsController(context, yRoot, doc);
+  const stateProxy = getOrCreateValtioProxy(context, yRoot, doc);
 
   // 2. Provide developer-driven bootstrap for initial data.
   const bootstrap = (data: T) => {

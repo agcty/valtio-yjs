@@ -65,7 +65,7 @@ function upgradeChildIfNeeded(
   const current = (container as Record<string, unknown> | unknown[])[key as keyof typeof container] as unknown;
   const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
   if (!isAlreadyController && (yValue instanceof Y.Map || yValue instanceof Y.Array)) {
-    const newController = createYjsController(context, yValue as AnySharedType, doc);
+    const newController = getOrCreateValtioProxy(context, yValue as AnySharedType, doc);
     context.withReconcilingLock(() => {
       if (Array.isArray(container) && typeof key === 'number') {
         (container as unknown[])[key] = newController as unknown;
@@ -76,12 +76,7 @@ function upgradeChildIfNeeded(
   }
 }
 
-function debugDescribe(value: unknown): unknown {
-  if (value instanceof Y.Map) return { type: 'Y.Map', size: value.size };
-  if (value instanceof Y.Array) return { type: 'Y.Array', length: value.length };
-  if (value && typeof value === 'object') return { type: 'object', keys: Object.keys(value as Record<string, unknown>).slice(0, 5) };
-  return value;
-}
+
 
 // Subscribe to a Valtio array proxy and translate top-level index operations
 // into minimal Y.Array operations.
@@ -114,8 +109,8 @@ function attachValtioArraySubscription(
       }
     }
     console.log('[valtio-yjs][controller][array] categorized', {
-      deletes: Array.from(deletes.entries()).map(([i, v]) => [i, debugDescribe(v)]),
-      sets: Array.from(sets.entries()).map(([i, v]) => [i, debugDescribe(v)]),
+      deletes: Array.from(deletes.keys()),
+      sets: Array.from(sets.keys()),
     });
 
     // Phase 2: enqueue high-level operations
@@ -125,7 +120,7 @@ function attachValtioArraySubscription(
       context.enqueueArrayDelete(yArray, index);
     }
     for (const [idx] of sets.entries()) {
-      console.log('[valtio-yjs][controller][array] enqueue.set', { index: idx, value: debugDescribe((arrProxy as unknown[])[idx]) });
+      console.log('[valtio-yjs][controller][array] enqueue.set', { index: idx });
       context.enqueueArraySet(
         yArray,
         idx,
@@ -175,15 +170,15 @@ function attachValtioMapSubscription(
 }
 
 // Create (or reuse from cache) a Valtio proxy that mirrors a Y.Map.
-// Nested Y types are recursively materialized via createYjsController.
-function materializeMapToValtio(context: SynchronizationContext, yMap: Y.Map<unknown>, doc: Y.Doc): object {
+// Nested Y types are recursively materialized via getOrCreateValtioProxy.
+function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.Map<unknown>, doc: Y.Doc): object {
   const existing = context.yTypeToValtioProxy.get(yMap as unknown as AnySharedType);
   if (existing) return existing;
 
   const initialObj: Record<string, unknown> = {};
   for (const [key, value] of yMap.entries()) {
     if (isSharedType(value)) {
-      initialObj[key] = createYjsController(context, value as AnySharedType, doc);
+      initialObj[key] = getOrCreateValtioProxy(context, value as AnySharedType, doc);
     } else {
       initialObj[key] = value;
     }
@@ -199,12 +194,12 @@ function materializeMapToValtio(context: SynchronizationContext, yMap: Y.Map<unk
   return objProxy as unknown as object;
 }
 
-function materializeArrayToValtio(context: SynchronizationContext, yArray: Y.Array<unknown>, doc: Y.Doc): unknown[] {
+function getOrCreateValtioProxyForYArray(context: SynchronizationContext, yArray: Y.Array<unknown>, doc: Y.Doc): unknown[] {
   const existing = context.yTypeToValtioProxy.get(yArray as unknown as AnySharedType) as unknown[] | undefined;
   if (existing) return existing;
   const initialItems = yArray
     .toArray()
-    .map((value) => (isSharedType(value) ? createYjsController(context, value as AnySharedType, doc) : value));
+    .map((value) => (isSharedType(value) ? getOrCreateValtioProxy(context, value as AnySharedType, doc) : value));
   const arrProxy = proxy(initialItems) as unknown as unknown[];
   context.yTypeToValtioProxy.set(yArray as unknown as AnySharedType, arrProxy as unknown as object);
   context.valtioProxyToYType.set(arrProxy as unknown as object, yArray as unknown as AnySharedType);
@@ -223,22 +218,18 @@ export function getYTypeForValtioProxy(context: SynchronizationContext, obj: obj
 
 // Reflection lock is handled by context.isReconciling; no unsubscribe/resubscribe required.
 
-// Map controller: returns a real Valtio proxy representing the Y.Map
-export function createYjsMapControllerProxy(context: SynchronizationContext, yMap: Y.Map<unknown>, doc: Y.Doc): object {
-  return materializeMapToValtio(context, yMap, doc);
-}
+
 
 /**
- * The main controller router. It takes any Yjs shared type and returns the
- * appropriate controller object for it.
+ * The main router. It takes any Yjs shared type and returns the
+ * appropriate Valtio proxy controller for it, creating it if it doesn't exist.
  */
-export function createYjsController(context: SynchronizationContext, yType: AnySharedType, doc: Y.Doc): object {
+export function getOrCreateValtioProxy(context: SynchronizationContext, yType: AnySharedType, doc: Y.Doc): object {
   if (yType instanceof Y.Map) {
-    // The Map controller is special, it's the Proxy.
-    return createYjsMapControllerProxy(context, yType, doc);
+    return getOrCreateValtioProxyForYMap(context, yType, doc);
   }
   if (yType instanceof Y.Array) {
-    return materializeArrayToValtio(context, yType, doc) as unknown as object;
+    return getOrCreateValtioProxyForYArray(context, yType, doc) as unknown as object;
   }
   // if (yType instanceof Y.Text) {
   //   return createYTextController(yType, doc);
