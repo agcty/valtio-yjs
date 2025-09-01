@@ -285,8 +285,14 @@ export class SynchronizationContext {
         }
       }
 
-      // Phase 3: Execute inserts in descending order using precomputed values
-      const sortedInsertIndices = Array.from(insertsToApply.keys()).sort((a, b) => b - a);
+      // Phase 3: Execute inserts in ascending order using precomputed values
+      // Rationale: for batches that only contain sets (modeled as delete+insert
+      // at each index), performing inserts ascending preserves intuitive
+      // unshift/splice semantics. Descending would invert relative order when
+      // multiple indices are affected (e.g., 0,1,2), yielding wrong results
+      // like [new, y, x] instead of [new, x, y]. Deletes are applied before
+      // inserts, so ascending is safe and deterministic here.
+      const sortedInsertIndices = Array.from(insertsToApply.keys()).sort((a, b) => a - b);
       for (const index of sortedInsertIndices) {
         const pendingItems = insertsToApply.get(index)!;
 
