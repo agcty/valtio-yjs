@@ -83,6 +83,64 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
     expect(yArr.toJSON()).toEqual([]);
   });
 
+  it('unshift coalesces into a single Y.Array insert delta (head)', async () => {
+    const doc = new Y.Doc();
+    const { proxy } = createYjsProxy<number[]>(doc, { getRoot: (d) => d.getArray('arr') });
+    const yArr = doc.getArray<number>('arr');
+
+    // Seed with two values
+    proxy.push(10);
+    proxy.push(11);
+    await waitMicrotask();
+
+    const deltas: any[] = [];
+    const handler = (e: any) => {
+      deltas.push(e.changes.delta);
+    };
+    yArr.observe(handler);
+
+    // Perform a multi-element unshift in one microtask
+    (proxy as any).unshift(7, 8);
+    await waitMicrotask();
+
+    // Expect a single insert-at-0 delta with both items
+    expect(yArr.toJSON()).toEqual([7, 8, 10, 11]);
+    expect(deltas.length).toBe(1);
+    expect(deltas[0]).toEqual([{ insert: [7, 8] }]);
+
+    yArr.unobserve(handler);
+  });
+
+  it('push coalesces into a single Y.Array insert delta (tail)', async () => {
+    const doc = new Y.Doc();
+    const { proxy } = createYjsProxy<number[]>(doc, { getRoot: (d) => d.getArray('arr') });
+    const yArr = doc.getArray<number>('arr');
+
+    // Seed
+    proxy.push(1);
+    await waitMicrotask();
+
+    const deltas: any[] = [];
+    const handler = (e: any) => {
+      deltas.push(e.changes.delta);
+    };
+    yArr.observe(handler);
+
+    (proxy as any).push(2, 3);
+    await waitMicrotask();
+
+    expect(yArr.toJSON()).toEqual([1, 2, 3]);
+    expect(deltas.length).toBe(1);
+    // For tail inserts, Yjs emits a retain for the prefix then an insert
+    const delta = deltas[0];
+    expect(Array.isArray(delta)).toBe(true);
+    expect(delta.length).toBe(2);
+    expect(delta[0]).toEqual({ retain: 1 });
+    expect(delta[1]).toEqual({ insert: [2, 3] });
+
+    yArr.unobserve(handler);
+  });
+
   it('shrink via splice updates Y.Array', async () => {
     const doc = new Y.Doc();
     const { proxy } = createYjsProxy<number[]>(doc, { getRoot: (d) => d.getArray('arr') });

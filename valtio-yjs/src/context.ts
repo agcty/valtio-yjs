@@ -232,6 +232,72 @@ export class SynchronizationContext {
         setsForArray = new Map();
       }
 
+      // Fast-path optimization: when there are no deletes and there are sets,
+      // detect head/tail insert patterns and collapse into a single insert.
+      if (deletesForArray.size === 0 && setsForArray.size > 0) {
+        const sortedSetIndices = Array.from(setsForArray.keys()).sort((a, b) => a - b);
+        const firstSetIndex = sortedSetIndices[0]!;
+        const lastSetIndex = sortedSetIndices[sortedSetIndices.length - 1]!;
+        const yLenAtStart = yArray.length;
+
+        // Detect contiguous coverage
+        const isContiguous = lastSetIndex - firstSetIndex + 1 === sortedSetIndices.length;
+
+        if (isContiguous) {
+          // Head insert: sets cover [0 .. m-1] with m > yLen → unshift of k = m - yLen
+          if (firstSetIndex === 0) {
+            const m = sortedSetIndices.length;
+            const k = m - yLenAtStart;
+            if (k > 0) {
+              const items: unknown[] = [];
+              for (let i = 0; i < k; i++) {
+                const entry = setsForArray.get(i)!;
+                items.push(entry.compute());
+              }
+              const hasDoc = this.hasYDoc(yArray);
+              console.log('[valtio-yjs][context] array.unshift.coalesce', { insertCount: items.length, hasDoc });
+              const arrayDocNow = this.getYDoc(yArray);
+              yArray.insert(0, items);
+              for (const it of items) {
+                if (isYMap(it)) {
+                  post.push(() => reconcileValtioMap(this, it, arrayDocNow!));
+                } else if (isYArray(it)) {
+                  post.push(() => reconcileValtioArray(this, it, arrayDocNow!));
+                }
+              }
+              // Done with this array in this flush
+              continue;
+            }
+          }
+
+          // Tail insert: sets cover [yLen .. yLen + k - 1]
+          if (firstSetIndex === yLenAtStart) {
+            const k = sortedSetIndices.length;
+            if (k > 0) {
+              const items: unknown[] = [];
+              for (let i = 0; i < k; i++) {
+                const idx = yLenAtStart + i;
+                const entry = setsForArray.get(idx)!;
+                items.push(entry.compute());
+              }
+              const hasDoc = this.hasYDoc(yArray);
+              console.log('[valtio-yjs][context] array.push.coalesce', { insertCount: items.length, hasDoc });
+              const arrayDocNow = this.getYDoc(yArray);
+              yArray.insert(yArray.length, items);
+              for (const it of items) {
+                if (isYMap(it)) {
+                  post.push(() => reconcileValtioMap(this, it, arrayDocNow!));
+                } else if (isYArray(it)) {
+                  post.push(() => reconcileValtioArray(this, it, arrayDocNow!));
+                }
+              }
+              // Done with this array in this flush
+              continue;
+            }
+          }
+        }
+      }
+
       // Phase 1: Canonicalization — unify into deletes and inserts
       const indicesToDelete = new Set<number>(deletesForArray);
       // Defer insert value materialization until after deletes are applied.
