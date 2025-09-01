@@ -227,7 +227,7 @@ export class SynchronizationContext {
       let remapDeleteCount = 0;
       if (deletesForArray.size > 0 && setsForArray.size > 0) {
         console.warn(
-          '[valtio-yjs] Potential array move detected. Moves are not supported; applying structural delete/insert only.',
+          '[valtio-yjs] Potential array move detected. Move operations are not supported. Implement moves at the app layer (e.g., fractional indexing or explicit remove+insert in separate ticks).',
           {
             deletes: Array.from(deletesForArray).sort((a, b) => a - b),
             sets: Array.from(setsForArray.keys()).sort((a, b) => a - b),

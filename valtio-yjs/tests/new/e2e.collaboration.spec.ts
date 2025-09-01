@@ -131,6 +131,47 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     expect(proxyA[1]).toEqual([3, 4, 5]);
   });
 
+  it('negative: same-tick move attempt (delete+insert) logs warning and does not move remotely', async () => {
+    const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+    bootstrapA({ list: ['a', 'b', 'c', 'd'] });
+    await waitMicrotask();
+    expect(proxyB.list).toEqual(['a', 'b', 'c', 'd']);
+
+    let warned = false;
+    const prevWarn = console.warn;
+    console.warn = (...args: unknown[]) => {
+      warned = warned || (typeof args[0] === 'string' && args[0].includes('Potential array move detected'));
+      return prevWarn.apply(console, args as []);
+    };
+
+    // Attempt a move in the same tick
+    const [moved] = proxyA.list.splice(1, 1);
+    proxyA.list.splice(3, 0, moved);
+    await waitMicrotask();
+
+    console.warn = prevWarn;
+    expect(warned).toBe(true);
+    // Remote should reflect only the structural delete effect (no insert in same tick)
+    expect(proxyB.list).toEqual(['a', 'c', 'd']);
+  });
+
+  it('manual delete then insert in separate ticks propagates as expected', async () => {
+    const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+    bootstrapA({ list: ['a', 'b', 'c', 'd'] });
+    await waitMicrotask();
+    expect(proxyB.list).toEqual(['a', 'b', 'c', 'd']);
+
+    // First tick: delete item at index 1 ('b')
+    const [moved] = proxyA.list.splice(1, 1);
+    await waitMicrotask();
+    expect(proxyB.list).toEqual(['a', 'c', 'd']);
+
+    // Second tick: insert it at the end (index 3)
+    proxyA.list.splice(3, 0, moved);
+    await waitMicrotask();
+    expect(proxyB.list).toEqual(['a', 'c', 'd', 'b']);
+  });
+
   it('deeply nested: second inner array (2 items) propagates updates across docs', async () => {
     const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
     // Initialize: outer array has two items; second is an inner array with two elements
