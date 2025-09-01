@@ -37,20 +37,28 @@ export function createYjsProxy<T extends object>(
       console.warn('[valtio-yjs] bootstrap called on a non-empty document. Aborting to prevent data loss.');
       return;
     }
-    doc.transact(() => {
-      if (isYMap(yRoot)) {
-        const record = data as unknown as Record<string, unknown>;
-        for (const key of Object.keys(record)) {
-          const value = record[key];
-          if (value !== undefined) {
-            yRoot.set(key, plainObjectToYType(value, context));
-          }
+    // Pre-convert to ensure deterministic behavior: either all converts or none
+    if (isYMap(yRoot)) {
+      const record = data as unknown as Record<string, unknown>;
+      const convertedEntries: Array<[string, unknown]> = [];
+      for (const key of Object.keys(record)) {
+        const value = record[key];
+        if (value !== undefined) {
+          const converted = plainObjectToYType(value, context);
+          convertedEntries.push([key, converted]);
         }
-      } else if (isYArray(yRoot)) {
-        const items = (data as unknown as unknown[]).map((v) => plainObjectToYType(v, context));
-        if (items.length > 0) yRoot.insert(0, items);
       }
-    }, VALTIO_YJS_ORIGIN);
+      doc.transact(() => {
+        for (const [key, converted] of convertedEntries) {
+          yRoot.set(key, converted);
+        }
+      }, VALTIO_YJS_ORIGIN);
+    } else if (isYArray(yRoot)) {
+      const items = (data as unknown as unknown[]).map((v) => plainObjectToYType(v, context));
+      doc.transact(() => {
+        if (items.length > 0) yRoot.insert(0, items);
+      }, VALTIO_YJS_ORIGIN);
+    }
 
     // Our listener ignores our origin to avoid loops, so we must explicitly
     // reconcile locally to materialize the proxy after bootstrap.
