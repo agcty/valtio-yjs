@@ -9,6 +9,7 @@ export default defineConfig({
       enabled: true,
       headless: true,
       instances: [{ browser: "chromium" }],
+      screenshotFailures: false,
     },
     include: ['tests/**/*.test.ts', 'tests/**/*.spec.ts'],
     // setupFiles: ['./tests/vitest-setup.ts'],
