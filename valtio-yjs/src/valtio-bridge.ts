@@ -133,6 +133,7 @@ function attachValtioArraySubscription(
         yArray,
         idx,
         () => plainObjectToYType(arrProxy[idx], context),
+        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, idx, yValue, _doc),
       );
     }
   }, true);

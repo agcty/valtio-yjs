@@ -41,11 +41,16 @@ export function setupSyncListener(
         isMap: isYMap(e.target),
       })),
     });
-    // Track boundaries to reconcile and capture array deltas when available
-    const toReconcile = new Set<YSharedContainer>();
-    const arrayBoundaryToDelta = new Map<Y.Array<unknown>, YArrayDelta>();
+    // Two-phase strategy:
+    // 1) Reconcile materialized ancestor boundaries to ensure structure and
+    //    materialize any newly introduced child controllers.
+    // 2) Apply granular array deltas to the actual array targets after their
+    //    parents are materialized in phase 1.
+    const boundaries = new Set<YSharedContainer>();
+    const arrayTargetToDelta = new Map<Y.Array<unknown>, YArrayDelta>();
     for (const event of events) {
-      let boundary: YSharedContainer | null = isYSharedContainer(event.target) ? event.target : null;
+      const targetContainer = isYSharedContainer(event.target) ? (event.target as YSharedContainer) : null;
+      let boundary: YSharedContainer | null = targetContainer;
       while (boundary && !getValtioProxyForYType(context, boundary)) {
         const parent = boundary.parent;
         boundary = parent && isYSharedContainer(parent) ? parent : null;
@@ -53,25 +58,32 @@ export function setupSyncListener(
       if (!boundary) {
         boundary = yRoot;
       }
-      toReconcile.add(boundary);
-      // Only store delta when the event target is the materialized boundary.
-      // For nested, unmaterialized arrays, we fall back to full reconciliation on the boundary.
-      if (isYArrayEvent(event) && event.target === boundary) {
+      // Phase 1 target: boundary
+      boundaries.add(boundary);
+      // Record array delta by direct target (phase 2)
+      if (isYArrayEvent(event)) {
         if (event.changes.delta && event.changes.delta.length > 0) {
-          arrayBoundaryToDelta.set(boundary as Y.Array<unknown>, event.changes.delta);
+          arrayTargetToDelta.set(event.target as unknown as Y.Array<unknown>, event.changes.delta);
         }
       }
     }
-    for (const target of toReconcile) {
-      if (isYMap(target)) {
-        reconcileValtioMap(context, target, doc);
-      } else if (isYArray(target)) {
-        const delta = arrayBoundaryToDelta.get(target);
-        if (delta && delta.length > 0) {
-          reconcileValtioArrayWithDelta(context, target, doc, delta);
-        } else {
-          reconcileValtioArray(context, target, doc);
+    // Phase 1: boundaries first (parents before children)
+    const arraysWithDelta = new Set(arrayTargetToDelta.keys());
+    for (const container of boundaries) {
+      if (isYMap(container)) {
+        reconcileValtioMap(context, container, doc);
+      } else if (isYArray(container)) {
+        // If this array has a delta recorded, skip structural reconciliation
+        // to avoid applying the change twice (structural + delta).
+        if (!arraysWithDelta.has(container)) {
+          reconcileValtioArray(context, container, doc);
         }
+      }
+    }
+    // Phase 2: apply granular array deltas to direct targets
+    for (const [arr, delta] of arrayTargetToDelta) {
+      if (delta && delta.length > 0) {
+        reconcileValtioArrayWithDelta(context, arr, doc, delta);
       }
     }
   };
@@ -82,5 +94,6 @@ export function setupSyncListener(
     yRoot.unobserveDeep(handleDeep);
   };
 }
+
 
 

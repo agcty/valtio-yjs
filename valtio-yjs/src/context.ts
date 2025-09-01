@@ -107,13 +107,14 @@ export class SynchronizationContext {
     yArray: Y.Array<unknown>,
     index: number,
     computeYValue: () => unknown,
+    postUpgrade?: (yValue: unknown) => void,
   ): void {
     let perArr = this.pendingArraySets.get(yArray);
     if (!perArr) {
       perArr = new Map();
       this.pendingArraySets.set(yArray, perArr);
     }
-    perArr.set(index, { compute: computeYValue });
+    perArr.set(index, { compute: computeYValue, after: postUpgrade });
     this.scheduleFlush();
   }
 
@@ -258,21 +259,25 @@ export class SynchronizationContext {
             const k = m - yLenAtStart;
             if (k > 0) {
               const items: unknown[] = [];
+              const entries: PendingEntry[] = [];
               for (let i = 0; i < k; i++) {
                 const entry = setsForArray.get(i)!;
+                entries.push(entry);
                 items.push(entry.compute());
               }
               const hasDoc = this.hasYDoc(yArray);
               console.log('[valtio-yjs][context] array.unshift.coalesce', { insertCount: items.length, hasDoc });
               const arrayDocNow = this.getYDoc(yArray);
               yArray.insert(0, items);
-              for (const it of items) {
+              items.forEach((it, i) => {
+                const after = entries[i]?.after;
+                if (after) post.push(() => after(it));
                 if (isYMap(it)) {
-                  post.push(() => reconcileValtioMap(this, it, arrayDocNow!));
+                  post.push(() => reconcileValtioMap(this, it as Y.Map<unknown>, arrayDocNow!));
                 } else if (isYArray(it)) {
-                  post.push(() => reconcileValtioArray(this, it, arrayDocNow!));
+                  post.push(() => reconcileValtioArray(this, it as Y.Array<unknown>, arrayDocNow!));
                 }
-              }
+              });
               // Done with this array in this flush
               continue;
             }
@@ -283,22 +288,26 @@ export class SynchronizationContext {
             const k = sortedSetIndices.length;
             if (k > 0) {
               const items: unknown[] = [];
+              const entries: PendingEntry[] = [];
               for (let i = 0; i < k; i++) {
                 const idx = yLenAtStart + i;
                 const entry = setsForArray.get(idx)!;
+                entries.push(entry);
                 items.push(entry.compute());
               }
               const hasDoc = this.hasYDoc(yArray);
               console.log('[valtio-yjs][context] array.push.coalesce', { insertCount: items.length, hasDoc });
               const arrayDocNow = this.getYDoc(yArray);
               yArray.insert(yArray.length, items);
-              for (const it of items) {
+              items.forEach((it, i) => {
+                const after = entries[i]?.after;
+                if (after) post.push(() => after(it));
                 if (isYMap(it)) {
-                  post.push(() => reconcileValtioMap(this, it, arrayDocNow!));
+                  post.push(() => reconcileValtioMap(this, it as Y.Map<unknown>, arrayDocNow!));
                 } else if (isYArray(it)) {
-                  post.push(() => reconcileValtioArray(this, it, arrayDocNow!));
+                  post.push(() => reconcileValtioArray(this, it as Y.Array<unknown>, arrayDocNow!));
                 }
-              }
+              });
               // Done with this array in this flush
               continue;
             }
@@ -311,7 +320,7 @@ export class SynchronizationContext {
       // Defer insert value materialization until after deletes are applied.
       // This lets us detect that a shared type became detached by earlier deletes
       // in this same flush and clone it at insert-time to avoid reintegration hazards.
-      type PendingInsert = { value: unknown };
+      type PendingInsert = { value: unknown; after?: (yValue: unknown) => void };
       const insertsToApply = new Map<number, PendingInsert[]>();
       const sortedSetIndices = Array.from(setsForArray.keys()).sort((a, b) => a - b);
 
@@ -338,7 +347,7 @@ export class SynchronizationContext {
         // exist (push/replace), so this is safe and avoids move semantics.
         indicesToDelete.add(index);
         const existing = insertsToApply.get(index) ?? [];
-        existing.push({ value: yValue });
+        existing.push({ value: yValue, after: entry.after });
         insertsToApply.set(index, existing);
       }
 
@@ -395,14 +404,16 @@ export class SynchronizationContext {
             firstParentIsArray: firstParent === yArray,
           });
           yArray.insert(yArray.length, items);
-          // After integration, reconcile inserted shared containers locally to populate proxies
-          for (const it of items) {
+          // After integration, reconcile inserted shared containers and run post-upgrade
+          items.forEach((it, i) => {
+            const after = pendingItems[i]?.after;
+            if (after) post.push(() => after(it));
             if (isYMap(it)) {
-              post.push(() => reconcileValtioMap(this, it, arrayDocNow!));
+              post.push(() => reconcileValtioMap(this, it as Y.Map<unknown>, arrayDocNow!));
             } else if (isYArray(it)) {
-              post.push(() => reconcileValtioArray(this, it, arrayDocNow!));
+              post.push(() => reconcileValtioArray(this, it as Y.Array<unknown>, arrayDocNow!));
             }
-          }
+          });
         } else if (targetIndex < yArray.length) {
           const hasDoc = this.hasYDoc(yArray);
           console.log('[valtio-yjs][context] array.insert', { index: targetIndex, length: yArray.length, hasDoc });
@@ -417,13 +428,15 @@ export class SynchronizationContext {
             firstParentIsArray: firstParent === yArray,
           });
           yArray.insert(targetIndex, items);
-          for (const it of items) {
+          items.forEach((it, i) => {
+            const after = pendingItems[i]?.after;
+            if (after) post.push(() => after(it));
             if (isYMap(it)) {
-              post.push(() => reconcileValtioMap(this, it, arrayDocNow!));
+              post.push(() => reconcileValtioMap(this, it as Y.Map<unknown>, arrayDocNow!));
             } else if (isYArray(it)) {
-              post.push(() => reconcileValtioArray(this, it, arrayDocNow!));
+              post.push(() => reconcileValtioArray(this, it as Y.Array<unknown>, arrayDocNow!));
             }
-          }
+          });
         }
       }
     }
