@@ -2,59 +2,46 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
-import { proxy } from 'valtio/vanilla';
-import { bind } from 'valtio-yjs';
+import { createYjsProxy, VALTIO_YJS_ORIGIN } from 'valtio-yjs';
 
-describe('bind options', () => {
-  it('transactionOrigin is included in Y.Doc events', async () => {
+describe('controller options', () => {
+  it('library tags transactions with VALTIO_YJS_ORIGIN', async () => {
     const doc = new Y.Doc();
-    const p = proxy<{ foo?: string }>({});
-    const m = doc.getMap('map');
-
-    const transactionOrigin = () => {
-      const id = counter;
-      counter += 1;
-      return { id };
-    };
-
-    let counter = 0;
-    bind(p, m, {
-      transactionOrigin,
+    const { proxy: p } = createYjsProxy<{ foo?: string }>(doc, {
+      getRoot: (d) => d.getMap('map'),
     });
 
     const fn = vi.fn();
-    doc.on('updateV2', (_: Uint8Array, origin: any) => {
+    doc.on('updateV2', (_: Uint8Array, origin: unknown) => {
       fn(origin);
     });
 
     p.foo = 'bar';
     await Promise.resolve();
-    expect(fn).toBeCalledWith(transactionOrigin);
+    expect(fn).toBeCalledWith(VALTIO_YJS_ORIGIN);
     fn.mockClear();
 
     p.foo = 'baz';
     await Promise.resolve();
-    expect(fn).toBeCalledWith(transactionOrigin);
+    expect(fn).toBeCalledWith(VALTIO_YJS_ORIGIN);
   });
 });
 
-describe('bind', () => {
-  it('transactionOrigin is included in Y.Doc events', async () => {
+describe('controller', () => {
+  it('array operations also use VALTIO_YJS_ORIGIN', async () => {
     const doc = new Y.Doc();
-    const p = proxy<string[]>([]);
-    const a = doc.getArray<string>('arr');
+    const { proxy: p, bootstrap } = createYjsProxy<string[]>(doc, {
+      getRoot: (d) => d.getArray('arr'),
+    });
+    bootstrap([]);
 
     const fn = vi.fn();
-    doc.on('updateV2', (_: Uint8Array, origin: any) => {
+    doc.on('updateV2', (_: Uint8Array, origin: unknown) => {
       fn(origin);
     });
 
-    const transactionOrigin = () => 'valtio-yjs';
-
-    bind(p, a, { transactionOrigin });
-
     p.push('a');
     await Promise.resolve();
-    expect(fn).toBeCalledWith(transactionOrigin);
+    expect(fn).toBeCalledWith(VALTIO_YJS_ORIGIN);
   });
 });
