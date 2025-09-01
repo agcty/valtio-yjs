@@ -225,6 +225,14 @@ export class SynchronizationContext {
       let spliceBaseIndex: number | null = null;
       let remapDeleteCount = 0;
       if (deletesForArray.size > 0 && setsForArray.size > 0) {
+        console.warn(
+          '[valtio-yjs] Potential array move detected. Moves are not supported; applying structural delete/insert only.',
+          {
+            deletes: Array.from(deletesForArray).sort((a, b) => a - b),
+            sets: Array.from(setsForArray.keys()).sort((a, b) => a - b),
+            length: yArray.length,
+          },
+        );
         spliceBaseIndex = Math.min(...Array.from(setsForArray.keys()));
         remapDeleteCount = deletesForArray.size;
         setsForArray = new Map();
