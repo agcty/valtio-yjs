@@ -14,10 +14,11 @@
   "devDependencies": {
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@y/websocket-server": "latest",
     "typescript": "latest",
     "vite": "latest"
   },
   "scripts": {
-    "dev": "vite"
+    "dev": "HOST=localhost PORT=1234 npx y-websocket & vite"
   }
 }
