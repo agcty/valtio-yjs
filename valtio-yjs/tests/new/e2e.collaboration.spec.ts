@@ -1,6 +1,7 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
 
 import { describe, it, expect } from 'vitest';
+import * as Y from 'yjs';
 import { createRelayedProxiesMapRoot, createRelayedProxiesArrayRoot, waitMicrotask } from './test-helpers.js';
 
 describe('E2E Collaboration: two docs with relayed updates', () => {
@@ -46,6 +47,32 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     proxyA.list.splice(0, 1);
     await waitMicrotask();
     expect(proxyB.list).toEqual(['mid', 'y']);
+  });
+
+  it('remote: ancestor+direct array updates in one relay tick apply once with identity preserved', async () => {
+    const { docA, proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+    bootstrapA({ container: {} });
+    await waitMicrotask();
+
+    // On A: in one transaction, create an inner array and insert items
+    docA.transact(() => {
+      const yRoot = docA.getMap<any>('root');
+      const container = yRoot.get('container') as Y.Map<any>;
+      const yList = new Y.Array<number>();
+      container.set('list', yList);
+      yList.insert(0, [1, 2]);
+    });
+
+    await waitMicrotask();
+    expect(Array.isArray(proxyB.container.list)).toBe(true);
+    expect(proxyB.container.list).toEqual([1, 2]);
+    const prevItem = proxyB.container.list[0];
+
+    // Further remote update to verify identity stability
+    proxyA.container.list.splice(0, 1, 9);
+    await waitMicrotask();
+    expect(proxyB.container.list[0]).not.toBe(prevItem);
+    expect(proxyB.container.list).toEqual([9, 2]);
   });
 
   it('nested arrays: structural delete+insert on inner array propagates without corruption', async () => {
@@ -128,6 +155,80 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     await waitMicrotask();
     expect(proxyB.matrix[1]).toEqual(['z', 'a', 'X', 'c']);
   });
+
+  describe('deeply nested direct mutations without bootstrap', () => {
+    it('should propagate direct deep mutations on empty root', async () => {
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
+
+      // Directly assign a deeply nested structure on proxyA
+      proxyA.deep = { foo: { bar: { baz: [1, 2, { qux: 'hello' }] } } };
+      await waitMicrotask();
+
+      // Mutate deeply on proxyA
+      proxyA.deep.foo.bar.baz[2].qux = 'world';
+      await waitMicrotask();
+
+      // Add a new property at the deepest object
+      proxyA.deep.foo.bar.baz[2].newProp = 42;
+      await waitMicrotask();
+
+      // Push a new element to the array
+      proxyA.deep.foo.bar.baz.push({ extra: true });
+      await waitMicrotask();
+
+      // Mutate the new object
+      proxyA.deep.foo.bar.baz[3].extra = false;
+      await waitMicrotask();
+
+      // All changes should be visible on proxyB
+      expect(proxyB.deep.foo.bar.baz[2].qux).toBe('world');
+      expect(proxyB.deep.foo.bar.baz[2].newProp).toBe(42);
+      expect(proxyB.deep.foo.bar.baz.length).toBe(4);
+      expect(proxyB.deep.foo.bar.baz[3].extra).toBe(false);
+    });
+
+    it('should propagate direct deep mutations from both sides', async () => {
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
+
+      // Assign a nested structure from A
+      proxyA.tree = { left: { value: 1 }, right: { value: 2 } };
+      await waitMicrotask();
+
+      // Mutate from B
+      proxyB.tree.left.value = 10;
+      await waitMicrotask();
+
+      // Add a new nested object from B
+      proxyB.tree.left.child = { leaf: true };
+      await waitMicrotask();
+
+      // Mutate from A
+      proxyA.tree.right.value = 20;
+      await waitMicrotask();
+
+      // Add a new array from A
+      proxyA.tree.right.children = [{ id: 'a' }];
+      await waitMicrotask();
+
+      // Push to the array from B
+      proxyB.tree.right.children.push({ id: 'b' });
+      await waitMicrotask();
+
+      // Mutate the pushed object from A
+      proxyA.tree.right.children[1].id = 'b2';
+      await waitMicrotask();
+
+      // All changes should be visible on both sides
+      expect(proxyA.tree.left.value).toBe(10);
+      expect(proxyB.tree.left.value).toBe(10);
+      expect(proxyA.tree.left.child.leaf).toBe(true);
+      expect(proxyB.tree.left.child.leaf).toBe(true);
+      expect(proxyA.tree.right.value).toBe(20);
+      expect(proxyB.tree.right.value).toBe(20);
+      expect(proxyA.tree.right.children.length).toBe(2);
+      expect(proxyB.tree.right.children.length).toBe(2);
+      expect(proxyA.tree.right.children[1].id).toBe('b2');
+      expect(proxyB.tree.right.children[1].id).toBe('b2');
+    });
+  });
 });
-
-

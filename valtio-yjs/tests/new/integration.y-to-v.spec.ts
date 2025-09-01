@@ -123,6 +123,23 @@ describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
     expect(proxy[0].id).toBe('b');
   });
 
+  it('single transaction: create nested array under map and insert items without double-apply', async () => {
+    const doc = new Y.Doc();
+    const yRoot = doc.getMap<any>('root');
+    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+
+    // In one transaction, create the array and insert items into it
+    doc.transact(() => {
+      const list = new Y.Array<number>();
+      yRoot.set('list', list);
+      list.insert(0, [1, 2, 3]);
+    });
+
+    await waitMicrotask();
+    expect(Array.isArray(proxy.list)).toBe(true);
+    expect(proxy.list).toEqual([1, 2, 3]); // no duplication from structural + delta
+  });
+
   it('Deep nested remote insert/replace upgrades child controllers', async () => {
     const doc = new Y.Doc();
     const yRoot = doc.getMap<any>('root');

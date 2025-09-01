@@ -171,6 +171,21 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
     expect(yArr.toJSON()).toEqual([{ title: 'T' }]);
   });
 
+  it('upgrade after push: nested local edit routes via child controller in same tick', async () => {
+    const doc = new Y.Doc();
+    const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
+    const yArr = doc.getArray<any>('arr');
+
+    // Push a plain object, then immediately mutate a nested field before awaiting
+    proxy.push({ title: 'A' });
+    (proxy as any)[0].title = 'B';
+    await waitMicrotask();
+
+    const first = yArr.get(0) as Y.Map<any>;
+    expect(first instanceof Y.Map).toBe(true);
+    expect(first.get('title')).toBe('B');
+  });
+
   it('batched proxy writes in same tick produce a single transaction', async () => {
     const doc = new Y.Doc();
     const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
