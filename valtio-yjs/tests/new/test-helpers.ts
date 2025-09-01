@@ -5,11 +5,11 @@ import { createYjsProxy } from 'valtio-yjs';
 
 export const waitMicrotask = () => Promise.resolve();
 
-export type GetRootFn<T> = (d: Y.Doc) => T;
+export type GetRootFn = (d: Y.Doc) => Y.Map<unknown> | Y.Array<unknown>;
 
-export function createDocWithProxy<T>(getRoot: GetRootFn<T>) {
+export function createDocWithProxy<T extends object>(getRoot: GetRootFn) {
   const doc = new Y.Doc();
-  const result = createYjsProxy<any>(doc, { getRoot });
+  const result = createYjsProxy<T>(doc, { getRoot });
   return { doc, ...result } as const;
 }
 
