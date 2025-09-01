@@ -53,7 +53,9 @@ Public API (bridge)  Controller Proxy Layer (how)   Synchronization Layer       
 - Synchronizer (`setupSyncListener`) (`valtio-yjs/src/synchronizer.ts`):
   - Listens via `yRoot.observeDeep`.
   - Skips transactions with our origin to avoid feedback loops.
-  - For each event, walks `.parent` to find the nearest materialized ancestor and reconciles that container exactly once per tick.
+  - Two-phase reconciliation on inbound changes:
+    1) Walk `.parent` to find the nearest materialized ancestor (boundary) and reconcile it to ensure structure and controller materialization.
+    2) Apply granular array deltas to direct array targets after parents are materialized. Arrays with recorded deltas are skipped in phase 1 to avoid double-application.
 
 - Reconciler (`reconcileValtioMap`, `reconcileValtioArray`) (`valtio-yjs/src/reconciler.ts`):
   - Ensures the Valtio proxy structure matches the Yjs structure, creating missing keys/items and controller proxies for nested Y types, deleting extras, and updating primitive values.

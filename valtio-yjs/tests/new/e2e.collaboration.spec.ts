@@ -103,6 +103,31 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     await waitMicrotask();
     expect(proxyA[1]).toEqual([3, 4, 5]);
   });
+
+  it('deeply nested: second inner array (2 items) propagates updates across docs', async () => {
+    const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+    // Initialize: outer array has two items; second is an inner array with two elements
+    bootstrapA({ matrix: [[], ['a', 'b']] });
+    await waitMicrotask();
+    expect(Array.isArray(proxyB.matrix)).toBe(true);
+    expect(proxyB.matrix.length).toBe(2);
+    expect(proxyB.matrix[1]).toEqual(['a', 'b']);
+
+    // Push into the second inner array on A -> B should see it
+    proxyA.matrix[1].push('c');
+    await waitMicrotask();
+    expect(proxyB.matrix[1]).toEqual(['a', 'b', 'c']);
+
+    // Unshift into the same inner array -> B should see head insert
+    proxyA.matrix[1].unshift('z');
+    await waitMicrotask();
+    expect(proxyB.matrix[1]).toEqual(['z', 'a', 'b', 'c']);
+
+    // Replace middle element via splice (delete+insert) -> B should see replacement
+    proxyA.matrix[1].splice(2, 1, 'X');
+    await waitMicrotask();
+    expect(proxyB.matrix[1]).toEqual(['z', 'a', 'X', 'c']);
+  });
 });
 
 

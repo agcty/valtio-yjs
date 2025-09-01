@@ -13,7 +13,7 @@ export type AnySharedType = YSharedContainer;
 // Internal type used for pending compute entries in batched operations
 type PendingEntry = {
   compute: () => unknown;
-  after?: (yValue: unknown) => void; // used for map keys only
+  after?: (yValue: unknown) => void; // post-integration callback for map keys and array entries
 };
 
 export class SynchronizationContext {

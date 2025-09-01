@@ -63,3 +63,15 @@
   - Removes the need for deep-clone/"plain snapshot" mechanisms during array ops. Converters remain only at boundaries (bootstrap, creating new items for push/replace), not for runtime cloning.
   - After array inserts, reconcile inserted Y.Map/Y.Array locally to materialize Valtio proxies immediately.
   - Aligns library behavior with Yjs first principles and avoids timing races.
+
+## 8) Two-phase Y→Valtio reconciliation with delta-aware arrays
+
+- Problem: Nested array updates could be applied twice when reconciling both ancestor structure and direct array deltas in the same tick; also, children might be missing controllers when deltas arrive.
+- Decision:
+  - Phase 1: Reconcile the nearest materialized ancestor boundary to ensure parent structure and to materialize any newly introduced child controllers.
+  - Phase 2: Apply granular Y.Array deltas only to the direct event targets. If an array has a recorded delta, skip its coarse structural reconcile in Phase 1.
+- Rationale: Prevents double-application, preserves identity, and ensures child controllers exist before deltas are applied.
+- Consequences:
+  - Better performance (coarse array splices avoided when delta is present).
+  - Deterministic ordering and fewer observer churns.
+  - Clear separation of concerns: structure first, then deltas.
