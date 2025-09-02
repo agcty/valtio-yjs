@@ -283,38 +283,11 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     // Replace item 0 with a new plain object, reusing the children reference
     const newId = proxyA.list[0].id;
     proxyA.list[0] = { id: newId, text: 'Replaced Alpha', children: existingChildren };
-    // Allow local scheduler and relay to flush
     await waitMicrotask();
-    await waitMicrotask();
-
-    // Force materialization on B and allow reconcile propagation
-    void proxyB.list;
-    void proxyB.list[0];
-    await waitMicrotask();
-    await waitMicrotask();
-
-    // Stabilize: poll until text appears on B's first item (bounded tries)
-    {
-      let tries = 0;
-      while (tries < 10) {
-        if (
-          typeof proxyB.list[0] === 'object' &&
-          proxyB.list[0] !== null &&
-          'text' in (proxyB.list[0] as any) &&
-          (proxyB.list[0] as any).text !== undefined
-        ) {
-          break;
-        }
-        tries++;
-        await waitMicrotask();
-      }
-    }
 
     // Both sides should see the updated text and preserved children content
-    expect(proxyB.list[0].text).toBe('Replaced Alpha');
-    // Local side may need one more tick to upgrade the controller
-    await waitMicrotask();
     expect(proxyA.list[0].text).toBe('Replaced Alpha');
+    expect(proxyB.list[0].text).toBe('Replaced Alpha');
     // Children should remain present and identical across clients
     expect(Array.isArray(proxyA.list[0].children)).toBe(true);
     expect(Array.isArray(proxyB.list[0].children)).toBe(true);
