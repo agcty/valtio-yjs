@@ -2,7 +2,7 @@ import * as Y from 'yjs';
 import { getOrCreateValtioProxy, getValtioProxyForYType } from './valtio-bridge.js';
 import { SynchronizationContext } from './context.js';
 
-import { isYSharedContainer } from './guards.js';
+import { isYSharedContainer, isYArray, isYMap } from './guards.js';
 
 // Reconciler layer
 //
@@ -33,37 +33,56 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     });
     const yKeys = new Set(Array.from(yMap.keys()).map((k) => String(k)));
     const valtioKeys = new Set(Object.keys(valtioProxy));
+    const allKeys = new Set<string>([...yKeys, ...valtioKeys]);
 
-    // Add missing keys to Valtio proxy
-    for (const key of yKeys) {
-      if (!valtioKeys.has(key)) {
+    for (const key of allKeys) {
+      const inY = yKeys.has(key);
+      const inValtio = valtioKeys.has(key);
+
+      if (inY && !inValtio) {
         const yValue = yMap.get(key);
         if (isYSharedContainer(yValue)) {
-          context.log.debug('materialize nested controller for key', key);
+          context.log.debug('[ADD] create controller', key);
           valtioProxy[key] = getOrCreateValtioProxy(context, yValue, doc);
+          if (isYMap(yValue)) {
+            context.log.debug('[RECONCILE-CHILD] map', key);
+            reconcileValtioMap(context, yValue as Y.Map<unknown>, doc);
+          } else if (isYArray(yValue)) {
+            context.log.debug('[RECONCILE-CHILD] array', key);
+            reconcileValtioArray(context, yValue as Y.Array<unknown>, doc);
+          }
         } else {
-          context.log.debug('set primitive key', key);
+          context.log.debug('[ADD] set primitive', key);
           valtioProxy[key] = yValue;
         }
+        continue;
       }
-    }
 
-    // Remove extra keys from Valtio proxy
-    for (const key of valtioKeys) {
-      if (!yKeys.has(key)) {
-        context.log.debug('delete key', key);
+      if (!inY && inValtio) {
+        context.log.debug('[DELETE] remove key', key);
         delete valtioProxy[key];
+        continue;
       }
-    }
 
-    // Update existing primitive values for common keys
-    for (const key of yKeys) {
-      if (valtioKeys.has(key)) {
+      if (inY && inValtio) {
         const yValue = yMap.get(key);
-        if (!isYSharedContainer(yValue)) {
-          const current = valtioProxy[key];
+        const current = valtioProxy[key];
+        if (isYSharedContainer(yValue)) {
+          const desired = getOrCreateValtioProxy(context, yValue, doc);
+          if (current !== desired) {
+            context.log.debug('[REPLACE] replace controller', key);
+            valtioProxy[key] = desired;
+          }
+          if (isYMap(yValue)) {
+            context.log.debug('[RECONCILE-CHILD] map', key);
+            reconcileValtioMap(context, yValue as Y.Map<unknown>, doc);
+          } else if (isYArray(yValue)) {
+            context.log.debug('[RECONCILE-CHILD] array', key);
+            reconcileValtioArray(context, yValue as Y.Array<unknown>, doc);
+          }
+        } else {
           if (current !== yValue) {
-            context.log.debug('update primitive key', key);
+            context.log.debug('[UPDATE] primitive', key);
             valtioProxy[key] = yValue;
           }
         }
