@@ -24,6 +24,25 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     expect(shallow.a.b.c).toBe(2);
   });
 
+  it('post-dispose: remote changes no longer reconcile on disposed side', async () => {
+    const { docA, proxyA, proxyB, bootstrapA, disposeB } = createRelayedProxiesMapRoot();
+    bootstrapA({ data: { x: 1 } });
+    await waitMicrotask();
+
+    disposeB();
+
+    // Remote change from A
+    proxyA.data.x = 2;
+    await waitMicrotask();
+    expect(proxyB.data).toEqual({ x: 1 });
+
+    // Direct Y write on A
+    const yRootA = docA.getMap<any>('root');
+    (yRootA.get('data') as Y.Map<any>).set('y', 3);
+    await waitMicrotask();
+    expect(proxyB.data.y).toBeUndefined();
+  });
+
   it('array unshift and splice operations from remote client propagate', async () => {
     const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
@@ -75,6 +94,21 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     expect(proxyB.container.list).toEqual([9, 2]);
   });
 
+  it('remote unshift of object then immediate nested edit (same tick) applies once', async () => {
+    const { docA, proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+    bootstrapA({ list: [] });
+    await waitMicrotask();
+
+    // Same transaction on A: unshift object, then set nested value
+    docA.transact(() => {
+      proxyA.list.unshift({ title: 'A' });
+      proxyA.list[0].title = 'B';
+    });
+    await waitMicrotask();
+
+    expect(proxyB.list).toEqual([{ title: 'B' }]);
+  });
+
   it('nested arrays: structural delete+insert on inner array propagates without corruption', async () => {
     const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
     // Shape: root: { lists: [ [a,b], [c] ] }
@@ -104,6 +138,46 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     proxyA.lists[2].unshift('z');
     await waitMicrotask();
     expect(proxyB.lists[2]).toEqual(['z', 'd']);
+  });
+
+  it('remote replace of nested Y.Map preserves sibling identity', async () => {
+    const { docA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+    bootstrapA({ container: { a: { v: 1 }, b: { w: 2 } } });
+    await waitMicrotask();
+
+    const prevB = proxyB.container.b;
+
+    // Replace container.a with a fresh Y.Map and set content in the same transaction
+    docA.transact(() => {
+      const yRoot = docA.getMap<any>('root');
+      const cont = yRoot.get('container') as Y.Map<any>;
+      const newA = new Y.Map<any>();
+      newA.set('v', 9);
+      cont.set('a', newA);
+    });
+    await waitMicrotask();
+    // Access to ensure materialization on B, then wait for deep reconcile
+    void proxyB.container.a;
+    await waitMicrotask();
+
+    expect(proxyB.container.a.v).toBe(9);
+    expect(proxyB.container.b).toBe(prevB);
+  });
+
+  it('remote mid-array insert applies via delta without double-apply', async () => {
+    const { docA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+    bootstrapA({ arr: [1, 3] });
+    await waitMicrotask();
+
+    // Insert 2 at index 1 remotely
+    docA.transact(() => {
+      const root = docA.getMap<any>('root');
+      const arr = root.get('arr') as Y.Array<number>;
+      arr.insert(1, [2]);
+    });
+    await waitMicrotask();
+
+    expect(proxyB.arr).toEqual([1, 2, 3]);
   });
 
   it('array root: nested Y.Array items accept head/tail inserts and delete+insert in two clients', async () => {

@@ -179,5 +179,56 @@ describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
     expect((proxy as any).prop).toBe(undefined);
     expect('prop' in (proxy as any)).toBe(false);
   });
+
+  it('remote replace of nested container preserves sibling identity', async () => {
+    const doc = new Y.Doc();
+    const yRoot = doc.getMap<any>('root');
+    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+
+    const left = new Y.Map<any>();
+    left.set('v', 1);
+    const right = new Y.Map<any>();
+    right.set('w', 2);
+    yRoot.set('left', left);
+    yRoot.set('right', right);
+    await waitMicrotask();
+
+    const prevRight = proxy.right;
+    // Replace left and set nested value in one transaction so reconcile sees final state
+    doc.transact(() => {
+      const newLeft = new Y.Map<any>();
+      newLeft.set('v', 9);
+      yRoot.set('left', newLeft);
+    });
+    await waitMicrotask();
+    // Force materialization, then let deep reconcile run
+    // before checking nested value
+    void proxy.left;
+    await waitMicrotask();
+
+    expect(proxy.left.v).toBe(9);
+    expect(proxy.right).toBe(prevRight);
+  });
+
+  it('nested: null then delete on a key yields proxy transitions value → null → undefined', async () => {
+    const doc = new Y.Doc();
+    const yRoot = doc.getMap<any>('root');
+    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+
+    const user = new Y.Map<any>();
+    user.set('name', 'A');
+    yRoot.set('user', user);
+    await waitMicrotask();
+    expect(proxy.user.name).toBe('A');
+
+    user.set('name', null);
+    await waitMicrotask();
+    expect(proxy.user.name).toBe(null);
+
+    user.delete('name');
+    await waitMicrotask();
+    expect(proxy.user.name).toBe(undefined);
+    expect('name' in proxy.user).toBe(false);
+  });
 });
 

@@ -38,14 +38,30 @@ export function createRelayedProxiesMapRoot() {
   const { docA, docB } = createTwoDocsWithRelay();
   const a = createYjsProxy<any>(docA, { getRoot: (d) => d.getMap('root') });
   const b = createYjsProxy<any>(docB, { getRoot: (d) => d.getMap('root') });
-  return { docA, docB, proxyA: a.proxy, proxyB: b.proxy, bootstrapA: a.bootstrap } as const;
+  return {
+    docA,
+    docB,
+    proxyA: a.proxy,
+    proxyB: b.proxy,
+    bootstrapA: a.bootstrap,
+    disposeA: a.dispose,
+    disposeB: b.dispose,
+  } as const;
 }
 
 export function createRelayedProxiesArrayRoot() {
   const { docA, docB } = createTwoDocsWithRelay();
   const a = createYjsProxy<any[]>(docA, { getRoot: (d) => d.getArray('arr') });
   const b = createYjsProxy<any[]>(docB, { getRoot: (d) => d.getArray('arr') });
-  return { docA, docB, proxyA: a.proxy, proxyB: b.proxy, bootstrapA: a.bootstrap } as const;
+  return {
+    docA,
+    docB,
+    proxyA: a.proxy,
+    proxyB: b.proxy,
+    bootstrapA: a.bootstrap,
+    disposeA: a.dispose,
+    disposeB: b.dispose,
+  } as const;
 }
 
 

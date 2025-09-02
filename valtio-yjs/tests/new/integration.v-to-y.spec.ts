@@ -141,6 +141,65 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
     yArr.unobserve(handler);
   });
 
+  it('nested upgrade + immediate nested edit coalesces to a single transaction', async () => {
+    const doc = new Y.Doc();
+    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+    const onUpdate = vi.fn();
+    doc.on('update', onUpdate);
+
+    proxy.item = { title: 'A' };
+    (proxy as any).item.title = 'B';
+    await waitMicrotask();
+
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  it('middle insert via splice emits single retain+insert delta', async () => {
+    const doc = new Y.Doc();
+    const { proxy } = createYjsProxy<number[]>(doc, { getRoot: (d) => d.getArray('arr') });
+    const yArr = doc.getArray<number>('arr');
+
+    proxy.push(1);
+    proxy.push(3);
+    await waitMicrotask();
+
+    const deltas: any[] = [];
+    const handler = (e: any) => deltas.push(e.changes.delta);
+    yArr.observe(handler);
+
+    proxy.splice(1, 0, 2);
+    await waitMicrotask();
+
+    expect(yArr.toJSON()).toEqual([1, 2, 3]);
+    expect(deltas.length).toBe(1);
+    const delta = deltas[0];
+    expect(Array.isArray(delta)).toBe(true);
+    // Some Yjs versions may include surrounding retains; assert expected insert shape is present
+    const flat = deltas[0] as any[];
+    // Insert op may include suffix content depending on previous tail state
+    const insertOp = flat.find((op) => 'insert' in op);
+    const retainBefore = flat.find((op) => 'retain' in op && op.retain === 1);
+    expect(retainBefore).toBeTruthy();
+    expect(Array.isArray(insertOp.insert)).toBe(true);
+    expect(insertOp.insert[0]).toBe(2);
+
+    yArr.unobserve(handler);
+  });
+
+  it('batch top-level map sets and deletes coalesce to one transaction', async () => {
+    const doc = new Y.Doc();
+    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+    const onUpdate = vi.fn();
+    doc.on('update', onUpdate);
+
+    proxy.x = 1;
+    proxy.y = 2;
+    delete (proxy as any).x;
+    await waitMicrotask();
+
+    expect(onUpdate).toHaveBeenCalledTimes(1);
+  });
+
   it('shrink via splice updates Y.Array', async () => {
     const doc = new Y.Doc();
     const { proxy } = createYjsProxy<number[]>(doc, { getRoot: (d) => d.getArray('arr') });

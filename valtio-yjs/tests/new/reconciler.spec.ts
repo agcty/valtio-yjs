@@ -97,5 +97,51 @@ describe('Reconciler: map/array/delta', () => {
     await Promise.resolve();
     expect((yRoot.get('emptyContainer') as Y.Map<unknown>).get('foo')).toBe(1);
   });
+
+  it('deep materialization across multiple levels in one reconcile pass', async () => {
+    const doc = new Y.Doc();
+    const yRoot = doc.getMap('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+
+    const level2 = new Y.Map<unknown>();
+    const level3 = new Y.Array<unknown>();
+    level2.set('child', level3);
+    yRoot.set('parent', level2);
+
+    const context = new SynchronizationContext();
+    context.bindDoc(doc);
+    context.yTypeToValtioProxy.set(yRoot, proxy);
+    context.valtioProxyToYType.set(proxy, yRoot);
+
+    reconcileValtioMap(context, yRoot, doc);
+
+    const parentProxy = (proxy as Record<string, unknown>)['parent'] as Record<string, unknown>;
+    expect(typeof parentProxy).toBe('object');
+    const childProxy = parentProxy['child'] as unknown[];
+    expect(Array.isArray(childProxy)).toBe(true);
+
+    // Now mutate nested proxy and ensure Y updates
+    childProxy.push(1);
+    await Promise.resolve();
+    expect((yRoot.get('parent') as Y.Map<unknown>).get('child') instanceof Y.Array).toBe(true);
+    expect(((yRoot.get('parent') as Y.Map<unknown>).get('child') as Y.Array<unknown>).toJSON()).toEqual([1]);
+  });
+
+  it('array delta with multiple retains/inserts/deletes reconciles correctly', async () => {
+    const doc = new Y.Doc();
+    const yArr = doc.getArray('arr');
+    yArr.insert(0, [1, 2, 3, 4]);
+    const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+
+    const context = new SynchronizationContext();
+    context.bindDoc(doc);
+    context.yTypeToValtioProxy.set(yArr, proxy);
+    context.valtioProxyToYType.set(proxy, yArr);
+
+    // [{ retain: 1 }, { insert: [9] }, { retain: 2 }, { delete: 1 }] => [1, 9, 2, 3]
+    const delta = [{ retain: 1 }, { insert: [9] }, { retain: 2 }, { delete: 1 }];
+    reconcileValtioArrayWithDelta(context, yArr, doc, delta);
+    expect(proxy).toEqual([1, 9, 2, 3]);
+  });
 });
 

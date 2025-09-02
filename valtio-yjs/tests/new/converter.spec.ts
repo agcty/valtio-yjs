@@ -60,6 +60,64 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
     expect(out).toBe('https://example.com/path?q=1');
   });
 
+  it('roundtrip: plain → Y → plain for supported shapes (normalized)', () => {
+    const context = new SynchronizationContext();
+    const input = {
+      a: 1,
+      b: 's',
+      c: true,
+      d: null,
+      e: undefined,
+      f: [1, { x: 2, y: undefined }],
+      g: { nested: [{ k: 'v' }] },
+      dte: new Date('2020-01-02T00:00:00.000Z'),
+      re: /ab+/i,
+      url: new URL('https://example.com/x?y=1'),
+    } as const;
+    const yVal = plainObjectToYType(input, context) as Y.Map<unknown>;
+    const doc = new Y.Doc();
+    const root = doc.getMap('root');
+    root.set('val', yVal);
+    const normalized = yTypeToPlainObject(yVal);
+    expect(normalized).toEqual({
+      a: 1,
+      b: 's',
+      c: true,
+      d: null,
+      f: [1, { x: 2 }],
+      g: { nested: [{ k: 'v' }] },
+      dte: '2020-01-02T00:00:00.000Z',
+      re: '/ab+/i',
+      url: 'https://example.com/x?y=1',
+    });
+  });
+
+  it('arrays of special objects convert to string arrays', () => {
+    const context = new SynchronizationContext();
+    const arr = [new Date('2021-01-01T00:00:00.000Z'), /x/gi, new URL('https://x.test/')];
+    const y = plainObjectToYType(arr, context) as Y.Array<unknown>;
+    const doc = new Y.Doc();
+    const root = doc.getArray('arr');
+    root.insert(0, [y]);
+    const json = (root.get(0) as Y.Array<unknown>).toJSON();
+    expect(json).toEqual(['2021-01-01T00:00:00.000Z', '/x/gi', 'https://x.test/']);
+  });
+
+  it('deep undefined values are elided at all nesting levels', () => {
+    const context = new SynchronizationContext();
+    const input = {
+      a: undefined,
+      b: { c: undefined, d: [1, undefined, 2], e: [{ f: undefined }, { g: 3 }] },
+    } as const;
+    const yVal = plainObjectToYType(input, context) as Y.Map<unknown>;
+    const doc = new Y.Doc();
+    const root = doc.getMap('root');
+    root.set('val', yVal);
+    const json = (root.get('val') as Y.Map<unknown>).toJSON();
+    // In arrays, undefined normalizes to null (not dropped)
+    expect(json).toEqual({ b: { d: [1, null, 2], e: [{}, { g: 3 }] } });
+  });
+
   it('throws for unsupported primitives and values', () => {
     const context = new SynchronizationContext();
     expect(() => plainObjectToYType(BigInt(1), context)).toThrowError();

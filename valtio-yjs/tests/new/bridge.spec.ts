@@ -32,6 +32,35 @@ describe('Bridge Mechanics: createYjsProxy and bootstrap', () => {
     warn.mockRestore();
   });
 
+  it('dispose stops propagation (Y→V and V→Y) and is idempotent', async () => {
+    const doc = new Y.Doc();
+    const { proxy, dispose } = createYjsProxy<Record<string, unknown>>(doc, {
+      getRoot: (d) => d.getMap('root'),
+    });
+    const yRoot = doc.getMap<any>('root');
+
+    // Baseline: write through proxy reflects in Y
+    (proxy as any).a = 1;
+    await Promise.resolve();
+    expect(yRoot.get('a')).toBe(1);
+
+    // Dispose
+    dispose();
+
+    // After dispose: Y change should not reflect into proxy
+    yRoot.set('b', 2);
+    await Promise.resolve();
+    expect((proxy as any).b).toBeUndefined();
+
+    // After dispose: proxy change should not reflect into Y
+    (proxy as any).c = 3;
+    await Promise.resolve();
+    expect(yRoot.has('c')).toBe(false);
+
+    // Idempotent
+    expect(() => dispose()).not.toThrow();
+  });
+
   it('bootstrap converts deep plain object to Y types (map)', async () => {
     const doc = new Y.Doc();
     const yRoot = doc.getMap('root');
@@ -58,6 +87,21 @@ describe('Bridge Mechanics: createYjsProxy and bootstrap', () => {
       ],
       meta: { count: 2, active: true, nothing: null },
     });
+  });
+
+  it('bootstrap materializes live proxies allowing immediate same-tick nested edits', async () => {
+    const doc = new Y.Doc();
+    const yRoot = doc.getMap<any>('root');
+    const { proxy, bootstrap } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+
+    bootstrap({ item: { title: 'A', tags: [] } });
+    // same tick nested edit via proxy
+    (proxy as any).item.title = 'B';
+    await Promise.resolve();
+
+    const yItem = yRoot.get('item') as Y.Map<any>;
+    expect(yItem instanceof Y.Map).toBe(true);
+    expect(yItem.get('title')).toBe('B');
   });
 
   it('bootstrap converts Date to ISO string', async () => {
@@ -136,6 +180,24 @@ describe('Bridge Mechanics: createYjsProxy and bootstrap', () => {
     bootstrap([{ x: 1 }]);
     expect(warn).toHaveBeenCalled();
     expect(yArr.toJSON()).toEqual([1]);
+    warn.mockRestore();
+  });
+
+  it('bootstrap warns and is a no-op when called twice', async () => {
+    const doc = new Y.Doc();
+    const yRoot = doc.getMap<any>('root');
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { bootstrap } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+
+    bootstrap({ a: 1 });
+    await Promise.resolve();
+    expect(yRoot.toJSON()).toEqual({ a: 1 });
+
+    // Second call should warn and not modify
+    bootstrap({ b: 2 });
+    await Promise.resolve();
+    expect(warn).toHaveBeenCalled();
+    expect(yRoot.toJSON()).toEqual({ a: 1 });
     warn.mockRestore();
   });
 });
