@@ -35,6 +35,7 @@ export function createYjsProxy<T extends object>(
   // 2. Provide developer-driven bootstrap for initial data.
   const bootstrap = (data: T) => {
     if ((isYMap(yRoot) && yRoot.size > 0) || (isYArray(yRoot) && yRoot.length > 0)) {
+      // Use console.warn directly here to ensure visibility, independent of debug
       console.warn('[valtio-yjs] bootstrap called on a non-empty document. Aborting to prevent data loss.');
       return;
     }

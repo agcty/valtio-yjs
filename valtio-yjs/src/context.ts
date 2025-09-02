@@ -42,17 +42,21 @@ export class SynchronizationContext {
 
   constructor(debug?: boolean) {
     this.debugEnabled = debug ?? false;
+    const withPrefix = (...args: unknown[]): unknown[] =>
+      args.length > 0 && typeof args[0] === 'string'
+        ? [`${LOG_PREFIX} ${args[0] as string}`, ...(args.slice(1) as unknown[])]
+        : [LOG_PREFIX, ...args];
+
     this.log = {
       debug: (...args: unknown[]) => {
-        if (this.debugEnabled) {
-          console.log(LOG_PREFIX, ...args);
-        }
+        if (!this.debugEnabled) return;
+        console.debug(...(withPrefix(...args) as unknown[]));
       },
       warn: (...args: unknown[]) => {
-        console.warn(LOG_PREFIX, ...args);
+        console.warn(...(withPrefix(...args) as unknown[]));
       },
       error: (...args: unknown[]) => {
-        console.error(LOG_PREFIX, ...args);
+        console.error(...(withPrefix(...args) as unknown[]));
       },
     };
   }

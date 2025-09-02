@@ -1,6 +1,6 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import * as Y from 'yjs';
 import { createRelayedProxiesMapRoot, createRelayedProxiesArrayRoot, waitMicrotask } from './test-helpers.js';
 
@@ -211,20 +211,17 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     await waitMicrotask();
     expect(proxyB.list).toEqual(['a', 'b', 'c', 'd']);
 
-    let warned = false;
-    const prevWarn = console.warn;
-    console.warn = (...args: unknown[]) => {
-      warned = warned || (typeof args[0] === 'string' && args[0].includes('Potential array move detected'));
-      return prevWarn.apply(console, args as []);
-    };
+    const warnSpy = vi.spyOn(console, 'warn');
 
     // Attempt a move in the same tick
     const [moved] = proxyA.list.splice(1, 1);
     proxyA.list.splice(3, 0, moved);
     await waitMicrotask();
 
-    console.warn = prevWarn;
-    expect(warned).toBe(true);
+    expect(
+      warnSpy.mock.calls.some((call) => call.some((arg) => typeof arg === 'string' && arg.includes('Potential array move detected'))),
+    ).toBe(true);
+    warnSpy.mockRestore();
     // Remote should reflect only the structural delete effect (no insert in same tick)
     expect(proxyB.list).toEqual(['a', 'c', 'd']);
   });
