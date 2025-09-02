@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { isYArray, isYMap } from './guards.js';
 import { reconcileValtioArray, reconcileValtioMap } from './reconciler.js';
-import { VALTIO_YJS_ORIGIN } from './constants.js';
+import { VALTIO_YJS_ORIGIN, LOG_PREFIX } from './constants.js';
 import type { YSharedContainer } from './yjs-types.js';
 
 /**
@@ -16,7 +16,17 @@ type PendingEntry = {
   after?: (yValue: unknown) => void; // post-integration callback for map keys and array entries
 };
 
+export interface Logger {
+  debug: (...args: unknown[]) => void;
+  warn: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
+}
+
 export class SynchronizationContext {
+  // Logger facility
+  readonly log: Logger;
+  private readonly debugEnabled: boolean;
+
   // Caches: Y type <-> Valtio proxy
   readonly yTypeToValtioProxy = new WeakMap<AnySharedType, object>();
   readonly valtioProxyToYType = new WeakMap<object, AnySharedType>();
@@ -29,6 +39,23 @@ export class SynchronizationContext {
 
   // Global flag used to prevent reflecting Valtio changes back into Yjs
   isReconciling = false;
+
+  constructor(debug?: boolean) {
+    this.debugEnabled = debug ?? false;
+    this.log = {
+      debug: (...args: unknown[]) => {
+        if (this.debugEnabled) {
+          console.log(LOG_PREFIX, ...args);
+        }
+      },
+      warn: (...args: unknown[]) => {
+        console.warn(LOG_PREFIX, ...args);
+      },
+      error: (...args: unknown[]) => {
+        console.error(LOG_PREFIX, ...args);
+      },
+    };
+  }
 
   // Write scheduler (single per context)
   private boundDoc: Y.Doc | null = null;
@@ -133,7 +160,7 @@ export class SynchronizationContext {
   private scheduleFlush(): void {
     if (this.flushScheduled) return;
     this.flushScheduled = true;
-    console.log('[valtio-yjs][context] scheduleFlush');
+    this.log.debug('[context] scheduleFlush');
     queueMicrotask(() => this.flush());
   }
 
@@ -141,7 +168,7 @@ export class SynchronizationContext {
     this.flushScheduled = false;
     if (!this.boundDoc) return;
     const doc = this.boundDoc;
-    console.log('[valtio-yjs][context] flush start');
+    this.log.debug('[context] flush start');
     // Snapshot pending and clear before running to avoid re-entrancy issues
     const mapSets = this.pendingMapSets;
     const mapDeletes = this.pendingMapDeletes;
@@ -196,7 +223,7 @@ export class SynchronizationContext {
       for (const key of keys) {
         const entry = keyToEntry.get(key)!;
         const yValue = entry.compute();
-        console.log('[valtio-yjs][context] map.set', { key });
+        this.log.debug('[context] map.set', { key });
         yMap.set(key, yValue);
         if (entry.after) {
           post.push(() => entry.after!(yValue));
@@ -226,8 +253,8 @@ export class SynchronizationContext {
       let spliceBaseIndex: number | null = null;
       let remapDeleteCount = 0;
       if (deletesForArray.size > 0 && setsForArray.size > 0) {
-        console.warn(
-          '[valtio-yjs] Potential array move detected. Move operations are not supported. Implement moves at the app layer (e.g., fractional indexing or explicit remove+insert in separate ticks).',
+        this.log.warn(
+          'Potential array move detected. Move operations are not supported. Implement moves at the app layer (e.g., fractional indexing or explicit remove+insert in separate ticks).',
           {
             deletes: Array.from(deletesForArray).sort((a, b) => a - b),
             sets: Array.from(setsForArray.keys()).sort((a, b) => a - b),
@@ -266,7 +293,7 @@ export class SynchronizationContext {
                 items.push(entry.compute());
               }
               const hasDoc = this.hasYDoc(yArray);
-              console.log('[valtio-yjs][context] array.unshift.coalesce', { insertCount: items.length, hasDoc });
+              this.log.debug('[context] array.unshift.coalesce', { insertCount: items.length, hasDoc });
               const arrayDocNow = this.getYDoc(yArray);
               yArray.insert(0, items);
               items.forEach((it, i) => {
@@ -296,7 +323,7 @@ export class SynchronizationContext {
                 items.push(entry.compute());
               }
               const hasDoc = this.hasYDoc(yArray);
-              console.log('[valtio-yjs][context] array.push.coalesce', { insertCount: items.length, hasDoc });
+              this.log.debug('[context] array.push.coalesce', { insertCount: items.length, hasDoc });
               const arrayDocNow = this.getYDoc(yArray);
               yArray.insert(yArray.length, items);
               items.forEach((it, i) => {
@@ -331,7 +358,7 @@ export class SynchronizationContext {
         const valueDoc = this.getYDoc(yValue);
         const valueParent = this.getParent(yValue);
         const valueType = isYMap(yValue) ? 'Y.Map' : isYArray(yValue) ? 'Y.Array' : typeof yValue;
-        console.log('[valtio-yjs][context] array.set.compute', {
+        this.log.debug('[context] array.set.compute', {
           index,
           type: valueType,
           valueHasDoc: !!valueDoc,
@@ -356,14 +383,14 @@ export class SynchronizationContext {
         for (let i = 0; i < remapDeleteCount; i++) {
           const idx = spliceBaseIndex;
           const hasDoc = this.hasYDoc(yArray);
-          console.log('[valtio-yjs][context] array.delete', { index: idx, length: yArray.length, hasDoc });
+          this.log.debug('[context] array.delete', { index: idx, length: yArray.length, hasDoc });
           if (idx >= 0 && idx < yArray.length) yArray.delete(idx, 1);
         }
       } else {
         const sortedDeletes = Array.from(indicesToDelete).sort((a, b) => b - a);
         for (const index of sortedDeletes) {
           const hasDoc = this.hasYDoc(yArray);
-          console.log('[valtio-yjs][context] array.delete', { index, length: yArray.length, hasDoc });
+          this.log.debug('[context] array.delete', { index, length: yArray.length, hasDoc });
           if (index >= 0 && index < yArray.length) yArray.delete(index, 1);
         }
       }
@@ -392,8 +419,8 @@ export class SynchronizationContext {
         const firstType = isYMap(first) ? 'Y.Map' : isYArray(first) ? 'Y.Array' : typeof first;
         if (targetIndex === yArray.length) {
           const hasDoc = this.hasYDoc(yArray);
-          console.log('[valtio-yjs][context] array.append', { index: targetIndex, length: yArray.length, hasDoc });
-          console.log('[valtio-yjs][context] array.insert.inspect', {
+          this.log.debug('[context] array.append', { index: targetIndex, length: yArray.length, hasDoc });
+          this.log.debug('[context] array.insert.inspect', {
             index: targetIndex,
             count: items.length,
             firstType,
@@ -416,8 +443,8 @@ export class SynchronizationContext {
           });
         } else if (targetIndex < yArray.length) {
           const hasDoc = this.hasYDoc(yArray);
-          console.log('[valtio-yjs][context] array.insert', { index: targetIndex, length: yArray.length, hasDoc });
-          console.log('[valtio-yjs][context] array.insert.inspect', {
+          this.log.debug('[context] array.insert', { index: targetIndex, length: yArray.length, hasDoc });
+          this.log.debug('[context] array.insert.inspect', {
             index: targetIndex,
             count: items.length,
             firstType,

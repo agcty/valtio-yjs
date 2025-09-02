@@ -33,7 +33,7 @@ export function setupSyncListener(
     if (transaction.origin === VALTIO_YJS_ORIGIN) {
       return;
     }
-    console.log('[valtio-yjs][sync] deep', {
+    context.log.debug('[sync] deep', {
       events: events.map((e) => ({
         target: e.target.constructor.name,
         path: (e.path ?? []).slice(),

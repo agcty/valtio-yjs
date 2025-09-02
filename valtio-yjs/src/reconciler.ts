@@ -21,12 +21,12 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
   const valtioProxy = getValtioProxyForYType(context, yMap) as Record<string, unknown> | undefined;
   if (!valtioProxy) {
     // This map hasn't been materialized yet, so there's nothing to reconcile.
-    console.log('[valtio-yjs] reconcileValtioMap skipped (no proxy)');
+    context.log.debug('reconcileValtioMap skipped (no proxy)');
     return;
   }
 
   context.withReconcilingLock(() => {
-    console.log('[valtio-yjs] reconcileValtioMap start', {
+    context.log.debug('reconcileValtioMap start', {
       yKeys: Array.from(yMap.keys()),
       valtioKeys: Object.keys(valtioProxy),
       yJson: typeof yMap.toJSON === 'function' ? yMap.toJSON() : undefined,
@@ -39,10 +39,10 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
       if (!valtioKeys.has(key)) {
         const yValue = yMap.get(key);
         if (isYSharedContainer(yValue)) {
-          console.log('[valtio-yjs] materialize nested controller for key', key);
+          context.log.debug('materialize nested controller for key', key);
           valtioProxy[key] = getOrCreateValtioProxy(context, yValue, doc);
         } else {
-          console.log('[valtio-yjs] set primitive key', key);
+          context.log.debug('set primitive key', key);
           valtioProxy[key] = yValue;
         }
       }
@@ -51,7 +51,7 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     // Remove extra keys from Valtio proxy
     for (const key of valtioKeys) {
       if (!yKeys.has(key)) {
-        console.log('[valtio-yjs] delete key', key);
+        context.log.debug('delete key', key);
         delete valtioProxy[key];
       }
     }
@@ -63,13 +63,13 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
         if (!isYSharedContainer(yValue)) {
           const current = valtioProxy[key];
           if (current !== yValue) {
-            console.log('[valtio-yjs] update primitive key', key);
+            context.log.debug('update primitive key', key);
             valtioProxy[key] = yValue;
           }
         }
       }
     }
-    console.log('[valtio-yjs] reconcileValtioMap end', {
+    context.log.debug('reconcileValtioMap end', {
       valtioKeys: Object.keys(valtioProxy),
     });
   });
@@ -82,16 +82,16 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
   if (!valtioProxy) return;
 
   context.withReconcilingLock(() => {
-    console.log('[valtio-yjs] reconcileValtioArray start', {
+    context.log.debug('reconcileValtioArray start', {
       yLength: yArray.length,
       valtioLength: valtioProxy.length,
     });
     const newContent = yArray
       .toArray()
       .map((item) => (isYSharedContainer(item) ? getOrCreateValtioProxy(context, item, doc) : item));
-    console.log('[valtio-yjs] reconcile array splice', newContent.length);
+    context.log.debug('reconcile array splice', newContent.length);
     valtioProxy.splice(0, valtioProxy.length, ...newContent);
-    console.log('[valtio-yjs] reconcileValtioArray end', {
+    context.log.debug('reconcileValtioArray end', {
       valtioLength: valtioProxy.length,
     });
   });
@@ -112,7 +112,7 @@ export function reconcileValtioArrayWithDelta(
   if (!valtioProxy) return;
 
   context.withReconcilingLock(() => {
-    console.log('[valtio-yjs] reconcileValtioArrayWithDelta start', {
+    context.log.debug('reconcileValtioArrayWithDelta start', {
       delta,
       valtioLength: valtioProxy.length,
     });
@@ -120,7 +120,7 @@ export function reconcileValtioArrayWithDelta(
     let position = 0;
     let step = 0;
     for (const d of delta) {
-      console.log('[valtio-yjs] delta.step', { step: step++, d, position });
+      context.log.debug('delta.step', { step: step++, d, position });
       if (d.retain && d.retain > 0) {
         position += d.retain;
         continue;
@@ -134,7 +134,7 @@ export function reconcileValtioArrayWithDelta(
       }
       if (d.insert && d.insert.length > 0) {
         const converted = d.insert.map((item) => (isYSharedContainer(item) ? getOrCreateValtioProxy(context, item, doc) : item));
-        console.log('[valtio-yjs] delta.insert', { at: position, count: converted.length });
+        context.log.debug('delta.insert', { at: position, count: converted.length });
         valtioProxy.splice(position, 0, ...converted);
         position += converted.length;
         continue;
@@ -142,7 +142,7 @@ export function reconcileValtioArrayWithDelta(
       // Unknown or empty op: skip
     }
 
-    console.log('[valtio-yjs] reconcileValtioArrayWithDelta end', {
+    context.log.debug('reconcileValtioArrayWithDelta end', {
       valtioLength: valtioProxy.length,
     });
   });

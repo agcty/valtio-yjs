@@ -11,6 +11,7 @@ import { reconcileValtioArray, reconcileValtioMap } from './reconciler.js';
 
 export interface CreateYjsProxyOptions<_T> {
   getRoot: (doc: Y.Doc) => Y.Map<unknown> | Y.Array<unknown>;
+  debug?: boolean;
 }
 
 export interface YjsProxy<T> {
@@ -27,7 +28,7 @@ export function createYjsProxy<T extends object>(
   const yRoot = getRoot(doc);
 
   // 1. Create the root controller proxy (returns a real Valtio proxy).
-  const context = new SynchronizationContext();
+  const context = new SynchronizationContext(options.debug);
   context.bindDoc(doc);
   const stateProxy = getOrCreateValtioProxy(context, yRoot, doc);
 

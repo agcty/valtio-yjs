@@ -13,6 +13,7 @@ import { plainObjectToYType } from './converter.js';
 import type { YSharedContainer } from './yjs-types.js';
 import { SynchronizationContext } from './context.js';
 import { isYSharedContainer, isYArray, isYMap } from './guards.js';
+import { LOG_PREFIX } from './constants.js';
 
 
 type ValtioMapPath = [string];
@@ -94,7 +95,7 @@ function attachValtioArraySubscription(
 ): () => void {
   const unsubscribe = subscribe(arrProxy, (ops: unknown[]) => {
     if (context.isReconciling) return;
-    console.log('[valtio-yjs][controller][array] ops', JSON.stringify(ops));
+    context.log.debug('[controller][array] ops', JSON.stringify(ops));
     // Phase 1: categorize actionable ops (ignore length changes etc.)
     const deletes = new Map<number, unknown>(); // index -> previous value
     const sets = new Map<number, unknown>(); // index -> new value
@@ -111,24 +112,24 @@ function attachValtioArraySubscription(
     // If a batch includes any deletes, ignore all sets (moves are not handled here)
     if (deletes.size > 0) {
       const indicesToDelete = Array.from(deletes.keys()).sort((a, b) => b - a);
-      console.log('[valtio-yjs][controller][array] categorized (structural)', {
+      context.log.debug('[controller][array] categorized (structural)', {
         deletes: indicesToDelete,
         replacementSets: [],
         setsIgnored: Array.from(sets.keys()),
       });
       for (const index of indicesToDelete) {
-        console.log('[valtio-yjs][controller][array] enqueue.delete (structural)', { index });
+        context.log.debug('[controller][array] enqueue.delete (structural)', { index });
         context.enqueueArrayDelete(yArray, index);
       }
       return;
     }
 
-    console.log('[valtio-yjs][controller][array] categorized', {
+    context.log.debug('[controller][array] categorized', {
       deletes: [],
       sets: Array.from(sets.keys()),
     });
     for (const [idx] of sets.entries()) {
-      console.log('[valtio-yjs][controller][array] enqueue.set', { index: idx });
+      context.log.debug('[controller][array] enqueue.set', { index: idx });
       context.enqueueArraySet(
         yArray,
         idx,
@@ -155,7 +156,7 @@ function attachValtioMapSubscription(
 ): () => void {
   const unsubscribe = subscribe(objProxy, (ops: unknown[]) => {
     if (context.isReconciling) return;
-    console.log('[valtio-yjs][controller][map] ops', JSON.stringify(ops));
+    context.log.debug('[controller][map] ops', JSON.stringify(ops));
     for (const op of ops) {
       if (isSetMapOp(op)) {
         const key = op[1][0];
@@ -245,7 +246,7 @@ export function getOrCreateValtioProxy(context: SynchronizationContext, yType: Y
   // }
 
   // Fallback for unsupported types
-  console.warn('Unsupported Yjs type:', yType);
+  console.warn(LOG_PREFIX, 'Unsupported Yjs type:', yType);
   return yType as unknown as object;
 }
 
