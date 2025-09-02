@@ -257,12 +257,21 @@ export class SynchronizationContext {
       let spliceBaseIndex: number | null = null;
       let remapDeleteCount = 0;
       if (deletesForArray.size > 0 && setsForArray.size > 0) {
+        const sortedDeletes = Array.from(deletesForArray).sort((a, b) => a - b);
+        const sortedSets = Array.from(setsForArray.keys()).sort((a, b) => a - b);
+        const yLenNow = yArray.length;
+
         this.log.warn(
-          'Potential array move detected. Move operations are not supported. Implement moves at the app layer (e.g., fractional indexing or explicit remove+insert in separate ticks).',
+          'Potential array move detected. Move operations are not supported. Implement moves at the app layer (e.g., fractional indexing or explicit remove+insert in separate ticks). This is a heuristic and may also occur with splice/replace or reindex shifts.',
           {
-            deletes: Array.from(deletesForArray).sort((a, b) => a - b),
-            sets: Array.from(setsForArray.keys()).sort((a, b) => a - b),
-            length: yArray.length,
+            deletes: sortedDeletes,
+            sets: sortedSets,
+            length: yLenNow,
+            suggestions: [
+              'If this was a move: perform delete and insert in separate ticks, or use fractional indexing.',
+              'If this was a replace/splice: this hint can be ignored; reindexing may emit index sets.',
+              'Reduce noise: avoid combining structural deletes with index sets in the same tick when possible.',
+            ],
           },
         );
         spliceBaseIndex = Math.min(...Array.from(setsForArray.keys()));
