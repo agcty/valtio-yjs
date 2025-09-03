@@ -62,18 +62,19 @@ function attachValtioArraySubscription(
     context.log.debug('[controller][array] ops', JSON.stringify(ops));
     
     // Phase 1: Planning - categorize operations into explicit intents
-    // Use current proxy length to determine in-bounds classification reliably
-    const { sets, deletes, replaces } = planArrayOps(ops, arrProxy.length, context);
+    // Use Y.Array length as the start-of-batch baseline for deterministic planning
+    const { sets, deletes, replaces } = planArrayOps(ops, yArray.length, context);
     
     // Phase 2: Scheduling - enqueue planned operations
     
     // Handle replaces first (splice replace operations: delete + set at same index)
     for (const [index, value] of replaces) {
       context.log.debug('[controller][array] enqueue.replace', { index });
+      const normalized = value === undefined ? null : value;
       context.enqueueArrayReplace(
         yArray,
         index,
-        value, // Pass the value directly
+        normalized, // Normalize undefined→null defensively
         (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, index, yValue, _doc),
       );
     }
@@ -86,12 +87,13 @@ function attachValtioArraySubscription(
     
     // Handle pure sets (inserts/pushes/unshifts). If in-bounds, treat as replace defensively.
     for (const [index, value] of sets) {
+      const normalized = value === undefined ? null : value;
       if (index < yArray.length) {
         context.log.debug('[controller][array] enqueue.replace(via-set)', { index });
         context.enqueueArrayReplace(
           yArray,
           index,
-          value,
+          normalized,
           (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, index, yValue, _doc),
         );
       } else {
@@ -99,7 +101,7 @@ function attachValtioArraySubscription(
         context.enqueueArraySet(
           yArray,
           index,
-          value, // Pass the value directly
+          normalized, // Normalize undefined→null defensively
           (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, index, yValue, _doc),
         );
       }
@@ -130,10 +132,11 @@ function attachValtioMapSubscription(
     
     // Phase 2: Scheduling - enqueue planned operations
     for (const [key, value] of sets) {
+      const normalized = value === undefined ? null : value;
       context.enqueueMapSet(
         yMap,
         key,
-        value, // Pass the value directly instead of a compute function
+        normalized, // Normalize undefined→null defensively
         (yValue: unknown) => upgradeChildIfNeeded(context, objProxy, key, yValue, doc),
       );
     }

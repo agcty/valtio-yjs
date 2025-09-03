@@ -29,16 +29,16 @@ export function applyArrayOperations(
     const deletesForArray = arrayDeletes.get(yArray) ?? new Set<number>();
     const replacesForArray = arrayReplaces.get(yArray) ?? new Map<number, PendingArrayEntry>();
 
-    // Always apply sets (inserts) first to establish structure for safe replaces
+    // 1) Handle Replaces first (canonical delete-then-insert at same index)
+    handleReplaces(context, yArray, replacesForArray, post);
+
+    // 2) Handle Pure Deletes next (descending order to avoid index shifts)
+    handleDeletes(context, yArray, deletesForArray);
+
+    // 3) Finally, handle Pure Inserts (sets)
     if (setsForArray.size > 0) {
       handleSets(context, yArray, setsForArray, post);
     }
-
-    // Handle Replaces (splice replace operations): delete + insert at same index
-    handleReplaces(context, yArray, replacesForArray, post);
-
-    // Handle Pure Deletes: delete in descending order to avoid index shifting issues
-    handleDeletes(context, yArray, deletesForArray);
   }
 }
 

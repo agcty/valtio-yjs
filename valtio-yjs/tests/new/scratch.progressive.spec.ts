@@ -37,7 +37,7 @@ import { describe, it, expect, vi } from 'vitest';
  */
 import * as Y from 'yjs';
 import { planArrayOps } from '../../src/planning/arrayOpsPlanner.js';
-import { createYjsProxy } from 'valtio-yjs';
+import { createYjsProxy } from '../../src/index.js';
 
 const waitMicrotask = () => Promise.resolve();
 
@@ -308,7 +308,9 @@ describe('Scratch: Progressive checks', () => {
       const { proxy, bootstrap } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<any>('root');
 
-      expect(() => bootstrap({ a: undefined as any })).toThrowError();
+      expect(() => bootstrap({ a: undefined as any })).toThrowError(
+        /undefined is not allowed.*Use null, delete the key, or omit the field\./i,
+      );
       expect(yRoot.size).toBe(0);
 
       bootstrap({ a: null });
