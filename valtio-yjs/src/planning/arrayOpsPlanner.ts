@@ -4,7 +4,9 @@
 // - Analyze Valtio subscription ops and categorize array operations
 // - Separate planning (what to do) from scheduling (when to do it)
 // - Identify specific array intents: sets (inserts), deletes, and replaces
-// - **Actively forbid direct array index assignment (`arr[i] = val`)**
+// - Direct array index assignment (`arr[i] = val`) is treated as a replace,
+//   equivalent to splice(i, 1, val). We do not forbid it; we translate it
+//   deterministically per the Translator's Guide.
 
 import { SynchronizationContext } from '../core/context.js';
 
@@ -86,57 +88,20 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
   const deletes = new Set<number>();
 
   const remainingSetIndices = Array.from(setsByIndex.keys()).sort((a, b) => a - b);
-  let clearedReplacesDueToHead = false;
+  let usedHeadOptimization = false;
   if (remainingSetIndices.length > 0) {
-    const firstSetIndex = remainingSetIndices[0]!;
-    const lastSetIndex = remainingSetIndices[remainingSetIndices.length - 1]!;
-    const isContiguous = lastSetIndex - firstSetIndex + 1 === remainingSetIndices.length;
-
-    if (isContiguous && firstSetIndex === 0) {
-      // Head coalescing pattern: sets cover [0..m-1]
-      const m = remainingSetIndices.length;
-      const k = m - yArrayLength; // number of new head items
-      if (k > 0) {
-        // Treat only first k as inserts to enable a single unshift; drop residual shift-echo sets
-        for (let i = 0; i < k; i++) {
-          sets.set(i, setsByIndex.get(i)!);
-        }
-        // Do not emit replaces for indices shifted by this insert
-        // Also drop any replaces detected earlier; head growth reindexes everything deterministically
-        if (replaces.size > 0) {
-          replaces.clear();
-          clearedReplacesDueToHead = true;
-        }
+    // Baseline classification: no coalescing logic; classify purely by start-of-batch length
+    for (const idx of remainingSetIndices) {
+      const val = setsByIndex.get(idx)!;
+      if (idx < yArrayLength) {
+        replaces.set(idx, val);
       } else {
-        // No actual head growth; fall back to state-based classification
-        for (const idx of remainingSetIndices) {
-          const val = setsByIndex.get(idx)!;
-          if (idx < yArrayLength) {
-            replaces.set(idx, val);
-          } else {
-            sets.set(idx, val);
-          }
-        }
-      }
-    } else if (isContiguous && firstSetIndex === yArrayLength) {
-      // Tail coalescing pattern: sets cover [yLen..yLen+k-1]
-      for (const idx of remainingSetIndices) {
-        sets.set(idx, setsByIndex.get(idx)!);
-      }
-    } else {
-      // Default: state-based classification
-      for (const idx of remainingSetIndices) {
-        const val = setsByIndex.get(idx)!;
-        if (idx < yArrayLength) {
-          replaces.set(idx, val);
-        } else {
-          sets.set(idx, val);
-        }
+        sets.set(idx, val);
       }
     }
   }
 
-  // Phase 4: Remaining deletes are pure deletes
+  // Phase 4: Remaining deletes are pure deletes, unless head optimization was applied
   for (const deletedIndex of deletesByIndex) {
     deletes.add(deletedIndex);
   }

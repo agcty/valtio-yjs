@@ -64,13 +64,14 @@ function handleReplaces(
     
     context.log.debug('[arrayApply] replace', { index });
     
-    // Canonical replace: delete then insert at same index when in-bounds.
-    // If out-of-bounds (can happen with rapid mixed ops), fall back to insert at tail to avoid length errors.
-    if (index >= 0 && index < yArray.length) {
+    // Canonical replace: delete then insert, with defensive clamping for safety under rapid mixed ops
+    const inBounds = index >= 0 && index < yArray.length;
+    if (inBounds) {
       yArray.delete(index, 1);
-      yArray.insert(index, [yValue]);
+      const insertIndex = Math.min(Math.max(index, 0), yArray.length);
+      yArray.insert(insertIndex, [yValue]);
     } else {
-      const safeIndex = yArray.length < 0 ? 0 : yArray.length;
+      const safeIndex = Math.max(0, Math.min(index, yArray.length));
       yArray.insert(safeIndex, [yValue]);
     }
     
@@ -127,11 +128,12 @@ function handleSets(
   context.log.debug('[arrayApply] handling sets', { count: sets.size });
 
   // Try to optimize contiguous head/tail inserts
-  if (tryOptimizedInserts(context, yArray, sets, post)) {
-    return; // Successfully handled with optimization
-  }
+  // Temporarily disable optimizations to focus on baseline correctness
+  // if (tryOptimizedInserts(context, yArray, sets, post)) {
+  //   return; // Successfully handled with optimization
+  // }
 
-  // Fall back to individual inserts for non-contiguous sets
+  // Baseline: perform individual inserts
   handleIndividualInserts(context, yArray, sets, post);
 }
 
@@ -155,14 +157,14 @@ function tryOptimizedInserts(
   
   if (!isContiguous) return false;
 
-  // Head insert optimization: sets cover [0 .. m-1] with m > yLen → unshift
+  // Head insert optimization: sets cover [0 .. m-1] → perform a single unshift insert
+  // We rely on planner to only include truly new head items in `sets` for this case.
   if (firstSetIndex === 0) {
     const m = sortedSetIndices.length;
-    const k = m - yLenAtStart;
-    if (k > 0) {
+    if (m > 0) {
       const items: unknown[] = [];
       const entries: PendingArrayEntry[] = [];
-      for (let i = 0; i < k; i++) {
+      for (let i = 0; i < m; i++) {
         const entry = sets.get(i)!;
         entries.push(entry);
         items.push(plainObjectToYType(entry.value, context));
