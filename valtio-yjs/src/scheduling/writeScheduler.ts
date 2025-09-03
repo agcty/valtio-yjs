@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { PendingEntry, PendingMapEntry } from './batchTypes.js';
+import type { PendingEntry, PendingMapEntry, PendingArrayEntry } from './batchTypes.js';
 import type { Logger } from '../core/context.js';
 import { VALTIO_YJS_ORIGIN } from '../core/constants.js';
 
@@ -13,13 +13,14 @@ export class WriteScheduler {
   // Pending ops, deduped per target and key/index
   private pendingMapSets = new Map<Y.Map<unknown>, Map<string, PendingMapEntry>>();
   private pendingMapDeletes = new Map<Y.Map<unknown>, Set<string>>();
-  private pendingArraySets = new Map<Y.Array<unknown>, Map<number, PendingEntry>>();
+  private pendingArraySets = new Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>();
   private pendingArrayDeletes = new Map<Y.Array<unknown>, Set<number>>();
+  private pendingArrayReplaces = new Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>();
 
   // Callback functions for applying operations
   private applyMapDeletesFn: ((mapDeletes: Map<Y.Map<unknown>, Set<string>>) => void) | null = null;
   private applyMapSetsFn: ((mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>, post: Array<() => void>) => void) | null = null;
-  private applyArrayOperationsFn: ((arraySets: Map<Y.Array<unknown>, Map<number, PendingEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, post: Array<() => void>) => void) | null = null;
+  private applyArrayOperationsFn: ((arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, post: Array<() => void>) => void) | null = null;
   private withReconcilingLockFn: ((fn: () => void) => void) | null = null;
 
   constructor(log: Logger) {
@@ -34,7 +35,7 @@ export class WriteScheduler {
   setApplyFunctions(
     applyMapDeletes: (mapDeletes: Map<Y.Map<unknown>, Set<string>>) => void,
     applyMapSets: (mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>, post: Array<() => void>) => void,
-    applyArrayOperations: (arraySets: Map<Y.Array<unknown>, Map<number, PendingEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, post: Array<() => void>) => void,
+    applyArrayOperations: (arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, post: Array<() => void>) => void,
     withReconcilingLock: (fn: () => void) => void,
   ): void {
     this.applyMapDeletesFn = applyMapDeletes;
@@ -78,7 +79,7 @@ export class WriteScheduler {
   enqueueArraySet(
     yArray: Y.Array<unknown>,
     index: number,
-    computeYValue: () => unknown,
+    value: unknown,
     postUpgrade?: (yValue: unknown) => void,
   ): void {
     let perArr = this.pendingArraySets.get(yArray);
@@ -86,7 +87,22 @@ export class WriteScheduler {
       perArr = new Map();
       this.pendingArraySets.set(yArray, perArr);
     }
-    perArr.set(index, { compute: computeYValue, after: postUpgrade });
+    perArr.set(index, { value, after: postUpgrade });
+    this.scheduleFlush();
+  }
+
+  enqueueArrayReplace(
+    yArray: Y.Array<unknown>,
+    index: number,
+    value: unknown,
+    postUpgrade?: (yValue: unknown) => void,
+  ): void {
+    let perArr = this.pendingArrayReplaces.get(yArray);
+    if (!perArr) {
+      perArr = new Map();
+      this.pendingArrayReplaces.set(yArray, perArr);
+    }
+    perArr.set(index, { value, after: postUpgrade });
     this.scheduleFlush();
   }
 
@@ -119,10 +135,12 @@ export class WriteScheduler {
     const mapDeletes = this.pendingMapDeletes;
     const arraySets = this.pendingArraySets;
     const arrayDeletes = this.pendingArrayDeletes;
+    const arrayReplaces = this.pendingArrayReplaces;
     this.pendingMapSets = new Map();
     this.pendingMapDeletes = new Map();
     this.pendingArraySets = new Map();
     this.pendingArrayDeletes = new Map();
+    this.pendingArrayReplaces = new Map();
     // no-op
     const post: Array<() => void> = [];
 
@@ -130,7 +148,8 @@ export class WriteScheduler {
       mapSets.size === 0 &&
       mapDeletes.size === 0 &&
       arraySets.size === 0 &&
-      arrayDeletes.size === 0
+      arrayDeletes.size === 0 &&
+      arrayReplaces.size === 0
     ) {
       return;
     }
@@ -143,7 +162,7 @@ export class WriteScheduler {
         this.applyMapSetsFn(mapSets, post);
       }
       if (this.applyArrayOperationsFn) {
-        this.applyArrayOperationsFn(arraySets, arrayDeletes, post);
+        this.applyArrayOperationsFn(arraySets, arrayDeletes, arrayReplaces, post);
       }
     }, VALTIO_YJS_ORIGIN);
 

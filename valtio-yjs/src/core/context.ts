@@ -63,7 +63,7 @@ export class SynchronizationContext {
     this.writeScheduler.setApplyFunctions(
       (mapDeletes) => applyMapDeletes(mapDeletes, this.log),
       (mapSets, post) => applyMapSets(mapSets, post, this.log, this),
-      (arraySets, arrayDeletes, post) => applyArrayOperations(this, arraySets, arrayDeletes, post),
+      (arraySets, arrayDeletes, arrayReplaces, post) => applyArrayOperations(this, arraySets, arrayDeletes, arrayReplaces, post),
       (fn) => this.withReconcilingLock(fn),
     );
   }
@@ -117,10 +117,19 @@ export class SynchronizationContext {
   enqueueArraySet(
     yArray: Y.Array<unknown>,
     index: number,
-    computeYValue: () => unknown,
+    value: unknown,
     postUpgrade?: (yValue: unknown) => void,
   ): void {
-    this.writeScheduler.enqueueArraySet(yArray, index, computeYValue, postUpgrade);
+    this.writeScheduler.enqueueArraySet(yArray, index, value, postUpgrade);
+  }
+
+  enqueueArrayReplace(
+    yArray: Y.Array<unknown>,
+    index: number,
+    value: unknown,
+    postUpgrade?: (yValue: unknown) => void,
+  ): void {
+    this.writeScheduler.enqueueArrayReplace(yArray, index, value, postUpgrade);
   }
 
   enqueueArrayDelete(yArray: Y.Array<unknown>, index: number): void {

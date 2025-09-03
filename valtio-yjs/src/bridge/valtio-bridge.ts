@@ -15,6 +15,7 @@ import { SynchronizationContext } from '../core/context.js';
 import { isYSharedContainer, isYArray, isYMap } from '../core/guards.js';
 import { LOG_PREFIX } from '../core/constants.js';
 import { planMapOps } from '../planning/mapOpsPlanner.js';
+import { planArrayOps } from '../planning/arrayOpsPlanner.js';
 
 
 type ValtioMapPath = [string];
@@ -97,45 +98,37 @@ function attachValtioArraySubscription(
   const unsubscribe = subscribe(arrProxy, (ops: unknown[]) => {
     if (context.isReconciling) return;
     context.log.debug('[controller][array] ops', JSON.stringify(ops));
-    // Phase 1: categorize actionable ops (ignore length changes etc.)
-    const deletes = new Map<number, unknown>(); // index -> previous value
-    const sets = new Map<number, unknown>(); // index -> new value
-    for (const op of ops) {
-      if (isDeleteArrayOp(op)) {
-        const idx = normalizeIndex(op[1][0]);
-        deletes.set(idx, op[2]);
-      } else if (isSetArrayOp(op)) {
-        const idx = normalizeIndex(op[1][0]);
-        sets.set(idx, op[2]);
-      }
+    
+    // Phase 1: Planning - categorize operations into explicit intents
+    const { sets, deletes, replaces } = planArrayOps(ops, yArray.length);
+    
+    // Phase 2: Scheduling - enqueue planned operations
+    
+    // Handle replaces first (delete + set at same index)
+    for (const [index, value] of replaces) {
+      context.log.debug('[controller][array] enqueue.replace', { index });
+      context.enqueueArrayReplace(
+        yArray,
+        index,
+        value, // Pass the value directly
+        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, index, yValue, _doc),
+      );
     }
-    // Phase 2: enqueue high-level operations
-    // If a batch includes any deletes, ignore all sets (moves are not handled here)
-    if (deletes.size > 0) {
-      const indicesToDelete = Array.from(deletes.keys()).sort((a, b) => b - a);
-      context.log.debug('[controller][array] categorized (structural)', {
-        deletes: indicesToDelete,
-        replacementSets: [],
-        setsIgnored: Array.from(sets.keys()),
-      });
-      for (const index of indicesToDelete) {
-        context.log.debug('[controller][array] enqueue.delete (structural)', { index });
-        context.enqueueArrayDelete(yArray, index);
-      }
-      return;
+    
+    // Handle pure deletes
+    for (const index of deletes) {
+      context.log.debug('[controller][array] enqueue.delete', { index });
+      context.enqueueArrayDelete(yArray, index);
     }
-
-    context.log.debug('[controller][array] categorized', {
-      deletes: [],
-      sets: Array.from(sets.keys()),
-    });
-    for (const [idx] of sets.entries()) {
-      context.log.debug('[controller][array] enqueue.set', { index: idx });
+    
+    // Handle pure sets (inserts/pushes/unshifts)
+    for (const [index, value] of sets) {
+      context.log.debug('[controller][array] enqueue.set', { index });
       context.enqueueArraySet(
         yArray,
-        idx,
-        () => plainObjectToYType(arrProxy[idx], context),
-        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, idx, yValue, _doc),
+        index,
+        value, // Pass the value directly
+        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, index, yValue, _doc),
       );
     }
   }, true);
