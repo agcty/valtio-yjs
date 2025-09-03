@@ -52,10 +52,19 @@ export function yTypeToPlainObject(yValue: unknown): unknown {
 
 /**
  * Recursively converts a plain JavaScript object/array (or primitive) into Yjs shared types.
+ * Enforces re-parenting restrictions for collaborative objects.
  */
 export function plainObjectToYType(jsValue: unknown, context: SynchronizationContext): unknown {
-  // Already a Yjs value: return as-is.
+  // Already a Yjs value: check for forbidden re-parenting
   if (isYAbstractType(jsValue)) {
+    // Check if this Yjs type already has a parent (is already in the document tree)
+    if ((jsValue as Y.AbstractType<unknown>).parent !== null) {
+      throw new Error(
+        '[valtio-yjs] Cannot re-assign a collaborative object that is already in the document. ' +
+        'If you intended to move or copy this object, you must explicitly create a deep clone of it ' +
+        'at the application layer before assigning it.'
+      );
+    }
     return jsValue;
   }
   // Primitive whitelist

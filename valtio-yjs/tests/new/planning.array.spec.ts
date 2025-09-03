@@ -4,7 +4,7 @@ import { planArrayOps } from '../../src/planning/arrayOpsPlanner.js';
 describe('Array Operations Planner', () => {
   describe('planArrayOps', () => {
     it('should handle empty operations array', () => {
-      const result = planArrayOps([], 3);
+      const result = planArrayOps([], 3, undefined);
       expect(result.sets.size).toBe(0);
       expect(result.deletes.size).toBe(0);
       expect(result.replaces.size).toBe(0);
@@ -12,7 +12,7 @@ describe('Array Operations Planner', () => {
 
     it('should categorize single set operation as pure set', () => {
       const ops = [['set', [0], 'new-value', undefined]];
-      const result = planArrayOps(ops, 3);
+      const result = planArrayOps(ops, 3, undefined);
       
       expect(result.sets.size).toBe(1);
       expect(result.sets.get(0)).toBe('new-value');
@@ -22,7 +22,7 @@ describe('Array Operations Planner', () => {
 
     it('should categorize single delete operation as pure delete', () => {
       const ops = [['delete', [1], 'old-value']];
-      const result = planArrayOps(ops, 3);
+      const result = planArrayOps(ops, 3, undefined);
       
       expect(result.sets.size).toBe(0);
       expect(result.deletes.size).toBe(1);
@@ -35,7 +35,7 @@ describe('Array Operations Planner', () => {
         ['delete', [1], 'old-value'],
         ['set', [1], 'new-value', undefined]
       ];
-      const result = planArrayOps(ops, 3);
+      const result = planArrayOps(ops, 3, undefined);
       
       expect(result.sets.size).toBe(0);
       expect(result.deletes.size).toBe(0);
@@ -48,7 +48,7 @@ describe('Array Operations Planner', () => {
         ['set', [2], 'new-value', undefined],
         ['delete', [2], 'old-value']
       ];
-      const result = planArrayOps(ops, 5);
+      const result = planArrayOps(ops, 5, undefined);
       
       expect(result.sets.size).toBe(0);
       expect(result.deletes.size).toBe(0);
@@ -62,7 +62,7 @@ describe('Array Operations Planner', () => {
         ['set', [2], 'value-2', undefined],
         ['set', [4], 'value-4', undefined]
       ];
-      const result = planArrayOps(ops, 3);
+      const result = planArrayOps(ops, 3, undefined);
       
       expect(result.sets.size).toBe(3);
       expect(result.sets.get(0)).toBe('value-0');
@@ -78,7 +78,7 @@ describe('Array Operations Planner', () => {
         ['delete', [2], 'old-2'],
         ['delete', [4], 'old-4']
       ];
-      const result = planArrayOps(ops, 5);
+      const result = planArrayOps(ops, 5, undefined);
       
       expect(result.sets.size).toBe(0);
       expect(result.deletes.size).toBe(3);
@@ -95,7 +95,7 @@ describe('Array Operations Planner', () => {
         ['delete', [3], 'old-3'],
         ['set', [3], 'new-3', undefined]
       ];
-      const result = planArrayOps(ops, 5);
+      const result = planArrayOps(ops, 5, undefined);
       
       expect(result.sets.size).toBe(0);
       expect(result.deletes.size).toBe(0);
@@ -112,7 +112,7 @@ describe('Array Operations Planner', () => {
         ['delete', [2], 'old-2'],               // pure delete
         ['set', [4], 'another-set', undefined]  // pure set
       ];
-      const result = planArrayOps(ops, 5);
+      const result = planArrayOps(ops, 5, undefined);
       
       expect(result.sets.size).toBe(2);
       expect(result.sets.get(0)).toBe('pure-set');
@@ -132,7 +132,7 @@ describe('Array Operations Planner', () => {
         ['delete', [1], 'old-value'],
         ['set', [3], 'new-value', undefined]  // different indices = potential move
       ];
-      const result = planArrayOps(ops, 5);
+      const result = planArrayOps(ops, 5, undefined);
       
       expect(consoleSpy).toHaveBeenCalledWith(
         expect.stringContaining('Potential array move detected'),
@@ -160,7 +160,7 @@ describe('Array Operations Planner', () => {
         ['delete', [1], 'old-value'],
         ['set', [1], 'new-value', undefined]  // same index = replace, not move
       ];
-      const result = planArrayOps(ops, 5);
+      const result = planArrayOps(ops, 5, undefined);
       
       expect(consoleSpy).not.toHaveBeenCalled();
       expect(result.replaces.size).toBe(1);
@@ -178,7 +178,7 @@ describe('Array Operations Planner', () => {
         ['some-other-op', [2]],                     // unknown operation
         'invalid-op'                                // completely invalid
       ];
-      const result = planArrayOps(ops, 3);
+      const result = planArrayOps(ops, 3, undefined);
       
       expect(result.sets.size).toBe(1);
       expect(result.sets.get(0)).toBe('array-value');
@@ -193,7 +193,7 @@ describe('Array Operations Planner', () => {
         ['delete', ['2'], 'old-value'],
         ['set', ['2'], 'new-value', undefined]
       ];
-      const result = planArrayOps(ops, 5);
+      const result = planArrayOps(ops, 5, undefined);
       
       expect(result.sets.size).toBe(1);
       expect(result.sets.get(0)).toBe('value-at-0');
@@ -207,7 +207,7 @@ describe('Array Operations Planner', () => {
       const ops = [
         ['set', [0], complexValue, undefined]
       ];
-      const result = planArrayOps(ops, 3);
+      const result = planArrayOps(ops, 3, undefined);
       
       expect(result.sets.size).toBe(1);
       expect(result.sets.get(0)).toEqual(complexValue);
@@ -222,7 +222,7 @@ describe('Array Operations Planner', () => {
         ['delete', [2], null],
         ['set', [2], 'replacement', undefined]
       ];
-      const result = planArrayOps(ops, 5);
+      const result = planArrayOps(ops, 5, undefined);
       
       expect(result.sets.size).toBe(2);
       expect(result.sets.get(0)).toBeNull();
@@ -236,7 +236,7 @@ describe('Array Operations Planner', () => {
       const ops = [
         ['set', [0], 'first-item', undefined]
       ];
-      const result = planArrayOps(ops, 0);
+      const result = planArrayOps(ops, 0, undefined);
       
       expect(result.sets.size).toBe(1);
       expect(result.sets.get(0)).toBe('first-item');
@@ -249,7 +249,7 @@ describe('Array Operations Planner', () => {
         ['set', [1000], 'large-index-value', undefined],
         ['delete', [999], 'old-value']
       ];
-      const result = planArrayOps(ops, 100);
+      const result = planArrayOps(ops, 100, undefined);
       
       expect(result.sets.size).toBe(1);
       expect(result.sets.get(1000)).toBe('large-index-value');

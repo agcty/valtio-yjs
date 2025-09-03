@@ -196,7 +196,7 @@ describe('Property-Based Testing', () => {
               }
             });
 
-            const result = planArrayOps(valtioOps, arrayLength);
+            const result = planArrayOps(valtioOps, arrayLength, undefined);
 
             // Verify that all operations are categorized
             const totalOps = result.sets.size + result.deletes.size + result.replaces.size;

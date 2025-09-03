@@ -62,11 +62,11 @@ function attachValtioArraySubscription(
     context.log.debug('[controller][array] ops', JSON.stringify(ops));
     
     // Phase 1: Planning - categorize operations into explicit intents
-    const { sets, deletes, replaces } = planArrayOps(ops, yArray.length);
+    const { sets, deletes, replaces } = planArrayOps(ops, yArray.length, context);
     
     // Phase 2: Scheduling - enqueue planned operations
     
-    // Handle replaces first (delete + set at same index)
+    // Handle replaces first (splice replace operations: delete + set at same index)
     for (const [index, value] of replaces) {
       context.log.debug('[controller][array] enqueue.replace', { index });
       context.enqueueArrayReplace(

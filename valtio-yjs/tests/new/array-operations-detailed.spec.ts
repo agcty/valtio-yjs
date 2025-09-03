@@ -10,7 +10,7 @@ describe('Array Operations Detailed Testing', () => {
   describe('Basic Array Operations', () => {
     it('should handle push operations correctly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       proxy.push('first');
@@ -26,7 +26,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle unshift operations correctly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       proxy.push('second');
@@ -41,7 +41,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle simple delete operations correctly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       proxy.push('a', 'b', 'c');
@@ -56,7 +56,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle simple replace operations correctly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       proxy.push('a', 'b', 'c');
@@ -71,7 +71,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle insert operations correctly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       proxy.push('a', 'c');
@@ -88,7 +88,7 @@ describe('Array Operations Detailed Testing', () => {
   describe('Complex Array Scenarios', () => {
     it('should handle multiple operations in sequence', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       // Step 1: Initialize
@@ -118,7 +118,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle multiple replaces in same microtask', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       proxy.push('a', 'b', 'c', 'd');
@@ -135,7 +135,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle mixed operations in same microtask', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       proxy.push('a', 'b', 'c');
@@ -157,7 +157,7 @@ describe('Array Operations Detailed Testing', () => {
   describe('Edge Cases and Debugging', () => {
     it('should show what operations Valtio generates for splice replace', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       // Set up initial state
@@ -186,7 +186,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should show what operations Valtio generates for direct assignment', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       // Set up initial state
@@ -218,7 +218,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should show what operations Valtio generates for delete', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       // Set up initial state
@@ -249,7 +249,7 @@ describe('Array Operations Detailed Testing', () => {
   describe('Reference Identity and Value Integrity', () => {
     it('should preserve object references during replace operations', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       const obj1 = { id: 1, name: 'first' };
@@ -279,7 +279,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle nested object mutations during replace', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       proxy.push({ data: { count: 0 } }, { data: { count: 1 } });
@@ -302,7 +302,7 @@ describe('Array Operations Detailed Testing', () => {
   describe('Concurrent Operations Testing', () => {
     it('should handle rapid sequential operations', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       // Rapid operations without waiting
@@ -324,17 +324,18 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle operations with undefined and null values', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       proxy.push('a', null, undefined, 'b');
       await waitMicrotask();
-      expect(yArr.toJSON()).toEqual(['a', null, undefined, 'b']);
+      // Library normalizes undefined -> null in Y.Array
+      expect(yArr.toJSON()).toEqual(['a', null, null, 'b']);
       
       // Replace null with a value
       proxy.splice(1, 1, 'not-null');
       await waitMicrotask();
-      expect(yArr.toJSON()).toEqual(['a', 'not-null', undefined, 'b']);
+      expect(yArr.toJSON()).toEqual(['a', 'not-null', null, 'b']);
       
       // Replace undefined with a value
       proxy.splice(2, 1, 'not-undefined');
@@ -349,22 +350,22 @@ describe('Array Operations Detailed Testing', () => {
       const { planArrayOps } = await import('../../src/planning/arrayOpsPlanner.js');
       
       // Test pure delete
-      let result = planArrayOps([['delete', [1], 'old-value']], 3);
+      let result = planArrayOps([['delete', [1], 'old-value']], 3, undefined);
       expect(result.deletes.has(1)).toBe(true);
       expect(result.sets.size).toBe(0);
       expect(result.replaces.size).toBe(0);
       
-      // Test pure set  
-      result = planArrayOps([['set', [1], 'new-value', 'old-value']], 3);
-      expect(result.sets.has(1)).toBe(true);
+      // Test replace when index is within bounds at batch start
+      result = planArrayOps([['set', [1], 'new-value', 'old-value']], 3, undefined);
+      expect(result.replaces.has(1)).toBe(true);
       expect(result.deletes.size).toBe(0);
-      expect(result.replaces.size).toBe(0);
+      expect(result.sets.size).toBe(0);
       
       // Test replace (delete + set at same index)
       result = planArrayOps([
         ['delete', [1], 'old-value'],
         ['set', [1], 'new-value', 'old-value']
-      ], 3);
+      ], 3, undefined);
       expect(result.replaces.has(1)).toBe(true);
       expect(result.replaces.get(1)).toBe('new-value');
       expect(result.sets.size).toBe(0);
@@ -377,8 +378,8 @@ describe('Array Operations Detailed Testing', () => {
       const docA = new Y.Doc();
       const docB = new Y.Doc();
       
-      const { proxy: proxyA } = createYjsProxy<any[]>(docA, { getRoot: (d) => d.getArray('arr'), debug: true });
-      const { proxy: proxyB } = createYjsProxy<any[]>(docB, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy: proxyA } = createYjsProxy<any[]>(docA, { getRoot: (d) => d.getArray('arr') });
+      const { proxy: proxyB } = createYjsProxy<any[]>(docB, { getRoot: (d) => d.getArray('arr') });
       
       const yArrA = docA.getArray<any>('arr');
       const yArrB = docB.getArray<any>('arr');

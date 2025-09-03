@@ -4,7 +4,7 @@ export type PendingMapEntry = {
   after?: (yValue: unknown) => void; // post-integration callback for map keys
 };
 
-// Simplified type for array entries - used for both sets and replaces
+// Simplified type for array entries - used for sets (inserts/pushes/unshifts)
 export type PendingArrayEntry = {
   value: unknown;
   after?: (yValue: unknown) => void; // post-integration callback for array entries

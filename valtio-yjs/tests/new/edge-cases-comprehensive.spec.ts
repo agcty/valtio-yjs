@@ -10,7 +10,7 @@ describe('Comprehensive Edge Cases', () => {
   describe('Reference Reuse Across Mutations', () => {
     it('should preserve object identity when possible', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root'), debug: true });
+      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<any>('root');
 
       // Create nested structure
@@ -32,7 +32,7 @@ describe('Comprehensive Edge Cases', () => {
 
     it('should handle object replacement with nested references', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root'), debug: true });
+      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
 
       proxy.container = { 
         items: [
@@ -64,7 +64,7 @@ describe('Comprehensive Edge Cases', () => {
   describe('Deep Nesting Scenarios', () => {
     it('should handle deeply nested array modifications', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root'), debug: true });
+      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
 
       proxy.level1 = {
         level2: {
@@ -90,7 +90,7 @@ describe('Comprehensive Edge Cases', () => {
 
     it('should handle nested arrays with complex operations', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
 
       proxy.push([1, 2], [3, 4], [5, 6]);
       await waitMicrotask();
@@ -112,7 +112,7 @@ describe('Comprehensive Edge Cases', () => {
   describe('Timing and Race Conditions', () => {
     it('should handle rapid mutations without microtask waits', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       // Rapid sequence without awaiting
@@ -138,8 +138,8 @@ describe('Comprehensive Edge Cases', () => {
       const docA = new Y.Doc();
       const docB = new Y.Doc();
       
-      const { proxy: proxyA } = createYjsProxy<any[]>(docA, { getRoot: (d) => d.getArray('arr'), debug: true });
-      const { proxy: proxyB } = createYjsProxy<any[]>(docB, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy: proxyA } = createYjsProxy<any[]>(docA, { getRoot: (d) => d.getArray('arr') });
+      const { proxy: proxyB } = createYjsProxy<any[]>(docB, { getRoot: (d) => d.getArray('arr') });
       
       // Set up relay with delay to simulate network
       docA.on('update', async (update: Uint8Array) => {
@@ -169,7 +169,7 @@ describe('Comprehensive Edge Cases', () => {
   describe('Stress Testing Scenarios', () => {
     it('should handle large arrays with many operations', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       // Create large initial array
@@ -197,7 +197,7 @@ describe('Comprehensive Edge Cases', () => {
 
     it('should handle high-frequency updates', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       // Initialize
@@ -245,7 +245,7 @@ describe('Comprehensive Edge Cases', () => {
   describe('Value Integrity Testing', () => {
     it('should maintain consistent state between proxy and Y.Array', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       const operations = [

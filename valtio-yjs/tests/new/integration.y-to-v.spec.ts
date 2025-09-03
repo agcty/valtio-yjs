@@ -183,7 +183,7 @@ describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
   it('remote replace of nested container preserves sibling identity', async () => {
     const doc = new Y.Doc();
     const yRoot = doc.getMap<any>('root');
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root'), debug: true });
+    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
 
     const left = new Y.Map<any>();
     left.set('v', 1);

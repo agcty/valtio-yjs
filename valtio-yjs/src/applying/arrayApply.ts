@@ -7,10 +7,10 @@ import { reconcileValtioArray, reconcileValtioMap } from '../reconcile/reconcile
 
 /**
  * Execute array operations with cleaner multi-stage approach based on explicit intents.
- * This replaces the complex monolithic logic with separate handling for:
- * 1. Replaces (delete + insert at same index)
- * 2. Pure deletes
- * 3. Pure sets (inserts/pushes/unshifts)
+ * This handles:
+ * 1. Replaces (splice replace operations: delete + insert at same index)
+ * 2. Pure deletes (pop, shift, splice deletions)
+ * 3. Pure sets (push, unshift, splice insertions)
  */
 export function applyArrayOperations(
   context: SynchronizationContext,
@@ -29,22 +29,21 @@ export function applyArrayOperations(
     const deletesForArray = arrayDeletes.get(yArray) ?? new Set<number>();
     const replacesForArray = arrayReplaces.get(yArray) ?? new Map<number, PendingArrayEntry>();
 
-    // Stage 1: Handle Replaces
-    // These are the cleanest - delete at index, then insert at same index
+    // Always apply sets (inserts) first to establish structure for safe replaces
+    if (setsForArray.size > 0) {
+      handleSets(context, yArray, setsForArray, post);
+    }
+
+    // Handle Replaces (splice replace operations): delete + insert at same index
     handleReplaces(context, yArray, replacesForArray, post);
 
-    // Stage 2: Handle Pure Deletes
-    // Delete indices in descending order to avoid index shifting issues
+    // Handle Pure Deletes: delete in descending order to avoid index shifting issues
     handleDeletes(context, yArray, deletesForArray);
-
-    // Stage 3: Handle Pure Sets (Inserts)
-    // Coalesce contiguous head/tail inserts, treat others as middle insertions
-    handleSets(context, yArray, setsForArray, post);
   }
 }
 
 /**
- * Handle replace operations: delete + insert at same index
+ * Handle replace operations: delete + insert at same index (splice replace)
  */
 function handleReplaces(
   context: SynchronizationContext,
@@ -65,11 +64,15 @@ function handleReplaces(
     
     context.log.debug('[arrayApply] replace', { index });
     
-    // Canonical replace: delete then insert at same index
+    // Canonical replace: delete then insert at same index when in-bounds.
+    // If out-of-bounds (can happen with rapid mixed ops), fall back to insert at tail to avoid length errors.
     if (index >= 0 && index < yArray.length) {
       yArray.delete(index, 1);
+      yArray.insert(index, [yValue]);
+    } else {
+      const safeIndex = yArray.length < 0 ? 0 : yArray.length;
+      yArray.insert(safeIndex, [yValue]);
     }
-    yArray.insert(index, [yValue]);
     
     // Handle post-integration callbacks
     if (entry.after) {

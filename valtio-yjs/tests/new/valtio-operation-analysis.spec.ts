@@ -28,7 +28,7 @@ describe('Valtio Operation Analysis', () => {
   describe('Understanding Valtio Array Operations', () => {
     it('should analyze what operations Valtio generates for splice replace', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<string>('arr');
 
       // Setup initial state
@@ -56,7 +56,7 @@ describe('Valtio Operation Analysis', () => {
 
     it('should analyze what operations Valtio generates for splice delete', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<string>('arr');
 
       // Setup initial state
@@ -84,7 +84,7 @@ describe('Valtio Operation Analysis', () => {
 
     it('should analyze what operations Valtio generates for splice insert', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<string>('arr');
 
       // Setup initial state
@@ -112,7 +112,7 @@ describe('Valtio Operation Analysis', () => {
 
     it('should analyze what operations Valtio generates for direct assignment', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<string>('arr');
 
       // Setup initial state
@@ -140,7 +140,7 @@ describe('Valtio Operation Analysis', () => {
 
     it('should analyze what operations Valtio generates for push', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<string>('arr');
 
       // Setup initial state
@@ -168,7 +168,7 @@ describe('Valtio Operation Analysis', () => {
 
     it('should analyze what operations Valtio generates for unshift', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<string>('arr');
 
       // Setup initial state
@@ -198,7 +198,7 @@ describe('Valtio Operation Analysis', () => {
   describe('Complex Operation Patterns', () => {
     it('should analyze multiple operations in same microtask', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<string>('arr');
 
       // Setup initial state
