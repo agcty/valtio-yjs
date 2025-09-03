@@ -7,6 +7,7 @@ The primary goal of this library is to be a **correct, predictable, and robust**
 We achieve this by translating a developer's actions into unambiguous CRDT operations. When a developer's action is ambiguous, the library will prefer to **throw a clear error with guidance** rather than guess the intent, which could lead to silent data corruption or unpredictable behavior.
 
 This library is a **transparent bridge**, not an extension of the Valtio API. It does not add new methods to Valtio proxies. Instead, it defines a clear "contract" of supported and unsupported mutation patterns, enforcing this contract through runtime checks and extensive documentation.
+For arrays, we use a deterministic rule: a `'set'` to an existing index at batch start (`index < length`) is a **replace**; a `'set'` to the end (`index === length`) is an **insert**.
 
 ### **2. Supported Capabilities (The "Do's")**
 
@@ -49,12 +50,11 @@ This section defines the features the library **must** implement flawlessly.
 
 This section defines the features the library **must not** implement. The responsibility for these patterns is explicitly placed on the application developer, and the library will provide clear runtime errors and documentation to guide them.
 
-#### **3.1. No Direct Array Index Assignment (`arr[i] = ...`)**
+#### **3.1. Defined Behavior for Direct Array Index Assignment (`arr[i] = ...`)**
 
-- **Capability:** The library **must actively detect and forbid** direct index assignment on a collaborative array.
-- **Why:** This action is fundamentally ambiguous in a collaborative context and is the primary source of bugs when trying to infer developer intent. To enforce correctness and predictability, we require a more explicit operation.
-- **Implementation Details:** The subscription planner (`planArrayOps`) **must** identify the `delete(i)` + `set(i)` pattern within a single batch. Upon detection, it **must throw a descriptive runtime error**. The error message will be crucial for the developer experience:
-  > **Error Example:** `[valtio-yjs] Direct array index assignment (arr[${i}] = ...) is not supported. This operation is ambiguous in a collaborative context. Please use splice() to perform a replace: arr.splice(${i}, 1, newValue).`
+- **Capability:** The library will treat a direct index assignment on an existing index as a **replace** operation, identical to `arr.splice(i, 1, newValue)`.
+- **Why:** Analysis of Valtio's `ops` shows that a direct assignment (`arr[i] = val`) and a simple replace-splice are **indistinguishable**. Both generate a single `['set', [i], newVal, oldVal]` operation. Instead of forbidding an undetectable pattern, we define its behavior to be the safest and most intuitive equivalent: a replacement.
+- **Implementation Details:** The `planArrayOps` function classifies any `'set'` where the index is less than the array's length at the start of the batch (`index < yArrayLength`) as a **replace** intent. This is translated into `yArray.delete(i, 1)` followed by `yArray.insert(i, [newValue])`.
 
 #### **3.2. No Automatic "Move" Operations**
 
@@ -80,7 +80,7 @@ This is the definitive contract for your subscription planner.
 
 ## **Valtio-to-Yjs Operations: The Translator's Guide**
 
-This guide defines the precise translation rules for converting batched Valtio operations into atomic Yjs CRDT operations. The primary goal is **100% deterministic translation**, eliminating ambiguity.
+This guide defines the precise translation rules based on analysis of Valtio's `ops` generation. The primary goal is **100% deterministic translation**, eliminating ambiguity.
 
 ### **I. Map Operations (`Y.Map`)**
 
@@ -95,38 +95,44 @@ These are simple and have a direct 1-to-1 mapping.
 
 ### **II. Array Operations (`Y.Array`)**
 
-This is where precision is critical. The planner must analyze the _entire batch_ before acting.
+This is where precision is critical. The planner categorizes operations based on the state of the array at the beginning of the batch (`yArrayLength`).
 
 #### **A. Supported & Unambiguous Translations**
 
-| Valtio Mutation (User Action) | Resulting Valtio `ops` Pattern                                                                 | Yjs CRDT Operation(s)                                                | Detectable? | Assessment                                                                                                                                                                                                                                                                                                                         |
-| :---------------------------- | :--------------------------------------------------------------------------------------------- | :------------------------------------------------------------------- | :---------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`arr.push(val)`**           | `['set', [oldLen], val]`                                                                       | `yArray.insert(oldLen, [val])`                                       | **Yes**     | **SAFE.** A single `set` op at the end of the array is a clear "push" intent.                                                                                                                                                                                                                                                      |
-| **`arr.unshift(val)`**        | _Complex:_ `['set', [0], val]` plus sets for all shifted items (`['set', [1], oldVal0]`, etc.) | `yArray.insert(0, [val])`                                            | **Yes**     | **SAFE, but requires careful implementation.** The planner must identify the `set` at index 0 _and_ the subsequent index shifts. Optimizing this into a single `insert(0, ...)` is ideal. If too complex, a full reconciliation (`splice(0, len, ...newContent)`) on the array is a simpler, safe fallback for this specific case. |
-| **`arr.pop()`**               | `['delete', [oldLen - 1]]`                                                                     | `yArray.delete(oldLen - 1, 1)`                                       | **Yes**     | **SAFE.** A single `delete` at the end of the array is a clear "pop" intent.                                                                                                                                                                                                                                                       |
-| **`arr.shift()`**             | _Complex:_ `['delete', [0]]` plus sets for all shifted items (`['set', [0], oldVal1]`, etc.)   | `yArray.delete(0, 1)`                                                | **Yes**     | **SAFE, but requires careful implementation.** Similar to `unshift`, the planner must correctly identify the "shift" pattern. A full reconciliation is a safe fallback.                                                                                                                                                            |
-| **`arr.splice(...)`**         | A combination of `delete` and/or `set` ops.                                                    | A sequence of `yArray.delete(...)` followed by `yArray.insert(...)`. | **Yes**     | **SAFE.** Splice is the most explicit and versatile tool. The resulting `delete` and `set` ops from Valtio provide a clear recipe for the equivalent Yjs operations. No guessing is needed.                                                                                                                                        |
+| Valtio Mutation (User Action) | Resulting Valtio `ops` Pattern | Library Action & Yjs Operation(s) | Assessment |
+| :--- | :--- | :--- | :--- |
+| **`arr.push(val)`** | `['set', [oldLen], val, undefined]` | **PROCESS AS INSERT.** `yArray.insert(oldLen, [val])` | **SAFE.** A `set` op on an index `oldLen` is clearly an insert/push. |
+| **`arr.pop()`** | `['delete', [oldLen - 1]]` | **PROCESS AS DELETE.** `yArray.delete(oldLen - 1, 1)` | **SAFE.** A single `delete` at the end is a clear "pop" intent. |
+| **`arr.unshift(val)`** | Complex: `['set', [0], val]` plus sets for shifted items | **PROCESS AS INSERT.** `yArray.insert(0, [val])` | **SAFE.** The planner should identify the full `unshift` pattern and coalesce to a single insert for performance. |
+| **Complex `splice`** | Combination of `delete` and/or `set` ops, often with a `length` change. | **PROCESS OPS INDIVIDUALLY.** A sequence of `yArray.delete(...)` and `yArray.insert(...)`. | **SAFE.** The planner categorizes each op into `replace`, `insert`, or `delete` based on the `index < yArrayLength` rule. |
 
-#### **B. Forbidden & Ambiguous Translations**
+#### **B. Handled Ambiguous Operations (Defined Translations)**
 
-| Valtio Mutation (User Action)                                                  | Resulting Valtio `ops` Pattern                                   | Library Action                 | Detectable?           | Assessment                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| :----------------------------------------------------------------------------- | :--------------------------------------------------------------- | :----------------------------- | :-------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`arr[i] = val`** (Direct Assignment)                                         | **`['delete', [i]]` + `['set', [i]]` in the same batch.**        | **THROW ERROR.**               | **Yes**               | **UNSAFE TO TRANSLATE.** This pattern is the primary source of ambiguity. **The library's job is to detect this specific pattern and forbid it.** This is a hard rule. The detection is reliable because both ops occur at the same index in the same batch.                                                                                                                                                                                                       |
-| **"Move"** (e.g., `const item = arr.splice(i, 1)[0]; arr.splice(j, 0, item);`) | **`['delete', [i]]` + `['set', [j]]` + potential index shifts.** | **WARN & PROCESS SEPARATELY.** | **No, not reliably.** | **UNSAFE TO TRANSLATE AS A "MOVE".** This is the key insight. The heuristic to detect a "move" is fundamentally unreliable. It can't be distinguished from a user deleting one item and adding a completely different one. **Therefore, the library must not try.** It should process the `delete` and the `set` as two independent, atomic operations. The `console.warn` is a helpful hint to the developer, not a signal for the library to alter its behavior. |
-| **`delete arr[i]`**                                                            | `['delete', [i]]`                                                | `yArray.delete(i, 1)`          | **Yes**               | **SAFE, but potentially confusing.** This operation is a pure delete and can be translated safely. However, it can create "holes" if the developer doesn't also handle the index shifts, which can lead to confusion. It's safe for the library to support, but documentation should strongly recommend `splice` for clarity.                                                                                                                                      |
+| Valtio Mutation (User Action) | Resulting Valtio `ops` Pattern | Library Action & Yjs Operation(s) | Assessment |
+| :--- | :--- | :--- | :--- |
+| **`arr[i] = val`** (where `i < arr.length`) | `['set', [i], val, oldVal]` | **PROCESS AS REPLACE.** `yArray.delete(i, 1); yArray.insert(i, [val])` | **SAFE & PREDICTABLE.** Indistinguishable from a simple replace-splice; rule enforces consistency. |
+| **`arr.splice(i, 1, val)`** | `['set', [i], val, oldVal]` | **PROCESS AS REPLACE.** `yArray.delete(i, 1); yArray.insert(i, [val])` | **SAFE & PREDICTABLE.** Same logic as direct assignment ensures consistent behavior. |
+
+#### **C. Unsupported Operations**
+
+The "Move" and "Re-Parenting" constraints from Section 3 remain in effect. The library does not auto-detect moves and forbids re-parenting collaborative objects.
 
 ### **III. Final Assessment & Planner Implementation Strategy**
 
-1.  **Safety Check:** Can we safely and reliably detect the patterns we've committed to supporting or forbidding?
+1. **Safety Check:** Can we safely and reliably detect the patterns we've committed to supporting?
     - **Maps:** Yes. Trivial.
     - **Array push/pop/splice/delete:** Yes. The Valtio ops provide a clear, unambiguous signal.
-    - **Array unshift/shift:** Yes, but the resulting cascade of `set` ops makes the detection logic more complex than for other operations. A safe fallback is to trigger a full structural reconciliation of the array for this specific pattern if a simple detection is too difficult.
-    - **Forbidden `arr[i] = val`:** **Yes, this is reliably detectable.** The planner must look for a `delete` and a `set` at the _exact same index_ within a single batch. This is a clear, machine-readable signal.
+    - **Array unshift/shift:** Yes, but the resulting cascade of `set` ops makes detection more complex. A safe fallback is to trigger a full structural reconciliation for this specific pattern if simple detection is too difficult.
+    - **Direct index assignment (`arr[i] = val`):** **Yes.** It is indistinguishable from `splice(i, 1, val)` and is handled by the `index < yArrayLength -> replace` rule.
 
-2.  **Implementation Flow:**
-    - The planner must first analyze the **entire batch of operations**.
-    - **Priority 1:** Scan for the forbidden `delete(i)` + `set(i)` pattern. If found, **stop and throw the descriptive error immediately.** This check must run before any other logic.
-    - **Priority 2:** If the forbidden pattern is not found, proceed to translate the remaining supported operations (`push`, `pop`, `splice`, `delete arr[i]`, etc.) into their Yjs equivalents.
-    - **Move Heuristic:** After processing, if there are remaining `delete` and `set` operations that were not part of a forbidden pattern, the library can issue a `console.warn` about a potential move, but it **must** still process them as separate atomic operations.
+2. **Implementation Flow:**
+    - Analyze the **entire batch of operations** first.
+    - For each array, determine `yArrayLength` at the start of the batch.
+    - Classify ops deterministically:
+      - `'set'` where `index === yArrayLength` → **insert**
+      - `'set'` where `index < yArrayLength` → **replace** (translate to `delete(i, 1)` + `insert(i, [val])`)
+      - `'delete'` → **delete**
+    - Coalesce recognized patterns like `unshift`/`shift` for performance when detected; otherwise process per-op classification.
+    - **Move Heuristic:** Do not auto-translate moves. If a `delete` and `insert` occur at different indices, process them independently and optionally `console.warn`.
 
-This translator's guide provides a clear and robust blueprint. It prioritizes safety by explicitly forbidding the most ambiguous operation, provides a safe path for all other explicit mutations, and avoids the dangerous guessing game of automatic move detection.
+This translator's guide provides a clear and robust blueprint. It prioritizes safety through deterministic classification, defines a predictable behavior for direct index assignment, and avoids the dangerous guessing game of automatic move detection.
