@@ -10,14 +10,15 @@ describe('Array Operations Planner', () => {
       expect(result.replaces.size).toBe(0);
     });
 
-    it('should categorize single set operation as pure set', () => {
+    it('should categorize single set operation as replace when index < length', () => {
+      // Set at index 0 when array length is 3 should be a replace
       const ops = [['set', [0], 'new-value', undefined]];
       const result = planArrayOps(ops, 3, undefined);
       
-      expect(result.sets.size).toBe(1);
-      expect(result.sets.get(0)).toBe('new-value');
+      expect(result.sets.size).toBe(0);
       expect(result.deletes.size).toBe(0);
-      expect(result.replaces.size).toBe(0);
+      expect(result.replaces.size).toBe(1);
+      expect(result.replaces.get(0)).toBe('new-value');
     });
 
     it('should categorize single delete operation as pure delete', () => {
@@ -56,7 +57,10 @@ describe('Array Operations Planner', () => {
       expect(result.replaces.get(2)).toBe('new-value');
     });
 
-    it('should handle multiple pure sets', () => {
+    it('should handle multiple sets based on index vs length', () => {
+      // With yArrayLength = 3:
+      // index 0, 2 < 3 -> replaces
+      // index 4 >= 3 -> set (insert)
       const ops = [
         ['set', [0], 'value-0', undefined],
         ['set', [2], 'value-2', undefined],
@@ -64,12 +68,12 @@ describe('Array Operations Planner', () => {
       ];
       const result = planArrayOps(ops, 3, undefined);
       
-      expect(result.sets.size).toBe(3);
-      expect(result.sets.get(0)).toBe('value-0');
-      expect(result.sets.get(2)).toBe('value-2');
+      expect(result.sets.size).toBe(1);
       expect(result.sets.get(4)).toBe('value-4');
       expect(result.deletes.size).toBe(0);
-      expect(result.replaces.size).toBe(0);
+      expect(result.replaces.size).toBe(2);
+      expect(result.replaces.get(0)).toBe('value-0');
+      expect(result.replaces.get(2)).toBe('value-2');
     });
 
     it('should handle multiple pure deletes', () => {
@@ -106,22 +110,22 @@ describe('Array Operations Planner', () => {
 
     it('should handle mix of sets, deletes, and replaces', () => {
       const ops = [
-        ['set', [0], 'pure-set', undefined],    // pure set
+        ['set', [0], 'replace-0', undefined],    // index 0 < 5 = replace
         ['delete', [1], 'old-1'],               // part of replace
         ['set', [1], 'replace-value', undefined], // part of replace
         ['delete', [2], 'old-2'],               // pure delete
-        ['set', [4], 'another-set', undefined]  // pure set
+        ['set', [6], 'insert-6', undefined]     // index 6 >= 5 = insert/set
       ];
       const result = planArrayOps(ops, 5, undefined);
       
-      expect(result.sets.size).toBe(2);
-      expect(result.sets.get(0)).toBe('pure-set');
-      expect(result.sets.get(4)).toBe('another-set');
+      expect(result.sets.size).toBe(1);
+      expect(result.sets.get(6)).toBe('insert-6');
       
       expect(result.deletes.size).toBe(1);
       expect(result.deletes.has(2)).toBe(true);
       
-      expect(result.replaces.size).toBe(1);
+      expect(result.replaces.size).toBe(2);
+      expect(result.replaces.get(0)).toBe('replace-0');
       expect(result.replaces.get(1)).toBe('replace-value');
     });
 
@@ -130,7 +134,7 @@ describe('Array Operations Planner', () => {
       
       const ops = [
         ['delete', [1], 'old-value'],
-        ['set', [3], 'new-value', undefined]  // different indices = potential move
+        ['set', [5], 'new-value', undefined]  // index 5 >= 5 = set/insert, different from delete
       ];
       const result = planArrayOps(ops, 5, undefined);
       
@@ -138,16 +142,16 @@ describe('Array Operations Planner', () => {
         expect.stringContaining('Potential array move detected'),
         expect.objectContaining({
           deletes: [1],
-          sets: [3],
+          sets: [5],
           length: 5
         })
       );
       
-      // But operations should still be categorized correctly
+      // Operations should still be categorized correctly
       expect(result.deletes.size).toBe(1);
       expect(result.deletes.has(1)).toBe(true);
       expect(result.sets.size).toBe(1);
-      expect(result.sets.get(3)).toBe('new-value');
+      expect(result.sets.get(5)).toBe('new-value');
       expect(result.replaces.size).toBe(0);
       
       consoleSpy.mockRestore();
@@ -171,7 +175,7 @@ describe('Array Operations Planner', () => {
 
     it('should ignore non-array operations', () => {
       const ops = [
-        ['set', [0], 'array-value', undefined],     // valid array set
+        ['set', [3], 'array-value', undefined],     // index 3 >= 3 = set/insert
         ['set', ['key'], 'map-value', undefined],   // map set (should be ignored)
         ['delete', [1], 'old-value'],               // valid array delete
         ['delete', ['key']],                        // map delete (should be ignored)
@@ -181,7 +185,7 @@ describe('Array Operations Planner', () => {
       const result = planArrayOps(ops, 3, undefined);
       
       expect(result.sets.size).toBe(1);
-      expect(result.sets.get(0)).toBe('array-value');
+      expect(result.sets.get(3)).toBe('array-value');
       expect(result.deletes.size).toBe(1);
       expect(result.deletes.has(1)).toBe(true);
       expect(result.replaces.size).toBe(0);
@@ -189,14 +193,14 @@ describe('Array Operations Planner', () => {
 
     it('should handle string indices by normalizing them to numbers', () => {
       const ops = [
-        ['set', ['0'], 'value-at-0', undefined],
+        ['set', ['5'], 'value-at-5', undefined],   // index 5 >= 5 = set/insert
         ['delete', ['2'], 'old-value'],
-        ['set', ['2'], 'new-value', undefined]
+        ['set', ['2'], 'new-value', undefined]     // combined with delete = replace
       ];
       const result = planArrayOps(ops, 5, undefined);
       
       expect(result.sets.size).toBe(1);
-      expect(result.sets.get(0)).toBe('value-at-0');
+      expect(result.sets.get(5)).toBe('value-at-5');
       expect(result.deletes.size).toBe(0);
       expect(result.replaces.size).toBe(1);
       expect(result.replaces.get(2)).toBe('new-value');
@@ -205,30 +209,30 @@ describe('Array Operations Planner', () => {
     it('should handle complex values in operations', () => {
       const complexValue = { nested: { deep: 'value' }, array: [1, 2, 3] };
       const ops = [
-        ['set', [0], complexValue, undefined]
+        ['set', [3], complexValue, undefined]  // index 3 >= 3 = set/insert
       ];
       const result = planArrayOps(ops, 3, undefined);
       
       expect(result.sets.size).toBe(1);
-      expect(result.sets.get(0)).toEqual(complexValue);
+      expect(result.sets.get(3)).toEqual(complexValue);
       expect(result.deletes.size).toBe(0);
       expect(result.replaces.size).toBe(0);
     });
 
     it('should handle null and undefined values', () => {
       const ops = [
-        ['set', [0], null, undefined],
-        ['set', [1], undefined, undefined],
+        ['set', [0], null, undefined],          // index 0 < 5 = replace
+        ['set', [1], undefined, undefined],     // index 1 < 5 = replace
         ['delete', [2], null],
-        ['set', [2], 'replacement', undefined]
+        ['set', [2], 'replacement', undefined]  // combined with delete = replace
       ];
       const result = planArrayOps(ops, 5, undefined);
       
-      expect(result.sets.size).toBe(2);
-      expect(result.sets.get(0)).toBeNull();
-      expect(result.sets.get(1)).toBeUndefined();
+      expect(result.sets.size).toBe(0);
       expect(result.deletes.size).toBe(0);
-      expect(result.replaces.size).toBe(1);
+      expect(result.replaces.size).toBe(3);
+      expect(result.replaces.get(0)).toBeNull();
+      expect(result.replaces.get(1)).toBeUndefined();
       expect(result.replaces.get(2)).toBe('replacement');
     });
 

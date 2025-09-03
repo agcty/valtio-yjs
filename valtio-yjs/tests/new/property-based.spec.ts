@@ -64,8 +64,11 @@ describe('Property-Based Testing', () => {
                     }
                     break;
                   case 'delete':
+                    // Note: `delete` on arrays creates holes (sparse arrays)
+                    // and doesn't shift elements. Use splice for actual removal.
                     if (operation.index < proxy.length) {
-                      delete proxy[operation.index];
+                      // Use splice for proper array element removal
+                      proxy.splice(operation.index, 1);
                     }
                     break;
                 }

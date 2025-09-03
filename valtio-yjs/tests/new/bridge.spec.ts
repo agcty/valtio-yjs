@@ -68,17 +68,17 @@ describe('Bridge Mechanics: createYjsProxy and bootstrap', () => {
       getRoot: (d) => d.getMap('root'),
     });
 
+    // Use valid data without undefined (per new architecture)
     const initial = {
       users: [
         { id: 'u1', profile: { name: 'Alice', tags: ['x', 'y'] } },
         { id: 'u2', profile: { name: 'Bob', tags: [] } },
       ],
-      meta: { count: 2, active: true, nothing: null, undef: undefined },
+      meta: { count: 2, active: true, nothing: null },
     };
 
     bootstrap(initial);
 
-    // undefined is dropped in Yjs, so meta.undef should be absent
     const json = yRoot.toJSON();
     expect(json).toEqual({
       users: [
@@ -87,6 +87,19 @@ describe('Bridge Mechanics: createYjsProxy and bootstrap', () => {
       ],
       meta: { count: 2, active: true, nothing: null },
     });
+    
+    // Verify the bootstrap worked by checking the final state
+    expect(yRoot.has('users')).toBe(true);
+    expect(yRoot.has('meta')).toBe(true);
+    
+    // Test that bootstrap rejects undefined per new architecture  
+    const { bootstrap: bootstrap2 } = createYjsProxy<any>(new Y.Doc(), { 
+      getRoot: (d) => d.getMap('root') 
+    });
+    const dataWithUndefined = { field: undefined };
+    expect(() => bootstrap2(dataWithUndefined)).toThrowError(
+      '[valtio-yjs] undefined is not allowed in shared state'
+    );
   });
 
   it('bootstrap materializes live proxies allowing immediate same-tick nested edits', async () => {

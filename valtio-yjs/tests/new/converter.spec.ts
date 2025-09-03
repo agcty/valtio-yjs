@@ -8,17 +8,23 @@ import { SynchronizationContext } from '../../src/core/context.js';
 describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
   it('plainObjectToYType handles primitives, undefined, null', () => {
     const context = new SynchronizationContext();
-    const vals = [0, 1, 's', true, null, undefined];
-    const converted = vals.map((v) => plainObjectToYType(v, context));
-    expect(converted).toEqual([0, 1, 's', true, null, null]);
+    // Test valid primitives
+    const validVals = [0, 1, 's', true, null];
+    const converted = validVals.map((v) => plainObjectToYType(v, context));
+    expect(converted).toEqual([0, 1, 's', true, null]);
+    
+    // Test that undefined throws an error per new architecture
+    expect(() => plainObjectToYType(undefined, context)).toThrowError(
+      '[valtio-yjs] undefined is not allowed in shared state'
+    );
   });
 
   it('plainObjectToYType converts nested structures', () => {
     const context = new SynchronizationContext();
+    // Test with valid nested structure (no undefined)
     const input = {
       a: 1,
       b: { c: 2, d: [3, { e: 4 }] },
-      f: undefined,
     } as const;
     const yVal = plainObjectToYType(input, context) as Y.Map<unknown>;
     expect(yVal instanceof Y.Map).toBe(true);
@@ -28,8 +34,12 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
     root.set('val', yVal);
     const json = (root.get('val') as Y.Map<unknown>).toJSON();
     expect(json).toEqual({ a: 1, b: { c: 2, d: [3, { e: 4 }] } });
-    // undefined dropped
-    expect(json.f).toBeUndefined();
+    
+    // Test that undefined in object throws error
+    const inputWithUndefined = { a: 1, f: undefined };
+    expect(() => plainObjectToYType(inputWithUndefined, context)).toThrowError(
+      '[valtio-yjs] undefined is not allowed in objects for shared state'
+    );
   });
 
   it('plainObjectToYType converts Date to ISO string', () => {
@@ -62,13 +72,13 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
 
   it('roundtrip: plain → Y → plain for supported shapes (normalized)', () => {
     const context = new SynchronizationContext();
+    // Use only supported values - no undefined
     const input = {
       a: 1,
       b: 's',
       c: true,
       d: null,
-      e: undefined,
-      f: [1, { x: 2, y: undefined }],
+      f: [1, { x: 2 }],  // Removed undefined from nested object
       g: { nested: [{ k: 'v' }] },
       dte: new Date('2020-01-02T00:00:00.000Z'),
       re: /ab+/i,
@@ -103,19 +113,30 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
     expect(json).toEqual(['2021-01-01T00:00:00.000Z', '/x/gi', 'https://x.test/']);
   });
 
-  it('deep undefined values are elided at all nesting levels', () => {
+  it('deep undefined values are rejected per new architecture', () => {
     const context = new SynchronizationContext();
-    const input = {
+    
+    // Test that undefined in objects throws
+    const objWithUndefined = {
       a: undefined,
-      b: { c: undefined, d: [1, undefined, 2], e: [{ f: undefined }, { g: 3 }] },
     } as const;
-    const yVal = plainObjectToYType(input, context) as Y.Map<unknown>;
-    const doc = new Y.Doc();
-    const root = doc.getMap('root');
-    root.set('val', yVal);
-    const json = (root.get('val') as Y.Map<unknown>).toJSON();
-    // In arrays, undefined normalizes to null (not dropped)
-    expect(json).toEqual({ b: { d: [1, null, 2], e: [{}, { g: 3 }] } });
+    expect(() => plainObjectToYType(objWithUndefined, context)).toThrow(
+      '[valtio-yjs] undefined is not allowed in objects for shared state'
+    );
+    
+    // Test that undefined in nested objects throws
+    const nestedObjWithUndefined = {
+      b: { c: undefined },
+    } as const;
+    expect(() => plainObjectToYType(nestedObjWithUndefined, context)).toThrow(
+      '[valtio-yjs] undefined is not allowed in objects for shared state'
+    );
+    
+    // Arrays with undefined should also throw errors per new architecture
+    const arrayWithUndefined = [1, undefined, 2];
+    expect(() => plainObjectToYType(arrayWithUndefined, context)).toThrow(
+      '[valtio-yjs] undefined is not allowed in shared state'
+    );
   });
 
   it('throws for unsupported primitives and values', () => {
