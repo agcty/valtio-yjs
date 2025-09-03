@@ -280,9 +280,12 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
 
     // Capture existing children reference from A (as in the testbed scenario)
     const existingChildren = proxyA.list[0].children;
-    // Replace item 0 with a new plain object, reusing the children reference
+    // Replace item 0 with a new plain object via splice, reusing the children reference
     const newId = proxyA.list[0].id;
+    // also do assignment test in the future
     proxyA.list[0] = { id: newId, text: 'Replaced Alpha', children: existingChildren };
+
+    // proxyA.list.splice(0, 1, { id: newId, text: 'Replaced Alpha', children: existingChildren });
     await waitMicrotask();
 
     // Both sides should see the updated text and preserved children content
