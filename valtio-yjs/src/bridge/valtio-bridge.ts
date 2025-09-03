@@ -62,7 +62,8 @@ function attachValtioArraySubscription(
     context.log.debug('[controller][array] ops', JSON.stringify(ops));
     
     // Phase 1: Planning - categorize operations into explicit intents
-    const { sets, deletes, replaces } = planArrayOps(ops, yArray.length, context);
+    // Use current proxy length to determine in-bounds classification reliably
+    const { sets, deletes, replaces } = planArrayOps(ops, arrProxy.length, context);
     
     // Phase 2: Scheduling - enqueue planned operations
     
@@ -83,15 +84,25 @@ function attachValtioArraySubscription(
       context.enqueueArrayDelete(yArray, index);
     }
     
-    // Handle pure sets (inserts/pushes/unshifts)
+    // Handle pure sets (inserts/pushes/unshifts). If in-bounds, treat as replace defensively.
     for (const [index, value] of sets) {
-      context.log.debug('[controller][array] enqueue.set', { index });
-      context.enqueueArraySet(
-        yArray,
-        index,
-        value, // Pass the value directly
-        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, index, yValue, _doc),
-      );
+      if (index < yArray.length) {
+        context.log.debug('[controller][array] enqueue.replace(via-set)', { index });
+        context.enqueueArrayReplace(
+          yArray,
+          index,
+          value,
+          (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, index, yValue, _doc),
+        );
+      } else {
+        context.log.debug('[controller][array] enqueue.set', { index });
+        context.enqueueArraySet(
+          yArray,
+          index,
+          value, // Pass the value directly
+          (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, index, yValue, _doc),
+        );
+      }
     }
   }, true);
   return unsubscribe;

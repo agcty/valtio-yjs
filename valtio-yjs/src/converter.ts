@@ -8,7 +8,8 @@ import { isYArray, isYMap, isYAbstractType } from './core/guards.js';
  * - number must be finite
  */
 function isSupportedPrimitive(value: unknown): boolean {
-  if (value === null || value === undefined) return true;
+  if (value === undefined) return false;
+  if (value === null) return true;
   const t = typeof value;
   if (t === 'string' || t === 'boolean') return true;
   if (t === 'number') return Number.isFinite(value as number);
@@ -69,10 +70,13 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
   }
   // Primitive whitelist
   if (jsValue === null || typeof jsValue !== 'object') {
+    if (jsValue === undefined) {
+      throw new Error('[valtio-yjs] undefined is not allowed in shared state. Use null, delete the key, or omit the field.');
+    }
     if (!isSupportedPrimitive(jsValue)) {
       throw new Error('[valtio-yjs] Unsupported primitive type.');
     }
-    return jsValue === undefined ? null : jsValue;
+    return jsValue;
   }
 
   // Special supported objects
@@ -94,9 +98,10 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
   if (isPlainObject(jsValue)) {
     const yMap = new Y.Map();
     for (const [key, value] of Object.entries(jsValue)) {
-      if (value !== undefined) {
-        yMap.set(key, plainObjectToYType(value, context));
+      if (value === undefined) {
+        throw new Error('[valtio-yjs] undefined is not allowed in objects for shared state. Use null, delete the key, or omit the field.');
       }
+      yMap.set(key, plainObjectToYType(value, context));
     }
     return yMap;
   }

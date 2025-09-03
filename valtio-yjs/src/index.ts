@@ -45,10 +45,9 @@ export function createYjsProxy<T extends object>(
       const convertedEntries: Array<[string, unknown]> = [];
       for (const key of Object.keys(record)) {
         const value = record[key];
-        if (value !== undefined) {
-          const converted = plainObjectToYType(value, context);
-          convertedEntries.push([key, converted]);
-        }
+        // plainObjectToYType throws on undefined; enforce architectural rule
+        const converted = plainObjectToYType(value, context);
+        convertedEntries.push([key, converted]);
       }
       doc.transact(() => {
         for (const [key, converted] of convertedEntries) {
