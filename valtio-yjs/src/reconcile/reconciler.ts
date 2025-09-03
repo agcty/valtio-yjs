@@ -1,8 +1,8 @@
 import * as Y from 'yjs';
-import { getOrCreateValtioProxy, getValtioProxyForYType } from './valtio-bridge.js';
-import { SynchronizationContext } from './context.js';
+import { getOrCreateValtioProxy, getValtioProxyForYType } from '../bridge/valtio-bridge.js';
+import { SynchronizationContext } from '../core/context.js';
 
-import { isYSharedContainer, isYArray, isYMap } from './guards.js';
+import { isYSharedContainer, isYArray, isYMap } from '../core/guards.js';
 
 // Reconciler layer
 //

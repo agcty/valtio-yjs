@@ -1,6 +1,6 @@
 import * as Y from 'yjs';
-import { SynchronizationContext } from './context.js';
-import { isYArray, isYMap, isYAbstractType } from './guards.js';
+import { SynchronizationContext } from './core/context.js';
+import { isYArray, isYMap, isYAbstractType } from './core/guards.js';
 
 /**
  * Determines if the provided value is a supported JSON-like primitive.

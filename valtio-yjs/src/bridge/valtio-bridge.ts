@@ -9,11 +9,12 @@
 import * as Y from 'yjs';
 import { proxy, subscribe } from 'valtio/vanilla';
 // import removed: origin tagging handled by context scheduler
-import { plainObjectToYType } from './converter.js';
-import type { YSharedContainer } from './yjs-types.js';
-import { SynchronizationContext } from './context.js';
-import { isYSharedContainer, isYArray, isYMap } from './guards.js';
-import { LOG_PREFIX } from './constants.js';
+import { plainObjectToYType } from '../converter.js';
+import type { YSharedContainer } from '../yjs-types.js';
+import { SynchronizationContext } from '../core/context.js';
+import { isYSharedContainer, isYArray, isYMap } from '../core/guards.js';
+import { LOG_PREFIX } from '../core/constants.js';
+import { planMapOps } from '../planning/mapOpsPlanner.js';
 
 
 type ValtioMapPath = [string];
@@ -157,22 +158,22 @@ function attachValtioMapSubscription(
   const unsubscribe = subscribe(objProxy, (ops: unknown[]) => {
     if (context.isReconciling) return;
     context.log.debug('[controller][map] ops', JSON.stringify(ops));
-    for (const op of ops) {
-      if (isSetMapOp(op)) {
-        const key = op[1][0];
-        context.enqueueMapSet(
-          yMap,
-          key,
-          () => plainObjectToYType(objProxy[key], context),
-          (yValue: unknown) => upgradeChildIfNeeded(context, objProxy, key, yValue, doc),
-        );
-        continue;
-      }
-      if (isDeleteMapOp(op)) {
-        const key = op[1][0];
-        context.enqueueMapDelete(yMap, key);
-        continue;
-      }
+    
+    // Phase 1: Planning - categorize operations
+    const { sets, deletes } = planMapOps(ops);
+    
+    // Phase 2: Scheduling - enqueue planned operations
+    for (const [key, value] of sets) {
+      context.enqueueMapSet(
+        yMap,
+        key,
+        value, // Pass the value directly instead of a compute function
+        (yValue: unknown) => upgradeChildIfNeeded(context, objProxy, key, yValue, doc),
+      );
+    }
+    
+    for (const key of deletes) {
+      context.enqueueMapDelete(yMap, key);
     }
   }, true);
   return unsubscribe;

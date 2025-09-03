@@ -6,13 +6,13 @@
 // - For each deep event, walk up to the nearest materialized ancestor and
 //   reconcile that container to support lazy materialization.
 import * as Y from 'yjs';
-import { VALTIO_YJS_ORIGIN } from './constants.js';
-import { reconcileValtioMap, reconcileValtioArray, reconcileValtioArrayWithDelta } from './reconciler.js';
+import { VALTIO_YJS_ORIGIN } from './core/constants.js';
+import { reconcileValtioMap, reconcileValtioArray, reconcileValtioArrayWithDelta } from './reconcile/reconciler.js';
 import type { YSharedContainer, YArrayDelta } from './yjs-types.js';
-import { SynchronizationContext } from './context.js';
-import { getValtioProxyForYType } from './valtio-bridge.js';
+import { SynchronizationContext } from './core/context.js';
+import { getValtioProxyForYType } from './bridge/valtio-bridge.js';
 import { isYArrayEvent } from './yjs-events.js';
-import { isYArray, isYMap, isYSharedContainer } from './guards.js';
+import { isYArray, isYMap, isYSharedContainer } from './core/guards.js';
 // Synchronization strategy
 //
 // We use `observeDeep` on the chosen root container to detect any changes below.

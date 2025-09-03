@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { YSharedContainer } from './yjs-types.js';
+import type { YSharedContainer } from '../yjs-types.js';
 
 export function isYSharedContainer(value: unknown): value is YSharedContainer {
   return value instanceof Y.Map || value instanceof Y.Array;

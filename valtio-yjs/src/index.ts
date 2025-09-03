@@ -1,13 +1,13 @@
 import * as Y from 'yjs';
-import { getOrCreateValtioProxy } from './valtio-bridge.js';
+import { getOrCreateValtioProxy } from './bridge/valtio-bridge.js';
 import { setupSyncListener } from './synchronizer.js';
 import { plainObjectToYType } from './converter.js';
-import { VALTIO_YJS_ORIGIN } from './constants.js';
-export { VALTIO_YJS_ORIGIN } from './constants.js';
+import { VALTIO_YJS_ORIGIN } from './core/constants.js';
+export { VALTIO_YJS_ORIGIN } from './core/constants.js';
 export { syncedText } from './syncedTypes.js';
-import { SynchronizationContext } from './context.js';
-import { isYArray, isYMap } from './guards.js';
-import { reconcileValtioArray, reconcileValtioMap } from './reconciler.js';
+import { SynchronizationContext } from './core/context.js';
+import { isYArray, isYMap } from './core/guards.js';
+import { reconcileValtioArray, reconcileValtioMap } from './reconcile/reconciler.js';
 
 export interface CreateYjsProxyOptions<_T> {
   getRoot: (doc: Y.Doc) => Y.Map<unknown> | Y.Array<unknown>;

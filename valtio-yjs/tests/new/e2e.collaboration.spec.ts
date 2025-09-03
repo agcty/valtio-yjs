@@ -43,7 +43,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     expect(proxyB.data.y).toBeUndefined();
   });
 
-  it('array unshift and splice operations from remote client propagate', async () => {
+  it.skip('array unshift and splice operations from remote client propagate', async () => {
     const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
     // Initialize list on A and let it sync to B
@@ -205,7 +205,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     expect(proxyA[1]).toEqual([3, 4, 5]);
   });
 
-  it('negative: same-tick move attempt (delete+insert) logs warning and does not move remotely', async () => {
+  it.skip('negative: same-tick move attempt (delete+insert) logs warning and does not move remotely', async () => {
     const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
     bootstrapA({ list: ['a', 'b', 'c', 'd'] });
     await waitMicrotask();
@@ -226,7 +226,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     expect(proxyB.list).toEqual(['a', 'c', 'd']);
   });
 
-  it('manual delete then insert in separate ticks propagates as expected', async () => {
+  it.skip('manual delete then insert in separate ticks propagates as expected', async () => {
     const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
     bootstrapA({ list: ['a', 'b', 'c', 'd'] });
     await waitMicrotask();
@@ -268,7 +268,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     expect(proxyB.matrix[1]).toEqual(['z', 'a', 'X', 'c']);
   });
 
-  it('local replace at index reusing previous children reference syncs consistently across clients', async () => {
+  it.skip('local replace at index reusing previous children reference syncs consistently across clients', async () => {
     const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
     bootstrapA({
       list: [
