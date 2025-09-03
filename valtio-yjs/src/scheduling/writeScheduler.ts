@@ -1,10 +1,11 @@
 import * as Y from 'yjs';
-import type { PendingEntry, PendingMapEntry, PendingArrayEntry } from './batchTypes.js';
+import type { PendingMapEntry, PendingArrayEntry } from './batchTypes.js';
 import type { Logger } from '../core/context.js';
 import { VALTIO_YJS_ORIGIN } from '../core/constants.js';
 
 export class WriteScheduler {
   private readonly log: Logger;
+  private readonly traceMode: boolean;
   
   // Write scheduler state
   private boundDoc: Y.Doc | null = null;
@@ -23,8 +24,9 @@ export class WriteScheduler {
   private applyArrayOperationsFn: ((arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, post: Array<() => void>) => void) | null = null;
   private withReconcilingLockFn: ((fn: () => void) => void) | null = null;
 
-  constructor(log: Logger) {
+  constructor(log: Logger, traceMode: boolean = false) {
     this.log = log;
+    this.traceMode = traceMode;
   }
 
   bindDoc(doc: Y.Doc): void {
@@ -152,6 +154,32 @@ export class WriteScheduler {
       arrayReplaces.size === 0
     ) {
       return;
+    }
+
+    // Trace mode: log planned intents for debugging
+    if (this.traceMode) {
+      this.log.debug('[scheduler] trace: planned intents for this flush', {
+        mapSets: mapSets.size > 0 ? Array.from(mapSets.entries()).map(([yMap, keyMap]) => ({
+          target: yMap.constructor.name,
+          operations: Array.from(keyMap.keys())
+        })) : [],
+        mapDeletes: mapDeletes.size > 0 ? Array.from(mapDeletes.entries()).map(([yMap, keySet]) => ({
+          target: yMap.constructor.name,
+          operations: Array.from(keySet)
+        })) : [],
+        arraySets: arraySets.size > 0 ? Array.from(arraySets.entries()).map(([yArray, indexMap]) => ({
+          target: yArray.constructor.name,
+          operations: Array.from(indexMap.keys())
+        })) : [],
+        arrayDeletes: arrayDeletes.size > 0 ? Array.from(arrayDeletes.entries()).map(([yArray, indexSet]) => ({
+          target: yArray.constructor.name,
+          operations: Array.from(indexSet)
+        })) : [],
+        arrayReplaces: arrayReplaces.size > 0 ? Array.from(arrayReplaces.entries()).map(([yArray, indexMap]) => ({
+          target: yArray.constructor.name,
+          operations: Array.from(indexMap.keys())
+        })) : []
+      });
     }
 
     doc.transact(() => {

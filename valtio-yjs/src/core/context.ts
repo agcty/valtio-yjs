@@ -21,6 +21,7 @@ export class SynchronizationContext {
   // Logger facility
   readonly log: Logger;
   private readonly debugEnabled: boolean;
+  private readonly traceMode: boolean;
 
   // Caches: Y type <-> Valtio proxy
   readonly yTypeToValtioProxy = new WeakMap<AnySharedType, object>();
@@ -38,8 +39,9 @@ export class SynchronizationContext {
   // Write scheduler instance
   private writeScheduler: WriteScheduler;
 
-  constructor(debug?: boolean) {
+  constructor(debug?: boolean, trace?: boolean) {
     this.debugEnabled = debug ?? false;
+    this.traceMode = trace ?? false;
     const withPrefix = (...args: unknown[]): unknown[] =>
       args.length > 0 && typeof args[0] === 'string'
         ? [`${LOG_PREFIX} ${args[0] as string}`, ...(args.slice(1) as unknown[])]
@@ -59,7 +61,7 @@ export class SynchronizationContext {
     };
 
     // Initialize write scheduler with apply functions
-    this.writeScheduler = new WriteScheduler(this.log);
+    this.writeScheduler = new WriteScheduler(this.log, this.traceMode);
     this.writeScheduler.setApplyFunctions(
       (mapDeletes) => applyMapDeletes(mapDeletes, this.log),
       (mapSets, post) => applyMapSets(mapSets, post, this.log, this),

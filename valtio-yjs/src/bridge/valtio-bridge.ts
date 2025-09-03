@@ -9,7 +9,7 @@
 import * as Y from 'yjs';
 import { proxy, subscribe } from 'valtio/vanilla';
 // import removed: origin tagging handled by context scheduler
-import { plainObjectToYType } from '../converter.js';
+
 import type { YSharedContainer } from '../yjs-types.js';
 import { SynchronizationContext } from '../core/context.js';
 import { isYSharedContainer, isYArray, isYMap } from '../core/guards.js';
@@ -18,45 +18,7 @@ import { planMapOps } from '../planning/mapOpsPlanner.js';
 import { planArrayOps } from '../planning/arrayOpsPlanner.js';
 
 
-type ValtioMapPath = [string];
-type ValtioArrayPath = [number | string];
-type ValtioSetMapOp = ['set', ValtioMapPath, unknown, unknown];
-type ValtioDeleteMapOp = ['delete', ValtioMapPath];
-type ValtioSetArrayOp = ['set', ValtioArrayPath, unknown, unknown];
-type ValtioDeleteArrayOp = ['delete', ValtioArrayPath, unknown];
-
-function isSetMapOp(op: unknown): op is ValtioSetMapOp {
-  return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'string';
-}
-
-function isDeleteMapOp(op: unknown): op is ValtioDeleteMapOp {
-  return Array.isArray(op) && op[0] === 'delete' && Array.isArray(op[1]) && op[1].length === 1 && typeof op[1][0] === 'string';
-}
-
-function isSetArrayOp(op: unknown): op is ValtioSetArrayOp {
-  if (!Array.isArray(op) || op[0] !== 'set' || !Array.isArray(op[1]) || op[1].length !== 1) return false;
-  const idx = (op as [string, [number | string]])[1][0];
-  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
-}
-
-function isDeleteArrayOp(op: unknown): op is ValtioDeleteArrayOp {
-  if (!Array.isArray(op) || op[0] !== 'delete' || !Array.isArray(op[1]) || op[1].length !== 1) return false;
-  const idx = (op as [string, [number | string]])[1][0];
-  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
-}
-
 // All caches are moved into SynchronizationContext
-
-// Normalize array path indices coming from Valtio subscribe.
-// Rationale: Valtio reports path segments as property keys; for arrays these
-// can arrive as numeric-like strings (e.g. "2"). The controller is our
-// boundary to external semantics, so we normalize here to ensure the rest of
-// the pipeline (context, Yjs ops) sees numeric indices only. Keeping the
-// union type local avoids leaking dependency details and reduces branching
-// elsewhere.
-function normalizeIndex(idx: number | string): number {
-  return typeof idx === 'number' ? idx : Number.parseInt(idx, 10);
-}
 
 function upgradeChildIfNeeded(
   context: SynchronizationContext,
