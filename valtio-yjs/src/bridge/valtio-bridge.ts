@@ -16,6 +16,7 @@ import { isYSharedContainer, isYArray, isYMap } from '../core/guards.js';
 import { LOG_PREFIX } from '../core/constants.js';
 import { planMapOps } from '../planning/mapOpsPlanner.js';
 import { planArrayOps } from '../planning/arrayOpsPlanner.js';
+import { validateValueForSharedState } from '../converter.js';
 
 
 // All caches are moved into SynchronizationContext
@@ -71,6 +72,8 @@ function attachValtioArraySubscription(
     for (const [index, value] of replaces) {
       context.log.debug('[controller][array] enqueue.replace', { index });
       const normalized = value === undefined ? null : value;
+      // Validate synchronously before enqueuing
+      validateValueForSharedState(normalized);
       context.enqueueArrayReplace(
         yArray,
         index,
@@ -88,6 +91,8 @@ function attachValtioArraySubscription(
     // Handle pure sets (inserts/pushes/unshifts). If in-bounds, treat as replace defensively.
     for (const [index, value] of sets) {
       const normalized = value === undefined ? null : value;
+      // Validate synchronously before enqueuing
+      validateValueForSharedState(normalized);
       if (index < yArray.length) {
         context.log.debug('[controller][array] enqueue.replace(via-set)', { index });
         context.enqueueArrayReplace(
@@ -133,6 +138,8 @@ function attachValtioMapSubscription(
     // Phase 2: Scheduling - enqueue planned operations
     for (const [key, value] of sets) {
       const normalized = value === undefined ? null : value;
+      // Validate synchronously before enqueuing
+      validateValueForSharedState(normalized);
       context.enqueueMapSet(
         yMap,
         key,
