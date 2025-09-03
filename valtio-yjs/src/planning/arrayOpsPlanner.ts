@@ -106,8 +106,41 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
     deletes.add(deletedIndex);
   }
 
-  // Phase 5: Move detection warning (legacy payload shape for tests)
+  // Phase 5: Move detection warning
+  // Detect potential moves by looking for:
+  // 1. Pure deletes and sets at different indices
+  // 2. Shift patterns from splice operations that simulate moves
+  // 3. Multiple consecutive replaces which indicate element shifting
+  
+  let possibleMoveDetected = false;
+  
+  // Check if we have the classic delete+insert pattern
   if (deletes.size > 0 && sets.size > 0) {
+    possibleMoveDetected = true;
+  }
+  
+  // Check for splice-generated move patterns
+  const replaceIndices = Array.from(replaces.keys()).sort((a, b) => a - b);
+  
+  // Multiple consecutive replaces usually indicate element shifting from splice operations
+  // For example, splice(1, 1) followed by splice(3, 0, 'b') will create replaces at indices 1, 2, 3
+  if (replaceIndices.length >= 2) {
+    let consecutiveCount = 1;
+    for (let i = 0; i < replaceIndices.length - 1; i++) {
+      if (replaceIndices[i + 1] === replaceIndices[i] + 1) {
+        consecutiveCount++;
+      } else {
+        consecutiveCount = 1;
+      }
+      // If we have 2+ consecutive replaces, it's likely a shift pattern from splice
+      if (consecutiveCount >= 2) {
+        possibleMoveDetected = true;
+        break;
+      }
+    }
+  }
+  
+  if (possibleMoveDetected) {
     const sortedDeletes = Array.from(deletes).sort((a, b) => a - b);
     const sortedSets = Array.from(sets.keys()).sort((a, b) => a - b);
     // Use console.warn directly to ensure visibility, independent of debug flag for safety

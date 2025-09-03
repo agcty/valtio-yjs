@@ -160,9 +160,12 @@ describe('Scratch: Progressive checks', () => {
       
       // Simulate a "move" by delete at one index and insert at another in same batch
       proxy.splice(1, 1); // delete 'b' at index 1
-      proxy.splice(3, 0, 'b'); // insert 'b' at new position
+      proxy.splice(2, 0, 'b'); // insert 'b' at new position
       
-      // Warning should fire during planning phase
+      // Wait for the scheduler to flush (warning fires during flush)
+      await waitMicrotask();
+      
+      // Warning should have fired during the scheduler flush
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('Potential array move detected'),
         expect.objectContaining({
@@ -172,8 +175,7 @@ describe('Scratch: Progressive checks', () => {
       );
       
       warnSpy.mockRestore();
-      await waitMicrotask();
-      expect(yArr.toJSON()).toEqual(['a', 'c', 'd', 'b']);
+      expect(yArr.toJSON()).toEqual(['a', 'c', 'b', 'd']);
     });
 
     it('function/symbol/class instance throws in converter', async () => {

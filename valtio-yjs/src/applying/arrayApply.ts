@@ -236,9 +236,16 @@ function handleIndividualInserts(
   // Sort indices in ascending order for inserts
   const sortedSetIndices = Array.from(sets.keys()).sort((a, b) => a - b);
   
+  let hadOutOfBoundsSet = false;
+  
   for (const index of sortedSetIndices) {
     const entry = sets.get(index)!;
     const yValue = plainObjectToYType(entry.value, context);
+    
+    // Check if this is an out-of-bounds set that would create holes
+    if (index > yArray.length) {
+      hadOutOfBoundsSet = true;
+    }
     
     const targetIndex = index > yArray.length ? yArray.length : index;
     context.log.debug('[arrayApply] individual insert', { index: targetIndex, length: yArray.length });
@@ -256,6 +263,13 @@ function handleIndividualInserts(
     } else if (isYArray(yValue)) {
       post.push(() => reconcileValtioArray(context, yValue as Y.Array<unknown>, arrayDocNow!));
     }
+  }
+  
+  // If we had out-of-bounds sets that created holes in the proxy,
+  // we need to reconcile the proxy to remove those holes
+  if (hadOutOfBoundsSet) {
+    const arrayDocNow = getYDoc(yArray);
+    post.push(() => reconcileValtioArray(context, yArray, arrayDocNow!));
   }
 }
 
