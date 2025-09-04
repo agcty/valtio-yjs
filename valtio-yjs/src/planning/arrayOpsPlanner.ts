@@ -27,9 +27,9 @@ function isDeleteArrayOp(op: unknown): op is ValtioDeleteArrayOp {
   return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
 }
 
-function isLengthSetOp(op: unknown): op is ['set', ['length'], number] {
-  return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1 && op[1][0] === 'length';
-}
+// function isLengthSetOp(op: unknown): op is ['set', ['length'], number] {
+//   return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1 && op[1][0] === 'length';
+// }
 
 // Normalize array path indices coming from Valtio subscribe.
 function normalizeIndex(idx: number | string): number {
@@ -54,13 +54,17 @@ export interface ArrayOpsPlans {
 export function planArrayOps(ops: unknown[], yArrayLength: number, context?: SynchronizationContext): ArrayOpsPlans {
   // Phase 1: Collect raw array ops by index (state-agnostic)
   const setsByIndex = new Map<number, unknown>();
+  const setHadPrevious = new Map<number, boolean>();
   const deletesByIndex = new Set<number>();
 
   for (const op of ops) {
     if (isSetArrayOp(op)) {
       const idx = normalizeIndex(op[1][0]);
       const newValue = (op as ValtioSetArrayOp)[2];
+      const prevValue = (op as ValtioSetArrayOp)[3];
       setsByIndex.set(idx, newValue);
+      // If previous value is not undefined, it's a direct replacement intent
+      setHadPrevious.set(idx, prevValue !== undefined);
     } else if (isDeleteArrayOp(op)) {
       const idx = normalizeIndex(op[1][0]);
       deletesByIndex.add(idx);
@@ -71,9 +75,19 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
   // Always consume the delete (do not keep it as a pure delete). Only classify
   // as a replace when the index is within bounds at batch start; otherwise keep as set.
   const replaces = new Map<number, unknown>();
+  // Preserve original delete indices for downstream classification decisions
+  const originalDeletes = new Set<number>(Array.from(deletesByIndex));
   for (const deletedIndex of Array.from(deletesByIndex)) {
     if (setsByIndex.has(deletedIndex)) {
-      // Drop delete; we have a set for the same index in this batch
+      // Heuristic: if this batch looks like a splice (additional in-bounds sets besides this index),
+      // then preserve as delete + inserts to maintain shifting semantics.
+      const hasOtherInBoundsSet = Array.from(setsByIndex.keys()).some(
+        (k) => k !== deletedIndex && k < yArrayLength,
+      );
+      if (hasOtherInBoundsSet) {
+        continue; // Keep delete and set separate
+      }
+      // Otherwise, convert to replace
       deletesByIndex.delete(deletedIndex);
       const setVal = setsByIndex.get(deletedIndex)!;
       if (deletedIndex < yArrayLength) {
@@ -83,17 +97,54 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
     }
   }
 
-  // Phase 3: Coalescing-friendly normalization for head/tail inserts
+  // Phase 3: Normalize remaining sets
+  // Goal: Preserve insertion intent for mixed/rapid operations while
+  // still treating simple direct assignments as replaces.
   const sets = new Map<number, unknown>();
   const deletes = new Set<number>();
 
   const remainingSetIndices = Array.from(setsByIndex.keys()).sort((a, b) => a - b);
-  let usedHeadOptimization = false;
-  if (remainingSetIndices.length > 0) {
-    // Baseline classification: no coalescing logic; classify purely by start-of-batch length
+  const hasAnyDeletes = originalDeletes.size > 0;
+
+  if (remainingSetIndices.length === 1 && !hasAnyDeletes) {
+    // Single set with no deletes in the batch → likely a direct assignment or push
+    const idx = remainingSetIndices[0]!;
+    const val = setsByIndex.get(idx)!;
+    const hadPrev = setHadPrevious.get(idx) === true;
+    if (idx < yArrayLength && hadPrev) {
+      // In-bounds single set → treat as replace (direct assignment)
+      replaces.set(idx, val);
+    } else {
+      // Out-of-bounds single set → append/insert
+      sets.set(idx, val);
+    }
+  } else {
+    // Multiple sets and/or any deletes present → preserve as inserts
+    // This keeps splice-intent intact; indices will be interpreted relative
+    // to the array state after replaces/deletes are applied during flush.
+    const minDeletedIndex = hasAnyDeletes ? Math.min(...Array.from(originalDeletes)) : Number.POSITIVE_INFINITY;
+    const inBoundsSetIndices = remainingSetIndices.filter((i) => i < yArrayLength).sort((a, b) => a - b);
+    const firstInBoundsIndex = inBoundsSetIndices.length > 0 ? inBoundsSetIndices[0]! : null;
     for (const idx of remainingSetIndices) {
       const val = setsByIndex.get(idx)!;
-      if (idx < yArrayLength) {
+      const hadPrev = setHadPrevious.get(idx) === true;
+      // If there are multiple in-bounds sets and no deletes, only the first in-bounds
+      // index can be a replace; subsequent in-bounds sets are treated as inserts.
+      if (!hasAnyDeletes && inBoundsSetIndices.length > 1) {
+        if (firstInBoundsIndex !== null && idx === firstInBoundsIndex && hadPrev) {
+          replaces.set(idx, val);
+        } else {
+          sets.set(idx, val);
+        }
+        continue;
+      }
+      // Splice-sensitive rule with deletes: treat indices at/after the first delete as inserts.
+      if (idx >= minDeletedIndex) {
+        sets.set(idx, val);
+        continue;
+      }
+      // Allow safe replaces only for indices strictly before the first delete
+      if (idx < yArrayLength && hadPrev) {
         replaces.set(idx, val);
       } else {
         sets.set(idx, val);
@@ -127,7 +178,7 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
   if (replaceIndices.length >= 2) {
     let consecutiveCount = 1;
     for (let i = 0; i < replaceIndices.length - 1; i++) {
-      if (replaceIndices[i + 1] === replaceIndices[i] + 1) {
+      if (replaceIndices[i + 1] === replaceIndices[i]! + 1) {
         consecutiveCount++;
       } else {
         consecutiveCount = 1;
@@ -162,6 +213,24 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
       deletes: Array.from(deletes.values()),
       replaces: Array.from(replaces.keys()),
     });
+  }
+
+  // Post-pass: Demote ambiguous in-bounds replaces to inserts for splice-like batches
+  // Rationale: When Valtio emits multiple in-bounds sets (often from splice insertion)
+  // without explicit deletes, treating all as replaces causes off-by-one ordering.
+  if (deletes.size === 0) {
+    const inBoundsReplace = Array.from(replaces.keys()).filter((i) => i < yArrayLength).sort((a, b) => a - b);
+    if (inBoundsReplace.length > 1) {
+      const keep = inBoundsReplace[0]!;
+      for (const idx of inBoundsReplace.slice(1)) {
+        // Move from replace to set
+        replaces.delete(idx);
+        const val = setsByIndex.get(idx);
+        if (val !== undefined) {
+          sets.set(idx, val);
+        }
+      }
+    }
   }
 
   return { sets, deletes, replaces };

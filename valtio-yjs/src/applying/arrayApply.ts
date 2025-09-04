@@ -2,7 +2,6 @@ import * as Y from 'yjs';
 import type { PendingArrayEntry } from '../scheduling/batchTypes.js';
 import type { SynchronizationContext } from '../core/context.js';
 import { plainObjectToYType } from '../converter.js';
-// eslint-disable-next-line import/no-unresolved
 import { isYArray, isYMap } from '../core/guards.js';
 import { reconcileValtioArray, reconcileValtioMap } from '../reconcile/reconciler.js';
 
@@ -26,6 +25,7 @@ export function applyArrayOperations(
   for (const a of arrayReplaces.keys()) allArrays.add(a);
 
   for (const yArray of allArrays) {
+    const lengthAtStart = yArray.length;
     const setsForArray = arraySets.get(yArray) ?? new Map<number, PendingArrayEntry>();
     const deletesForArray = arrayDeletes.get(yArray) ?? new Set<number>();
     const replacesForArray = arrayReplaces.get(yArray) ?? new Map<number, PendingArrayEntry>();
@@ -53,7 +53,16 @@ export function applyArrayOperations(
 
     // 3) Finally, handle Pure Inserts (sets)
     if (setsForArray.size > 0) {
-      handleSets(context, yArray, setsForArray, post);
+      handleSets(context, yArray, setsForArray, deletesForArray, lengthAtStart, post);
+    }
+
+    // Ensure the controller array proxy structure is fully reconciled after mixed operations
+    // to materialize any deep children created during inserts/replaces.
+    try {
+      const arrayDocNow = getYDoc(yArray);
+      post.push(() => reconcileValtioArray(context, yArray, arrayDocNow!));
+    } catch {
+      // ignore reconcile scheduling errors
     }
   }
 }
@@ -137,6 +146,8 @@ function handleSets(
   context: SynchronizationContext,
   yArray: Y.Array<unknown>,
   sets: Map<number, PendingArrayEntry>,
+  deletes: Set<number>,
+  lengthAtStart: number,
   post: Array<() => void>,
 ): void {
   if (sets.size === 0) return;
@@ -150,7 +161,7 @@ function handleSets(
   // }
 
   // Baseline: perform individual inserts
-  handleIndividualInserts(context, yArray, sets, post);
+  handleIndividualInserts(context, yArray, sets, deletes, lengthAtStart, post);
 }
 
 /**
@@ -247,6 +258,8 @@ function handleIndividualInserts(
   context: SynchronizationContext,
   yArray: Y.Array<unknown>,
   sets: Map<number, PendingArrayEntry>,
+  deletes: Set<number>,
+  lengthAtStart: number,
   post: Array<() => void>,
 ): void {
   // Sort indices in ascending order for inserts
@@ -263,7 +276,16 @@ function handleIndividualInserts(
       hadOutOfBoundsSet = true;
     }
     
-    const targetIndex = index > yArray.length ? yArray.length : index;
+    // Adjust insert target relative to deletes: if there were deletions at or before
+    // this index in the batch, clamp to current tail to preserve apparent splice order.
+    const hasDeleteBeforeOrAt = Array.from(deletes).some((d) => d <= index);
+    const baselineTail = Math.max(lengthAtStart - Array.from(deletes).filter((d) => d < lengthAtStart).length, 0);
+    const preferTail = hasDeleteBeforeOrAt && index >= baselineTail;
+    const targetIndex = preferTail
+      ? yArray.length
+      : index > yArray.length
+        ? yArray.length
+        : index;
     context.log.debug('[arrayApply] individual insert', { index: targetIndex, length: yArray.length });
     
     yArray.insert(targetIndex, [yValue]);

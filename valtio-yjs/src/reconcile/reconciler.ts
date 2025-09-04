@@ -101,6 +101,14 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
   if (!valtioProxy) return;
 
   context.withReconcilingLock(() => {
+    // Skip structural reconcile if this array has a delta in the current sync pass
+    if (context.shouldSkipArrayStructuralReconcile(yArray)) {
+      context.log.debug('reconcileValtioArray skipped due to pending delta', {
+        yLength: yArray.length,
+        valtioLength: valtioProxy.length,
+      });
+      return;
+    }
     context.log.debug('reconcileValtioArray start', {
       yLength: yArray.length,
       valtioLength: valtioProxy.length,
@@ -153,6 +161,15 @@ export function reconcileValtioArrayWithDelta(
       }
       if (d.insert && d.insert.length > 0) {
         const converted = d.insert.map((item) => (isYSharedContainer(item) ? getOrCreateValtioProxy(context, item, doc) : item));
+        // Idempotency guard: if the exact converted items already exist at this position
+        // (e.g., due to a prior structural reconcile in the same sync pass), skip inserting.
+        const existingSlice = valtioProxy.slice(position, position + converted.length);
+        const alreadyPresent = converted.length > 0 && converted.every((v, i) => existingSlice[i] === v);
+        if (alreadyPresent) {
+          context.log.debug('delta.insert (skipped: already present)', { at: position, count: converted.length });
+          position += converted.length;
+          continue;
+        }
         context.log.debug('delta.insert', { at: position, count: converted.length });
         valtioProxy.splice(position, 0, ...converted);
         position += converted.length;

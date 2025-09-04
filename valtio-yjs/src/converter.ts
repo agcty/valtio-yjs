@@ -1,6 +1,5 @@
 import * as Y from 'yjs';
 import { SynchronizationContext } from './core/context.js';
-// eslint-disable-next-line import/no-unresolved
 import { isYArray, isYMap, isYAbstractType } from './core/guards.js';
 
 /**
@@ -99,6 +98,47 @@ export function validateValueForSharedState(jsValue: unknown): void {
   if (Array.isArray(jsValue) || isPlainObject(jsValue)) return;
   
   // Unknown object types are invalid
+  const ctorName = (jsValue as { constructor?: { name?: string } }).constructor?.name ?? 'UnknownObject';
+  throw new Error(
+    `[valtio-yjs] Unable to convert non-plain object of type "${ctorName}". ` +
+      'Only plain objects/arrays/primitives are supported, with special handling for Date and RegExp.',
+  );
+}
+
+/**
+ * Recursively validates complex values (arrays/objects) before enqueueing writes.
+ * Ensures we synchronously reject unsupported structures (e.g., undefined inside objects).
+ */
+export function validateDeepForSharedState(jsValue: unknown): void {
+  // Y types are valid (re-parenting is checked during conversion)
+  if (isYAbstractType(jsValue)) return;
+
+  // Primitives: validate and return
+  if (jsValue === null || typeof jsValue !== 'object') {
+    validateValueForSharedState(jsValue);
+    return;
+  }
+
+  // Arrays: validate all elements
+  if (Array.isArray(jsValue)) {
+    for (const item of jsValue) {
+      validateDeepForSharedState(item);
+    }
+    return;
+  }
+
+  // Plain objects: reject undefined values and recurse
+  if (isPlainObject(jsValue)) {
+    for (const [_key, value] of Object.entries(jsValue)) {
+      if (value === undefined) {
+        throw new Error('[valtio-yjs] undefined is not allowed in objects for shared state. Use null, delete the key, or omit the field.');
+      }
+      validateDeepForSharedState(value);
+    }
+    return;
+  }
+
+  // Unknown object types are invalid (same rule as validateValueForSharedState)
   const ctorName = (jsValue as { constructor?: { name?: string } }).constructor?.name ?? 'UnknownObject';
   throw new Error(
     `[valtio-yjs] Unable to convert non-plain object of type "${ctorName}". ` +

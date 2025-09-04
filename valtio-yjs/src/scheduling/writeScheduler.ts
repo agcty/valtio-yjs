@@ -1,7 +1,6 @@
 import * as Y from 'yjs';
 import type { PendingMapEntry, PendingArrayEntry } from './batchTypes.js';
 import type { Logger } from '../core/context.js';
-// eslint-disable-next-line import/no-unresolved
 import { VALTIO_YJS_ORIGIN } from '../core/constants.js';
 
 export class WriteScheduler {
@@ -165,12 +164,17 @@ export class WriteScheduler {
       const indicesToRemove = new Set<number>();
       
       // Check for delete+set combinations that should become replace
+      // Be conservative: only convert when this array has exactly one delete and one set,
+      // which strongly indicates a direct assignment pattern rather than a splice.
       if (setMap) {
-        for (const deleteIndex of deleteIndices) {
-          if (setMap.has(deleteIndex)) {
-            // We have both delete and set for the same index - convert to replace
-            indicesToConvert.add(deleteIndex);
-            this.log.debug('[scheduler] merging delete+set into replace', { index: deleteIndex });
+        const setCount = setMap.size;
+        const deleteCount = deleteIndices.size;
+        if (setCount === 1 && deleteCount === 1) {
+          for (const deleteIndex of deleteIndices) {
+            if (setMap.has(deleteIndex)) {
+              indicesToConvert.add(deleteIndex);
+              this.log.debug('[scheduler] merging delete+set into replace', { index: deleteIndex });
+            }
           }
         }
       }
@@ -270,6 +274,21 @@ export class WriteScheduler {
       }
       if (purged.maps > 0 || purged.arrays > 0) {
         console.log('[DEBUG-TRACE] Purged pending ops for replaced subtrees', purged);
+      }
+    }
+
+    // Remove any sets that target indices also present in replaces for the same array
+    for (const [yArray, replaceMap] of arrayReplaces) {
+      const setMap = arraySets.get(yArray);
+      if (!setMap) continue;
+      for (const idx of replaceMap.keys()) {
+        if (setMap.has(idx)) {
+          setMap.delete(idx);
+          this.log.debug('[scheduler] removing redundant set (replace exists)', { index: idx });
+        }
+      }
+      if (setMap.size === 0) {
+        arraySets.delete(yArray);
       }
     }
 
@@ -418,25 +437,7 @@ export class WriteScheduler {
       });
     }
 
-    // Heuristic: drop replace operations that are artifacts of shift caused by deletes in the same array
-    // If an array has deletes and replaces, and the replace indices are at or after the minimum delete index,
-    // treat them as shift artifacts and remove them to avoid reparenting existing Y types in the same txn.
-    for (const yArray of allArrays) {
-      const delSet = arrayDeletes.get(yArray);
-      const repMap = arrayReplaces.get(yArray);
-      if (!delSet || !repMap || delSet.size === 0 || repMap.size === 0) continue;
-      const minDelete = Math.min(...Array.from(delSet));
-      const replaceIndices = Array.from(repMap.keys()).sort((a, b) => a - b);
-      const firstReplace = replaceIndices.length > 0 ? replaceIndices[0]! : Number.POSITIVE_INFINITY;
-      const hasShiftPattern = firstReplace >= minDelete;
-      if (hasShiftPattern) {
-        console.log('[DEBUG-TRACE] Dropping replace ops due to delete-induced shift heuristic', {
-          minDelete,
-          replaceIndices,
-        });
-        arrayReplaces.delete(yArray);
-      }
-    }
+    // Sibling purge heuristic removed in favor of precise descendant-only purging
 
     // DEBUG-TRACE: dump the exact batch about to be applied
     try {

@@ -16,7 +16,7 @@ import { isYSharedContainer, isYArray, isYMap } from '../core/guards.js';
 import { LOG_PREFIX } from '../core/constants.js';
 import { planMapOps } from '../planning/mapOpsPlanner.js';
 import { planArrayOps } from '../planning/arrayOpsPlanner.js';
-import { validateValueForSharedState } from '../converter.js';
+import { validateValueForSharedState, validateDeepForSharedState } from '../converter.js';
 
 
 // All caches are moved into SynchronizationContext
@@ -62,46 +62,50 @@ function attachValtioArraySubscription(
     if (context.isReconciling) return;
     context.log.debug('[controller][array] ops', JSON.stringify(ops));
     
-    // Phase 1: Planning - categorize operations into explicit intents
-    // Use Y.Array length as the start-of-batch baseline for deterministic planning
-    const { sets, deletes, replaces } = planArrayOps(ops, yArray.length, context);
-    
-    // Phase 2: Scheduling - enqueue planned operations
-    
-    // Handle replaces first (splice replace operations: delete + set at same index)
-    for (const [index, value] of replaces) {
-      context.log.debug('[controller][array] enqueue.replace', { index });
-      const normalized = value === undefined ? null : value;
-      // Validate synchronously before enqueuing
-      validateValueForSharedState(normalized);
-      context.enqueueArrayReplace(
-        yArray,
-        index,
-        normalized, // Normalize undefined→null defensively
-        (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, index, yValue, _doc),
-      );
-    }
-    
-    // Handle pure deletes
-    for (const index of deletes) {
-      context.log.debug('[controller][array] enqueue.delete', { index });
-      context.enqueueArrayDelete(yArray, index);
-    }
-    
-    // Handle pure sets (inserts/pushes/unshifts). If in-bounds, treat as replace defensively.
-    for (const [index, value] of sets) {
-      const normalized = value === undefined ? null : value;
-      // Validate synchronously before enqueuing
-      validateValueForSharedState(normalized);
-      if (index < yArray.length) {
-        context.log.debug('[controller][array] enqueue.replace(via-set)', { index });
+    // Wrap planning + enqueue in try/catch to rollback local proxy on validation failure
+    try {
+      // Phase 1: Planning - categorize operations into explicit intents
+      // Use Y.Array length as the start-of-batch baseline for deterministic planning
+      const { sets, deletes, replaces } = planArrayOps(ops, yArray.length, context);
+      try {
+        // Debug: print planned intents for this array subscription batch
+        console.log('[DEBUG-TRACE] Controller plan (array):', {
+          replaces: Array.from(replaces.keys()).sort((a, b) => a - b),
+          deletes: Array.from(deletes.values()).sort((a, b) => a - b),
+          sets: Array.from(sets.keys()).sort((a, b) => a - b),
+          yLength: yArray.length,
+        });
+      } catch {
+        // ignore trace errors
+      }
+      
+      // Phase 2: Scheduling - enqueue planned operations
+      
+      // Handle replaces first (splice replace operations: delete + set at same index)
+      for (const [index, value] of replaces) {
+        context.log.debug('[controller][array] enqueue.replace', { index });
+        const normalized = value === undefined ? null : value;
+        // Validate synchronously before enqueuing (deep)
+        validateDeepForSharedState(normalized);
         context.enqueueArrayReplace(
           yArray,
           index,
-          normalized,
+          normalized, // Normalize undefined→null defensively
           (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, index, yValue, _doc),
         );
-      } else {
+      }
+      
+      // Handle pure deletes
+      for (const index of deletes) {
+        context.log.debug('[controller][array] enqueue.delete', { index });
+        context.enqueueArrayDelete(yArray, index);
+      }
+      
+      // Handle pure sets (inserts/pushes/unshifts).
+      for (const [index, value] of sets) {
+        const normalized = value === undefined ? null : value;
+        // Validate synchronously before enqueuing (deep validation to catch nested undefined)
+        validateDeepForSharedState(normalized);
         context.log.debug('[controller][array] enqueue.set', { index });
         context.enqueueArraySet(
           yArray,
@@ -110,6 +114,19 @@ function attachValtioArraySubscription(
           (yValue: unknown) => upgradeChildIfNeeded(context, arrProxy, index, yValue, _doc),
         );
       }
+    } catch (err) {
+      // Rollback local proxy to previous values using ops metadata
+      context.withReconcilingLock(() => {
+        for (const op of ops as unknown[]) {
+          if (Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1) {
+            const idx = op[1][0];
+            const prev = (op as ['set', [number | string], unknown, unknown])[3];
+            const index = typeof idx === 'number' ? idx : Number.parseInt(String(idx), 10);
+            (arrProxy as unknown[])[index] = prev as unknown;
+          }
+        }
+      });
+      throw err;
     }
   }, true);
   return unsubscribe;

@@ -39,6 +39,10 @@ export class SynchronizationContext {
   // Write scheduler instance
   private writeScheduler: WriteScheduler;
 
+  // During a sync pass, arrays that have a recorded delta should not be
+  // structurally reconciled to avoid double-applying (structure + delta).
+  private arraysWithDeltaDuringSync: WeakSet<Y.Array<unknown>> | null = null;
+
   constructor(debug?: boolean, trace?: boolean) {
     this.debugEnabled = debug ?? false;
     this.traceMode = trace ?? false;
@@ -100,6 +104,21 @@ export class SynchronizationContext {
 
   bindDoc(doc: Y.Doc): void {
     this.writeScheduler.bindDoc(doc);
+  }
+
+  // Sync pass helpers for skipping structural reconciliation on arrays with deltas
+  setArraysWithDeltaDuringSync(arrays: Iterable<Y.Array<unknown>>): void {
+    const ws = new WeakSet<Y.Array<unknown>>();
+    for (const a of arrays) ws.add(a);
+    this.arraysWithDeltaDuringSync = ws;
+  }
+
+  clearArraysWithDeltaDuringSync(): void {
+    this.arraysWithDeltaDuringSync = null;
+  }
+
+  shouldSkipArrayStructuralReconcile(arr: Y.Array<unknown>): boolean {
+    return this.arraysWithDeltaDuringSync !== null && this.arraysWithDeltaDuringSync.has(arr);
   }
 
   // Delegate enqueue operations to the write scheduler

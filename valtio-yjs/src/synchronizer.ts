@@ -69,15 +69,14 @@ export function setupSyncListener(
     }
     // Phase 1: boundaries first (parents before children)
     const arraysWithDelta = new Set(arrayTargetToDelta.keys());
+    // Inform context to skip structural reconcile for arrays that have deltas in this sync pass
+    context.setArraysWithDeltaDuringSync(arraysWithDelta);
     for (const container of boundaries) {
       if (isYMap(container)) {
         reconcileValtioMap(context, container, doc);
       } else if (isYArray(container)) {
-        // If this array has a delta recorded, skip structural reconciliation
-        // to avoid applying the change twice (structural + delta).
-        if (!arraysWithDelta.has(container)) {
-          reconcileValtioArray(context, container, doc);
-        }
+        // Structural reconcile will internally check context.shouldSkipArrayStructuralReconcile
+        reconcileValtioArray(context, container, doc);
       }
     }
     // Phase 2: apply granular array deltas to direct targets
@@ -86,6 +85,8 @@ export function setupSyncListener(
         reconcileValtioArrayWithDelta(context, arr, doc, delta);
       }
     }
+    // Clear skip set for next sync pass
+    context.clearArraysWithDeltaDuringSync();
   };
 
   yRoot.observeDeep(handleDeep);
