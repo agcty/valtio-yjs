@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import type { PendingArrayEntry } from '../scheduling/batchTypes.js';
 import type { SynchronizationContext } from '../core/context.js';
 import { plainObjectToYType } from '../converter.js';
+// eslint-disable-next-line import/no-unresolved
 import { isYArray, isYMap } from '../core/guards.js';
 import { reconcileValtioArray, reconcileValtioMap } from '../reconcile/reconciler.js';
 
@@ -28,6 +29,21 @@ export function applyArrayOperations(
     const setsForArray = arraySets.get(yArray) ?? new Map<number, PendingArrayEntry>();
     const deletesForArray = arrayDeletes.get(yArray) ?? new Set<number>();
     const replacesForArray = arrayReplaces.get(yArray) ?? new Map<number, PendingArrayEntry>();
+
+    // DEBUG-TRACE: per-array batch snapshot
+    try {
+      const targetId = (yArray as unknown as { _item?: { id?: { toString?: () => string } } })._item?.id?.toString?.();
+      const trace = {
+        targetId,
+        replaces: Array.from(replacesForArray.keys()).sort((a, b) => a - b),
+        deletes: Array.from(deletesForArray.values()).sort((a, b) => a - b),
+        sets: Array.from(setsForArray.keys()).sort((a, b) => a - b),
+        lengthAtStart: yArray.length,
+      };
+      console.log('[DEBUG-TRACE] Applying ops for Y.Array:', trace);
+    } catch {
+      // ignore trace logging errors
+    }
 
     // 1) Handle Replaces first (canonical delete-then-insert at same index)
     handleReplaces(context, yArray, replacesForArray, post);
@@ -141,7 +157,7 @@ function handleSets(
  * Try to optimize contiguous head/tail inserts into single operations
  * Returns true if optimization was applied, false if fallback is needed
  */
-function tryOptimizedInserts(
+function _tryOptimizedInserts(
   context: SynchronizationContext,
   yArray: Y.Array<unknown>,
   sets: Map<number, PendingArrayEntry>,

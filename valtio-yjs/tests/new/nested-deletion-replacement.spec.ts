@@ -16,11 +16,11 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       const { proxy: proxy1, bootstrap } = createYjsProxy<any[]>(doc1, {
         getRoot: (d) => d.getArray('items'),
-        debug: true
+        debug: false
       });
       const { proxy: proxy2 } = createYjsProxy<any[]>(doc2, {
         getRoot: (d) => d.getArray('items'),
-        debug: true
+        debug: false
       });
       
       // Initialize with nested structure
@@ -112,7 +112,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc = new Y.Doc();
       const { proxy, bootstrap } = createYjsProxy<any[]>(doc, {
         getRoot: (d) => d.getArray('data'),
-        debug: true
+        debug: false
       });
       
       bootstrap([
@@ -161,11 +161,11 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       const { proxy: proxy1, bootstrap } = createYjsProxy<any[]>(doc1, {
         getRoot: (d) => d.getArray('tasks'),
-        debug: true
+        debug: false
       });
       const { proxy: proxy2 } = createYjsProxy<any[]>(doc2, {
         getRoot: (d) => d.getArray('tasks'),
-        debug: true
+        debug: false
       });
       
       // Initialize with nested task structure
@@ -244,7 +244,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc = new Y.Doc();
       const { proxy, bootstrap } = createYjsProxy<any[]>(doc, {
         getRoot: (d) => d.getArray('components'),
-        debug: true
+        debug: false
       });
       
       bootstrap([
@@ -308,11 +308,11 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       const { proxy: proxy1, bootstrap } = createYjsProxy<any>(doc1, {
         getRoot: (d) => d.getMap('state'),
-        debug: true
+        debug: false
       });
       const { proxy: proxy2 } = createYjsProxy<any>(doc2, {
         getRoot: (d) => d.getMap('state'),
-        debug: true
+        debug: false
       });
       
       // Initialize with complex nested state
@@ -386,7 +386,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc = new Y.Doc();
       const { proxy, bootstrap } = createYjsProxy<any>(doc, {
         getRoot: (d) => d.getMap('app'),
-        debug: true
+        debug: false
       });
       
       bootstrap({
@@ -455,15 +455,15 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       const { proxy: proxy1, bootstrap } = createYjsProxy<any[]>(doc1, {
         getRoot: (d) => d.getArray('workspace'),
-        debug: true
+        debug: false
       });
       const { proxy: proxy2 } = createYjsProxy<any[]>(doc2, {
         getRoot: (d) => d.getArray('workspace'),
-        debug: true
+        debug: false
       });
       const { proxy: proxy3 } = createYjsProxy<any[]>(doc3, {
         getRoot: (d) => d.getArray('workspace'),
-        debug: true
+        debug: false
       });
       
       // Initialize shared workspace with nested project structure
@@ -560,11 +560,11 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       const { proxy: proxy1, bootstrap } = createYjsProxy<any>(doc1, {
         getRoot: (d) => d.getMap('document'),
-        debug: true
+        debug: false
       });
       const { proxy: proxy2 } = createYjsProxy<any>(doc2, {
         getRoot: (d) => d.getMap('document'),
-        debug: true
+        debug: false
       });
       
       // Initialize with document structure
@@ -648,11 +648,11 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       const { proxy: proxy1, bootstrap } = createYjsProxy<any[]>(doc1, {
         getRoot: (d) => d.getArray('items'),
-        debug: true
+        debug: false
       });
       const { proxy: proxy2 } = createYjsProxy<any[]>(doc2, {
         getRoot: (d) => d.getArray('items'),
-        debug: true
+        debug: false
       });
       
       // Initialize with items containing nested data
@@ -719,7 +719,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc = new Y.Doc();
       const { proxy, bootstrap } = createYjsProxy<any>(doc, {
         getRoot: (d) => d.getMap('game'),
-        debug: true
+        debug: false
       });
       
       bootstrap({
@@ -800,7 +800,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc = new Y.Doc();
       const { proxy, bootstrap } = createYjsProxy<any[]>(doc, {
         getRoot: (d) => d.getArray('deep'),
-        debug: true
+        debug: false
       });
       
       // Create deeply nested structure
@@ -853,7 +853,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc = new Y.Doc();
       const { proxy, bootstrap } = createYjsProxy<any[]>(doc, {
         getRoot: (d) => d.getArray('components'),
-        debug: true
+        debug: false
       });
       
       bootstrap([
@@ -921,7 +921,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc = new Y.Doc();
       const { proxy, bootstrap } = createYjsProxy<any>(doc, {
         getRoot: (d) => d.getMap('app'),
-        debug: true
+        debug: false
       });
       
       // Track some references to ensure they get cleaned up
@@ -981,11 +981,11 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       const { proxy: proxy1, bootstrap } = createYjsProxy<any>(doc1, {
         getRoot: (d) => d.getMap('system'),
-        debug: true
+        debug: false
       });
       const { proxy: proxy2 } = createYjsProxy<any>(doc2, {
         getRoot: (d) => d.getMap('system'),
-        debug: true
+        debug: false
       });
       
       // Create structure with cross-references
@@ -1056,7 +1056,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc = new Y.Doc();
       const { proxy, bootstrap } = createYjsProxy<any[]>(doc, {
         getRoot: (d) => d.getArray('data'),
-        debug: true
+        debug: false
       });
       
       // Initialize with valid nested structure

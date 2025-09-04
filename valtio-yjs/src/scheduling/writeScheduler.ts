@@ -1,6 +1,7 @@
 import * as Y from 'yjs';
 import type { PendingMapEntry, PendingArrayEntry } from './batchTypes.js';
 import type { Logger } from '../core/context.js';
+// eslint-disable-next-line import/no-unresolved
 import { VALTIO_YJS_ORIGIN } from '../core/constants.js';
 
 export class WriteScheduler {
@@ -219,6 +220,105 @@ export class WriteScheduler {
       }
     }
     
+    // Purge stale operations targeting children of items that will be replaced in this flush
+    // This ensures we don't try to mutate a subtree after its parent is deleted/replaced in the same transaction
+    if (arrayReplaces.size > 0) {
+      const purged = { maps: 0, arrays: 0 };
+      const collectSubtree = (root: unknown, collectedMaps: Set<Y.Map<unknown>>, collectedArrays: Set<Y.Array<unknown>>): void => {
+        if (root instanceof Y.Map) {
+          collectedMaps.add(root);
+          // Traverse values because they may contain nested shared types
+          for (const [, v] of root.entries()) collectSubtree(v, collectedMaps, collectedArrays);
+          return;
+        }
+        if (root instanceof Y.Array) {
+          collectedArrays.add(root);
+          for (const v of root.toArray()) collectSubtree(v, collectedMaps, collectedArrays);
+          return;
+        }
+      };
+      for (const [yArray, replaceMap] of arrayReplaces) {
+        for (const index of replaceMap.keys()) {
+          if (index >= 0 && index < yArray.length) {
+            const oldItem = yArray.get(index) as unknown;
+            const maps = new Set<Y.Map<unknown>>();
+            const arrays = new Set<Y.Array<unknown>>();
+            collectSubtree(oldItem, maps, arrays);
+            // Also include the root if it's a map/array itself
+            if (oldItem instanceof Y.Map) maps.add(oldItem);
+            if (oldItem instanceof Y.Array) arrays.add(oldItem);
+
+            // Purge map operations targeting this subtree
+            for (const yMap of maps) {
+              if (this.pendingMapSets.delete(yMap)) purged.maps++;
+              if (this.pendingMapDeletes.delete(yMap)) purged.maps++;
+              // Also remove from the snapshotted maps that will be applied this flush
+              if (mapSets.delete(yMap)) purged.maps++;
+              if (mapDeletes.delete(yMap)) purged.maps++;
+            }
+            // Purge array operations targeting this subtree
+            for (const arr of arrays) {
+              if (this.pendingArraySets.delete(arr)) purged.arrays++;
+              if (this.pendingArrayDeletes.delete(arr)) purged.arrays++;
+              if (this.pendingArrayReplaces.delete(arr)) purged.arrays++;
+              if (arraySets.delete(arr)) purged.arrays++;
+              if (arrayDeletes.delete(arr)) purged.arrays++;
+              if (arrayReplaces.delete(arr)) purged.arrays++;
+            }
+          }
+        }
+      }
+      if (purged.maps > 0 || purged.arrays > 0) {
+        console.log('[DEBUG-TRACE] Purged pending ops for replaced subtrees', purged);
+      }
+    }
+
+    // Purge stale operations targeting children of items that will be deleted in this flush
+    if (arrayDeletes.size > 0) {
+      const purged = { maps: 0, arrays: 0 };
+      const collectSubtree = (root: unknown, collectedMaps: Set<Y.Map<unknown>>, collectedArrays: Set<Y.Array<unknown>>): void => {
+        if (root instanceof Y.Map) {
+          collectedMaps.add(root);
+          for (const [, v] of root.entries()) collectSubtree(v, collectedMaps, collectedArrays);
+          return;
+        }
+        if (root instanceof Y.Array) {
+          collectedArrays.add(root);
+          for (const v of root.toArray()) collectSubtree(v, collectedMaps, collectedArrays);
+          return;
+        }
+      };
+      for (const [yArray, deleteSet] of arrayDeletes) {
+        for (const index of Array.from(deleteSet)) {
+          if (index >= 0 && index < yArray.length) {
+            const oldItem = yArray.get(index) as unknown;
+            const maps = new Set<Y.Map<unknown>>();
+            const arrays = new Set<Y.Array<unknown>>();
+            collectSubtree(oldItem, maps, arrays);
+            if (oldItem instanceof Y.Map) maps.add(oldItem);
+            if (oldItem instanceof Y.Array) arrays.add(oldItem);
+            for (const yMap of maps) {
+              if (this.pendingMapSets.delete(yMap)) purged.maps++;
+              if (this.pendingMapDeletes.delete(yMap)) purged.maps++;
+              if (mapSets.delete(yMap)) purged.maps++;
+              if (mapDeletes.delete(yMap)) purged.maps++;
+            }
+            for (const arr of arrays) {
+              if (this.pendingArraySets.delete(arr)) purged.arrays++;
+              if (this.pendingArrayDeletes.delete(arr)) purged.arrays++;
+              if (this.pendingArrayReplaces.delete(arr)) purged.arrays++;
+              if (arraySets.delete(arr)) purged.arrays++;
+              if (arrayDeletes.delete(arr)) purged.arrays++;
+              if (arrayReplaces.delete(arr)) purged.arrays++;
+            }
+          }
+        }
+      }
+      if (purged.maps > 0 || purged.arrays > 0) {
+        console.log('[DEBUG-TRACE] Purged pending ops for deleted subtrees', purged);
+      }
+    }
+
     // no-op
     const post: Array<() => void> = [];
 
@@ -259,8 +359,10 @@ export class WriteScheduler {
       // Check for consecutive replaces (splice shift pattern)
       if (replaceIndices.length >= 2) {
         let consecutiveCount = 1;
-        for (let i = 0; i < replaceIndices.length - 1; i++) {
-          if (replaceIndices[i + 1] === replaceIndices[i] + 1) {
+        for (let i = 0; i + 1 < replaceIndices.length; i++) {
+          const next = replaceIndices[i + 1]!;
+          const curr = replaceIndices[i]!;
+          if (next === curr + 1) {
             consecutiveCount++;
             if (consecutiveCount >= 2) {
               possibleMove = true;
@@ -314,6 +416,62 @@ export class WriteScheduler {
           operations: Array.from(indexMap.keys())
         })) : []
       });
+    }
+
+    // Heuristic: drop replace operations that are artifacts of shift caused by deletes in the same array
+    // If an array has deletes and replaces, and the replace indices are at or after the minimum delete index,
+    // treat them as shift artifacts and remove them to avoid reparenting existing Y types in the same txn.
+    for (const yArray of allArrays) {
+      const delSet = arrayDeletes.get(yArray);
+      const repMap = arrayReplaces.get(yArray);
+      if (!delSet || !repMap || delSet.size === 0 || repMap.size === 0) continue;
+      const minDelete = Math.min(...Array.from(delSet));
+      const replaceIndices = Array.from(repMap.keys()).sort((a, b) => a - b);
+      const firstReplace = replaceIndices.length > 0 ? replaceIndices[0]! : Number.POSITIVE_INFINITY;
+      const hasShiftPattern = firstReplace >= minDelete;
+      if (hasShiftPattern) {
+        console.log('[DEBUG-TRACE] Dropping replace ops due to delete-induced shift heuristic', {
+          minDelete,
+          replaceIndices,
+        });
+        arrayReplaces.delete(yArray);
+      }
+    }
+
+    // DEBUG-TRACE: dump the exact batch about to be applied
+    try {
+      const forceTrace = (globalThis as unknown as { __VY_TRACE__?: boolean }).__VY_TRACE__ === true;
+      if (this.traceMode || forceTrace) {
+        const mapDeletesLog = Array.from(mapDeletes.entries()).map(([yMap, keySet]) => ({
+          targetId: (yMap as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
+          keys: Array.from(keySet),
+        }));
+        const mapSetsLog = Array.from(mapSets.entries()).map(([yMap, keyMap]) => ({
+          targetId: (yMap as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
+          keys: Array.from(keyMap.keys()),
+        }));
+        const arrayDeletesLog = Array.from(arrayDeletes.entries()).map(([yArr, idxSet]) => ({
+          targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
+          indices: Array.from(idxSet).sort((a, b) => a - b),
+        }));
+        const arraySetsLog = Array.from(arraySets.entries()).map(([yArr, idxMap]) => ({
+          targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
+          indices: Array.from(idxMap.keys()).sort((a, b) => a - b),
+        }));
+        const arrayReplacesLog = Array.from(arrayReplaces.entries()).map(([yArr, idxMap]) => ({
+          targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
+          indices: Array.from(idxMap.keys()).sort((a, b) => a - b),
+        }));
+        // Use console to ensure visibility regardless of logger level
+        console.log('[DEBUG-TRACE] Flushing transaction with operations:');
+        console.log('  Map Deletes:', JSON.stringify(mapDeletesLog));
+        console.log('  Map Sets:', JSON.stringify(mapSetsLog));
+        console.log('  Array Deletes:', JSON.stringify(arrayDeletesLog));
+        console.log('  Array Sets:', JSON.stringify(arraySetsLog));
+        console.log('  Array Replaces:', JSON.stringify(arrayReplacesLog));
+      }
+    } catch {
+      // ignore trace logging errors
     }
 
     doc.transact(() => {

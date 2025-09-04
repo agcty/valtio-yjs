@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
 import { SynchronizationContext } from './core/context.js';
+// eslint-disable-next-line import/no-unresolved
 import { isYArray, isYMap, isYAbstractType } from './core/guards.js';
 
 /**
@@ -98,7 +99,7 @@ export function validateValueForSharedState(jsValue: unknown): void {
   if (Array.isArray(jsValue) || isPlainObject(jsValue)) return;
   
   // Unknown object types are invalid
-  const ctorName = (jsValue as any).constructor?.name ?? 'UnknownObject';
+  const ctorName = (jsValue as { constructor?: { name?: string } }).constructor?.name ?? 'UnknownObject';
   throw new Error(
     `[valtio-yjs] Unable to convert non-plain object of type "${ctorName}". ` +
       'Only plain objects/arrays/primitives are supported, with special handling for Date and RegExp.',
@@ -152,7 +153,29 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
 
   // If this is one of our controller proxies, return the underlying Y type
   if (context && typeof jsValue === 'object' && context.valtioProxyToYType.has(jsValue)) {
-    return context.valtioProxyToYType.get(jsValue);
+    const yExisting = context.valtioProxyToYType.get(jsValue)!;
+    const isExistingY = isYAbstractType(yExisting);
+    const alreadyParented = isExistingY && (yExisting as Y.AbstractType<unknown>).parent !== null;
+    try {
+      const forceTrace = (globalThis as unknown as { __VY_TRACE__?: boolean }).__VY_TRACE__ === true;
+      if (forceTrace) {
+        const id = (yExisting as unknown as { _item?: { id?: { toString?: () => string } } })._item?.id?.toString?.();
+        console.log('[DEBUG-TRACE] converter.plainObjectToYType: proxy->Y mapping hit', {
+          id,
+          alreadyParented,
+          type: (yExisting as { constructor?: { name?: string } })?.constructor?.name,
+        });
+      }
+    } catch {
+      // ignore trace logging errors
+    }
+    if (alreadyParented) {
+      // Avoid re-parenting an existing collaborative object in the same transaction.
+      // Deep-clone by converting the existing Y type to plain and back to fresh Y types.
+      const plain = yTypeToPlainObject(yExisting);
+      return plainObjectToYType(plain, context);
+    }
+    return yExisting;
   }
 
   if (Array.isArray(jsValue)) {

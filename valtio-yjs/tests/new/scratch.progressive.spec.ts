@@ -464,7 +464,7 @@ describe('Scratch: Progressive checks', () => {
 
     it('proxy writes: undefined normalizes to null; replace removes it', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: true });
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr'), debug: false });
       const yArr = doc.getArray<any>('arr');
 
       // Valtio normalizes undefined to null before ops reach us
