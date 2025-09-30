@@ -98,8 +98,17 @@ export function validateValueForSharedState(jsValue: unknown): void {
  * Ensures we synchronously reject unsupported structures (e.g., undefined inside objects).
  */
 export function validateDeepForSharedState(jsValue: unknown): void {
-  // Y types are valid (re-parenting is checked during conversion)
-  if (isYAbstractType(jsValue)) return;
+  // Y types are valid, but check for forbidden re-parenting
+  if (isYAbstractType(jsValue)) {
+    if ((jsValue as Y.AbstractType<unknown>).parent !== null) {
+      throw new Error(
+        '[valtio-yjs] Cannot re-assign a collaborative object that is already in the document. ' +
+        'If you intended to move or copy this object, you must explicitly create a deep clone of it ' +
+        'at the application layer before assigning it.'
+      );
+    }
+    return;
+  }
 
   // Primitives: validate and return
   if (jsValue === null || typeof jsValue !== 'object') {

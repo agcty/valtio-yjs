@@ -78,3 +78,28 @@
   - Better performance (coarse array splices avoided when delta is present).
   - Deterministic ordering and fewer observer churns.
   - Clear separation of concerns: structure first, then deltas.
+
+## 9) Validation and Rollback on Assignment Errors
+
+- Problem: When a user assigns invalid data (e.g., objects with `undefined`, functions, or non-plain objects) to a Valtio proxy, the assignment happens immediately in Valtio's state, but validation may fail later during the asynchronous Yjs flush. This creates an inconsistent state where the Valtio proxy contains invalid data that was never written to Yjs.
+- Options:
+  - **Shallow validation only**: Fast but allows nested invalid data to create inconsistency.
+  - **Deep validation with no rollback**: Catches errors but leaves Valtio in inconsistent state.
+  - **Deep validation with rollback**: Catches all errors and restores Valtio to previous valid state.
+- Decision: Use deep validation with rollback for both maps and arrays.
+- Implementation:
+  - Validate synchronously using `validateDeepForSharedState` before enqueueing operations
+  - Wrap validation and enqueue logic in try/catch blocks
+  - On error, use Valtio operation metadata to rollback proxy to previous state
+  - Re-throw error to allow user-level error handling
+- Rationale:
+  - **Consistency**: Valtio proxy and Yjs document always stay in sync
+  - **Error clarity**: Errors are thrown synchronously where the assignment happens
+  - **Predictability**: Both map and array subscriptions behave identically
+  - **Recoverability**: User code can catch and handle validation errors
+- Benefits:
+  - Prevents partial state corruption on validation failures
+  - Eliminates unhandled promise rejections from async validation
+  - Provides clear error messages at the point of invalid assignment
+  - Enables defensive programming patterns with try/catch
+- Test Coverage: See `tests/map-validation-rollback.spec.ts` for comprehensive validation scenarios

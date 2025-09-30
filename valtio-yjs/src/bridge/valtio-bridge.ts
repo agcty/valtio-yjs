@@ -16,7 +16,7 @@ import { isYSharedContainer, isYArray, isYMap } from '../core/guards.js';
 import { LOG_PREFIX } from '../core/constants.js';
 import { planMapOps } from '../planning/mapOpsPlanner.js';
 import { planArrayOps } from '../planning/arrayOpsPlanner.js';
-import { validateValueForSharedState, validateDeepForSharedState } from '../converter.js';
+import { validateDeepForSharedState } from '../converter.js';
 
 
 // All caches are moved into SynchronizationContext
@@ -150,24 +150,47 @@ function attachValtioMapSubscription(
     if (context.isReconciling) return;
     context.log.debug('[controller][map] ops', JSON.stringify(ops));
     
-    // Phase 1: Planning - categorize operations
-    const { sets, deletes } = planMapOps(ops);
-    
-    // Phase 2: Scheduling - enqueue planned operations
-    for (const [key, value] of sets) {
-      const normalized = value === undefined ? null : value;
-      // Validate synchronously before enqueuing
-      validateValueForSharedState(normalized);
-      context.enqueueMapSet(
-        yMap,
-        key,
-        normalized, // Normalize undefined→null defensively
-        (yValue: unknown) => upgradeChildIfNeeded(context, objProxy, key, yValue, doc),
-      );
-    }
-    
-    for (const key of deletes) {
-      context.enqueueMapDelete(yMap, key);
+    // Wrap planning + enqueue in try/catch to rollback local proxy on validation failure
+    try {
+      // Phase 1: Planning - categorize operations
+      const { sets, deletes } = planMapOps(ops);
+      
+      // Phase 2: Scheduling - enqueue planned operations
+      for (const [key, value] of sets) {
+        const normalized = value === undefined ? null : value;
+        // Validate synchronously before enqueuing (deep validation to catch nested issues)
+        validateDeepForSharedState(normalized);
+        context.enqueueMapSet(
+          yMap,
+          key,
+          normalized, // Normalize undefined→null defensively
+          (yValue: unknown) => upgradeChildIfNeeded(context, objProxy, key, yValue, doc),
+        );
+      }
+      
+      for (const key of deletes) {
+        context.enqueueMapDelete(yMap, key);
+      }
+    } catch (err) {
+      // Rollback local proxy to previous values using ops metadata
+      context.withReconcilingLock(() => {
+        for (const op of ops as unknown[]) {
+          if (Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1) {
+            const key = op[1][0];
+            const prev = (op as ['set', [string], unknown, unknown])[3];
+            if (typeof key === 'string' || typeof key === 'number') {
+              if (prev === undefined) {
+                // Key didn't exist before, delete it
+                delete objProxy[String(key)];
+              } else {
+                // Restore previous value
+                objProxy[String(key)] = prev as unknown;
+              }
+            }
+          }
+        }
+      });
+      throw err;
     }
   }, true);
   return unsubscribe;
