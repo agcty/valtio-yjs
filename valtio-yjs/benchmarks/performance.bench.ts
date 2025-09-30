@@ -824,3 +824,294 @@ describe('Memory & Efficiency', () => {
     }
   );
 });
+
+// =============================================================================
+// Category 6: Bulk Insert Optimization Impact
+// =============================================================================
+
+describe('Bulk Insert Optimization Impact', () => {
+  bench(
+    'baseline: push 100 items individually (current behavior)',
+    async () => {
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; count: number }>>(
+        (d) => d.getArray('arr')
+      );
+
+      bootstrap([]);
+      await waitMicrotask();
+
+      // Current implementation: each push creates individual Y.Array insert
+      for (let i = 0; i < 100; i++) {
+        proxy.push({ id: i, count: 0 });
+      }
+      await waitMicrotask();
+
+      dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+
+  bench(
+    'optimized: push 100 items bulk (spread syntax)',
+    async () => {
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; count: number }>>(
+        (d) => d.getArray('arr')
+      );
+
+      bootstrap([]);
+      await waitMicrotask();
+
+      // Bulk push: should trigger optimization if enabled
+      const items = Array.from({ length: 100 }, (_, i) => ({ id: i, count: 0 }));
+      proxy.push(...items);
+      await waitMicrotask();
+
+      dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+
+  bench(
+    'baseline: unshift 100 items individually',
+    async () => {
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; count: number }>>(
+        (d) => d.getArray('arr')
+      );
+
+      bootstrap([{ id: 999, count: 0 }]);
+      await waitMicrotask();
+
+      // Current implementation: each unshift creates individual Y.Array insert
+      for (let i = 0; i < 100; i++) {
+        proxy.unshift({ id: i, count: 0 });
+      }
+      await waitMicrotask();
+
+      dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+
+  bench(
+    'optimized: unshift 100 items bulk (spread syntax)',
+    async () => {
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; count: number }>>(
+        (d) => d.getArray('arr')
+      );
+
+      bootstrap([{ id: 999, count: 0 }]);
+      await waitMicrotask();
+
+      // Bulk unshift: should trigger optimization if enabled
+      const items = Array.from({ length: 100 }, (_, i) => ({ id: i, count: 0 }));
+      proxy.unshift(...items);
+      await waitMicrotask();
+
+      dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+
+  bench(
+    'push 50 items, then push 50 more (should batch both)',
+    async () => {
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
+        (d) => d.getArray('arr')
+      );
+
+      bootstrap([]);
+      await waitMicrotask();
+
+      // Two bulk operations in same tick
+      const items1 = Array.from({ length: 50 }, (_, i) => ({ id: i }));
+      const items2 = Array.from({ length: 50 }, (_, i) => ({ id: i + 50 }));
+      proxy.push(...items1);
+      proxy.push(...items2);
+      await waitMicrotask();
+
+      dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+
+  bench(
+    'baseline: push to existing large array (1000 items)',
+    async () => {
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
+        (d) => d.getArray('arr')
+      );
+
+      // Start with large array
+      bootstrap(Array.from({ length: 1000 }, (_, i) => ({ id: i })));
+      await waitMicrotask();
+
+      // Push 100 more
+      for (let i = 1000; i < 1100; i++) {
+        proxy.push({ id: i });
+      }
+      await waitMicrotask();
+
+      dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+
+  bench(
+    'optimized: push to existing large array (1000 items)',
+    async () => {
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
+        (d) => d.getArray('arr')
+      );
+
+      // Start with large array
+      bootstrap(Array.from({ length: 1000 }, (_, i) => ({ id: i })));
+      await waitMicrotask();
+
+      // Bulk push 100 more
+      const items = Array.from({ length: 100 }, (_, i) => ({ id: i + 1000 }));
+      proxy.push(...items);
+      await waitMicrotask();
+
+      dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+
+  bench(
+    'nested objects: push 100 items with nested structure',
+    async () => {
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; nested: { value: string; deep: { count: number } } }>
+      >((d) => d.getArray('arr'));
+
+      bootstrap([]);
+      await waitMicrotask();
+
+      // Bulk push with nested objects
+      const items = Array.from({ length: 100 }, (_, i) => ({
+        id: i,
+        nested: { value: `item-${i}`, deep: { count: 0 } },
+      }));
+      proxy.push(...items);
+      await waitMicrotask();
+
+      dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+
+  bench(
+    'two-client sync: bulk push 100 items',
+    async () => {
+      const { docA, docB } = createTwoDocsWithRelay();
+
+      const proxyA = createYjsProxy<Array<{ id: number }>>(docA, {
+        getRoot: (d) => d.getArray('arr'),
+      });
+      const proxyB = createYjsProxy<Array<{ id: number }>>(docB, {
+        getRoot: (d) => d.getArray('arr'),
+      });
+
+      proxyA.bootstrap([]);
+      await waitMicrotask();
+
+      // Bulk push on A
+      const items = Array.from({ length: 100 }, (_, i) => ({ id: i }));
+      proxyA.proxy.push(...items);
+      await waitMicrotask();
+
+      // Verify sync
+      const synced = proxyB.proxy.length === 100;
+
+      proxyA.dispose();
+      proxyB.dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+
+  bench(
+    'push 1000 items: stress test',
+    async () => {
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
+        (d) => d.getArray('arr')
+      );
+
+      bootstrap([]);
+      await waitMicrotask();
+
+      // Very large bulk push
+      const items = Array.from({ length: 1000 }, (_, i) => ({ id: i }));
+      proxy.push(...items);
+      await waitMicrotask();
+
+      dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+
+  bench(
+    'comparison: no optimization - mixed operations (push + replace)',
+    async () => {
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
+        (d) => d.getArray('arr')
+      );
+
+      bootstrap([{ id: 0 }, { id: 1 }]);
+      await waitMicrotask();
+
+      // Mixed: replace + push (should NOT optimize due to replaces)
+      proxy[0] = { id: 10 };
+      const items = Array.from({ length: 100 }, (_, i) => ({ id: i + 2 }));
+      proxy.push(...items);
+      await waitMicrotask();
+
+      dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+
+  bench(
+    'comparison: no optimization - mixed operations (delete + push)',
+    async () => {
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
+        (d) => d.getArray('arr')
+      );
+
+      bootstrap([{ id: 0 }, { id: 1 }, { id: 2 }]);
+      await waitMicrotask();
+
+      // Mixed: delete + push (should NOT optimize due to deletes)
+      proxy.splice(1, 1); // Delete
+      const items = Array.from({ length: 100 }, (_, i) => ({ id: i + 3 }));
+      proxy.push(...items);
+      await waitMicrotask();
+
+      dispose();
+    },
+    {
+      time: 5000,
+    }
+  );
+});

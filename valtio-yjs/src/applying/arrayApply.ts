@@ -154,6 +154,19 @@ function handleSets(
 
   context.log.debug('[arrayApply] handling sets', { count: sets.size });
 
+  // Try bulk optimization ONLY for pure inserts (no deletes in batch)
+  // This is safe because:
+  // 1. No deletes means no index shifting complexity
+  // 2. tryOptimizedInserts checks for contiguous indices
+  // 3. Only optimizes head (unshift) or tail (push) patterns
+  if (deletes.size === 0 && tryOptimizedInserts(context, yArray, sets, postQueue)) {
+    context.log.debug('[arrayApply] bulk optimization applied', {
+      count: sets.size,
+      pattern: Array.from(sets.keys())[0] === 0 ? 'head-insert' : 'tail-insert',
+    });
+    return; // Successfully optimized
+  }
+
   // Deterministic tail-cursor strategy for mixed batches
   // Rule: For each set at index i, if i >= lengthAtStart or i >= firstDeleteIndex,
   // treat as an append using a per-batch tail cursor that starts after replaces+deletes.
@@ -207,10 +220,21 @@ function handleSets(
 }
 
 /**
- * Try to optimize contiguous head/tail inserts into single operations
- * Returns true if optimization was applied, false if fallback is needed
+ * Try to optimize contiguous head/tail inserts into single operations.
+ * 
+ * This optimization batches multiple individual Y.Array inserts into a single
+ * bulk insert operation, significantly improving performance for:
+ * - Bulk push operations (tail inserts): proxy.push(...items)
+ * - Bulk unshift operations (head inserts): proxy.unshift(...items)
+ * 
+ * Only applies when:
+ * - No deletes are present (deletes.size === 0)
+ * - Indices are contiguous (no gaps)
+ * - Pattern matches head (0..m-1) or tail (len..len+k-1)
+ * 
+ * @returns true if optimization was applied, false if fallback is needed
  */
-function _tryOptimizedInserts(
+function tryOptimizedInserts(
   context: SynchronizationContext,
   yArray: Y.Array<unknown>,
   sets: Map<number, PendingArrayEntry>,
@@ -281,49 +305,6 @@ function _tryOptimizedInserts(
   }
 
   return false; // No optimization applied
-}
-
-/**
- * Handle individual insert operations for non-contiguous sets
- */
-function _handleIndividualInserts(
-  context: SynchronizationContext,
-  yArray: Y.Array<unknown>,
-  sets: Map<number, PendingArrayEntry>,
-  deletes: Set<number>,
-  lengthAtStart: number,
-  postQueue: PostTransactionQueue,
-): void {
-  // Sort indices in ascending order for inserts
-  const sortedSetIndices = Array.from(sets.keys()).sort((a, b) => a - b);
-  
-  for (const index of sortedSetIndices) {
-    const entry = sets.get(index)!;
-    const yValue = plainObjectToYType(entry.value, context);
-    
-    // Adjust insert target relative to deletes: if there were deletions at or before
-    // this index in the batch, clamp to current tail to preserve apparent splice order.
-    const hasDeleteBeforeOrAt = Array.from(deletes).some((d) => d <= index);
-    const baselineTail = Math.max(lengthAtStart - Array.from(deletes).filter((d) => d < lengthAtStart).length, 0);
-    const preferTail = hasDeleteBeforeOrAt && index >= baselineTail;
-    const targetIndex = preferTail
-      ? yArray.length
-      : index > yArray.length
-        ? yArray.length
-        : index;
-    context.log.debug('[arrayApply] individual insert', { index: targetIndex, length: yArray.length });
-    
-    yArray.insert(targetIndex, [yValue]);
-    
-    // Handle post-integration callbacks
-    if (entry.after) {
-      postQueue.enqueue(() => entry.after!(yValue));
-    }
-    // Note: Nested type reconciliation is handled by final array reconciliation
-  }
-  
-  // Note: Final array reconciliation (at end of applyArrayOperations) handles
-  // both out-of-bounds cleanup and nested type reconciliation
 }
 
 // Yjs helpers
