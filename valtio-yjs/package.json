@@ -32,7 +32,8 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch ./src",
-    "test": "pnpm vitest"
+    "test": "pnpm vitest",
+    "bench": "vitest bench --config vitest.bench.config.ts"
   },
   "keywords": [
     "valtio",
