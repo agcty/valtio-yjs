@@ -109,18 +109,34 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
       });
       return;
     }
-    context.log.debug('reconcileValtioArray start', {
-      yLength: yArray.length,
-      valtioLength: valtioProxy.length,
-    });
+    {
+      const yJson = (yArray as unknown as { toJSON?: () => unknown }).toJSON?.();
+      console.log('[DEBUG-TRACE] reconcileValtioArray start', {
+        yLength: yArray.length,
+        valtioLength: valtioProxy.length,
+        yJson,
+      });
+    }
     const newContent = yArray
       .toArray()
       .map((item) => (isYSharedContainer(item) ? getOrCreateValtioProxy(context, item, doc) : item));
     context.log.debug('reconcile array splice', newContent.length);
     valtioProxy.splice(0, valtioProxy.length, ...newContent);
-    context.log.debug('reconcileValtioArray end', {
+    console.log('[DEBUG-TRACE] reconcileValtioArray end', {
       valtioLength: valtioProxy.length,
     });
+
+    // Eagerly ensure nested children of shared containers are also materialized
+    for (let i = 0; i < newContent.length; i++) {
+      const item = yArray.get(i) as unknown;
+      if (item && isYSharedContainer(item)) {
+        if (isYMap(item)) {
+          reconcileValtioMap(context, item as Y.Map<unknown>, doc);
+        } else if (isYArray(item)) {
+          reconcileValtioArray(context, item as Y.Array<unknown>, doc);
+        }
+      }
+    }
   });
 }
 

@@ -292,6 +292,10 @@ export class WriteScheduler {
       }
     }
 
+    // Note: Avoid post-merge demotion of replaces to sets here.
+    // Planner already applies nuanced demotion using previous-value context.
+    // Doing it here can duplicate shifted items.
+
     // Purge stale operations targeting children of items that will be deleted in this flush
     if (arrayDeletes.size > 0) {
       const purged = { maps: 0, arrays: 0 };

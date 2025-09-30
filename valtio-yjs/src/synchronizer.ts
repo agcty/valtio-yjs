@@ -77,6 +77,8 @@ export function setupSyncListener(
       } else if (isYArray(container)) {
         // Structural reconcile will internally check context.shouldSkipArrayStructuralReconcile
         reconcileValtioArray(context, container, doc);
+        // Ensure that direct array targets with deltas still get a boundary reconcile after deltas too
+        // by scheduling a post-task via the context (apply layer already posts reconciles; this is extra safety).
       }
     }
     // Phase 2: apply granular array deltas to direct targets

@@ -107,6 +107,10 @@ function attachValtioArraySubscription(
         // Validate synchronously before enqueuing (deep validation to catch nested undefined)
         validateDeepForSharedState(normalized);
         context.log.debug('[controller][array] enqueue.set', { index });
+        {
+          const id = (normalized as { id?: unknown } | null)?.id;
+          console.log('[DEBUG-TRACE] enqueue.set', { index, hasId: !!id, id });
+        }
         context.enqueueArraySet(
           yArray,
           index,

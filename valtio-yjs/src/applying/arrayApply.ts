@@ -47,23 +47,34 @@ export function applyArrayOperations(
 
     // 1) Handle Replaces first (canonical delete-then-insert at same index)
     handleReplaces(context, yArray, replacesForArray, post);
+    console.log('[DEBUG-TRACE] after replaces', {
+      len: yArray.length,
+      json: toJSONSafe(yArray),
+    });
 
     // 2) Handle Pure Deletes next (descending order to avoid index shifts)
     handleDeletes(context, yArray, deletesForArray);
+    console.log('[DEBUG-TRACE] after deletes', {
+      len: yArray.length,
+      json: toJSONSafe(yArray),
+    });
 
     // 3) Finally, handle Pure Inserts (sets)
     if (setsForArray.size > 0) {
       handleSets(context, yArray, setsForArray, deletesForArray, lengthAtStart, post);
+      console.log('[DEBUG-TRACE] after sets', {
+        len: yArray.length,
+        json: toJSONSafe(yArray),
+      });
     }
 
     // Ensure the controller array proxy structure is fully reconciled after mixed operations
     // to materialize any deep children created during inserts/replaces.
-    try {
-      const arrayDocNow = getYDoc(yArray);
-      post.push(() => reconcileValtioArray(context, yArray, arrayDocNow!));
-    } catch {
-      // ignore reconcile scheduling errors
-    }
+    const arrayDocNow = getYDoc(yArray);
+    console.log('[DEBUG-TRACE] scheduling finalize reconcile for array', {
+      len: yArray.length,
+    });
+    post.push(() => reconcileValtioArray(context, yArray, arrayDocNow!));
   }
 }
 
@@ -154,14 +165,67 @@ function handleSets(
 
   context.log.debug('[arrayApply] handling sets', { count: sets.size });
 
-  // Try to optimize contiguous head/tail inserts
-  // Temporarily disable optimizations to focus on baseline correctness
-  // if (tryOptimizedInserts(context, yArray, sets, post)) {
-  //   return; // Successfully handled with optimization
-  // }
+  // Deterministic tail-cursor strategy for mixed batches
+  // Rule: For each set at index i, if i >= lengthAtStart or i >= firstDeleteIndex,
+  // treat as an append using a per-batch tail cursor that starts after replaces+deletes.
+  // Otherwise, insert at clamped index.
+  const sortedSetIndices = Array.from(sets.keys()).sort((a, b) => a - b);
+  const firstDeleteIndex = deletes.size > 0 ? Math.min(...Array.from(deletes)) : Number.POSITIVE_INFINITY;
+  // Compute tail cursor deterministically: after replaces (no length change) and deletes
+  // we want tail cursor to be yArray.length, but also guarantee that when inserting items
+  // that originated from indices >= lengthAtStart, we preserve their relative order and
+  // avoid shifting existing in-bounds items like original index 2.
+  let tailCursor = yArray.length;
 
-  // Baseline: perform individual inserts
-  handleIndividualInserts(context, yArray, sets, deletes, lengthAtStart, post);
+  let hadOutOfBoundsSet = false;
+
+  for (const index of sortedSetIndices) {
+    const entry = sets.get(index)!;
+    const yValue = plainObjectToYType(entry.value, context);
+    {
+      const id = (entry.value as { id?: unknown } | null)?.id;
+      console.log('[DEBUG-TRACE] apply.set.prepare', { index, hasId: !!id, id });
+    }
+
+    if (index > yArray.length) {
+      hadOutOfBoundsSet = true;
+    }
+
+    const shouldAppend = index >= lengthAtStart || index >= firstDeleteIndex || index >= yArray.length;
+    const targetIndex = shouldAppend ? tailCursor : Math.min(Math.max(index, 0), yArray.length);
+
+    context.log.debug('[arrayApply] insert (tail-cursor strategy)', {
+      requestedIndex: index,
+      targetIndex,
+      tailCursor,
+      len: yArray.length,
+      lengthAtStart,
+      firstDeleteIndex: isFinite(firstDeleteIndex) ? firstDeleteIndex : null,
+    });
+
+    yArray.insert(targetIndex, [yValue]);
+    {
+      const id = (yValue as unknown as { get?: (k: string) => unknown } | null)?.get?.('id');
+      console.log('[DEBUG-TRACE] apply.set.inserted', { targetIndex, hasYId: !!id, id });
+    }
+    if (shouldAppend) tailCursor++;
+
+    if (entry.after) {
+      post.push(() => entry.after!(yValue));
+    }
+
+    const arrayDocNow = getYDoc(yArray);
+    if (isYMap(yValue)) {
+      post.push(() => reconcileValtioMap(context, yValue as Y.Map<unknown>, arrayDocNow!));
+    } else if (isYArray(yValue)) {
+      post.push(() => reconcileValtioArray(context, yValue as Y.Array<unknown>, arrayDocNow!));
+    }
+  }
+
+  if (hadOutOfBoundsSet) {
+    const arrayDocNow = getYDoc(yArray);
+    post.push(() => reconcileValtioArray(context, yArray, arrayDocNow!));
+  }
 }
 
 /**
@@ -254,7 +318,7 @@ function _tryOptimizedInserts(
 /**
  * Handle individual insert operations for non-contiguous sets
  */
-function handleIndividualInserts(
+function _handleIndividualInserts(
   context: SynchronizationContext,
   yArray: Y.Array<unknown>,
   sets: Map<number, PendingArrayEntry>,
@@ -314,4 +378,9 @@ function handleIndividualInserts(
 // Yjs helpers
 function getYDoc(target: unknown): Y.Doc | undefined {
   return (target as { doc?: Y.Doc | undefined })?.doc;
+}
+
+function toJSONSafe(yArray: Y.Array<unknown>): unknown {
+  const arr: unknown = (yArray as unknown as { toJSON?: () => unknown }).toJSON?.();
+  return arr ?? undefined;
 }

@@ -191,31 +191,22 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
   const special = convertSpecialObjectIfSupported(jsValue as object);
   if (special !== undefined) return special;
 
-  // If this is one of our controller proxies, return the underlying Y type
+  // If this is one of our controller proxies, return the underlying Y type if it has no parent,
+  // otherwise clone it to prevent re-parenting
   if (context && typeof jsValue === 'object' && context.valtioProxyToYType.has(jsValue)) {
-    const yExisting = context.valtioProxyToYType.get(jsValue)!;
-    const isExistingY = isYAbstractType(yExisting);
-    const alreadyParented = isExistingY && (yExisting as Y.AbstractType<unknown>).parent !== null;
-    try {
-      const forceTrace = (globalThis as unknown as { __VY_TRACE__?: boolean }).__VY_TRACE__ === true;
-      if (forceTrace) {
-        const id = (yExisting as unknown as { _item?: { id?: { toString?: () => string } } })._item?.id?.toString?.();
-        console.log('[DEBUG-TRACE] converter.plainObjectToYType: proxy->Y mapping hit', {
-          id,
-          alreadyParented,
-          type: (yExisting as { constructor?: { name?: string } })?.constructor?.name,
-        });
+    const underlyingYType = context.valtioProxyToYType.get(jsValue)!;
+    // Check if the Y type is already attached to a document
+    if (isYAbstractType(underlyingYType)) {
+      const yType = underlyingYType as Y.AbstractType<unknown>;
+      if (yType.parent !== null) {
+        // Y type is already in a document - clone it to prevent re-parenting
+        const plainFromProxy = deepPlainFromValtioProxy(jsValue as object, context);
+        return plainObjectToYType(plainFromProxy, context);
       }
-    } catch {
-      // ignore trace logging errors
+      // Y type has no parent - safe to return as-is
+      return underlyingYType;
     }
-    if (alreadyParented) {
-      // Avoid re-parenting an existing collaborative object in the same transaction.
-      // Deep-clone by converting the existing Y type to plain and back to fresh Y types.
-      const plain = yTypeToPlainObject(yExisting);
-      return plainObjectToYType(plain, context);
-    }
-    return yExisting;
+    return underlyingYType;
   }
 
   if (Array.isArray(jsValue)) {
@@ -242,6 +233,25 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
     `[valtio-yjs] Unable to convert non-plain object of type "${ctorName}". ` +
       'Only plain objects/arrays/primitives are supported, with special handling for Date and RegExp.',
   );
+}
+
+// Build a deep plain JS value from a Valtio controller proxy, without touching its underlying Y types.
+function deepPlainFromValtioProxy(value: unknown, context: SynchronizationContext): unknown {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    return value.map((v) => deepPlainFromValtioProxy(v, context));
+  }
+  // Plain object or Valtio proxy object
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    // If nested value is a controller proxy too, recurse similarly
+    if (v && typeof v === 'object' && context.valtioProxyToYType.has(v as object)) {
+      result[k] = deepPlainFromValtioProxy(v, context);
+    } else {
+      result[k] = deepPlainFromValtioProxy(v, context);
+    }
+  }
+  return result;
 }
 
 

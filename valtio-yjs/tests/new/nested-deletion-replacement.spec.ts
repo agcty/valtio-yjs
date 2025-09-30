@@ -833,7 +833,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       // Verify deep structure exists
       expect(proxy.length).toBe(3);
       expect(proxy[0].level).toBe(5);
-      expect(proxy[0].children[0].children[0].children[0].children[0].value).toBe('leaf');
+      expect(proxy[0].children[0].children[0].children[0].children[0].children[0].value).toBe('leaf');
       expect(proxy[2].level).toBe(4);
       
       // Delete deeply nested element
@@ -846,7 +846,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       expect(proxy[1].level).toBe(4);
       
       // Verify remaining deep structure is intact
-      expect(proxy[1].children[0].children[0].children[0].value).toBe('leaf');
+      expect(proxy[1].children[0].children[0].children[0].children[0].value).toBe('leaf');
     });
 
     it('should handle replacement with different nested structure complexity', async () => {

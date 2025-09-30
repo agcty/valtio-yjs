@@ -79,15 +79,7 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
   const originalDeletes = new Set<number>(Array.from(deletesByIndex));
   for (const deletedIndex of Array.from(deletesByIndex)) {
     if (setsByIndex.has(deletedIndex)) {
-      // Heuristic: if this batch looks like a splice (additional in-bounds sets besides this index),
-      // then preserve as delete + inserts to maintain shifting semantics.
-      const hasOtherInBoundsSet = Array.from(setsByIndex.keys()).some(
-        (k) => k !== deletedIndex && k < yArrayLength,
-      );
-      if (hasOtherInBoundsSet) {
-        continue; // Keep delete and set separate
-      }
-      // Otherwise, convert to replace
+      // Delete + set at same index → always classify as replace (in-place replacement)
       deletesByIndex.delete(deletedIndex);
       const setVal = setsByIndex.get(deletedIndex)!;
       if (deletedIndex < yArrayLength) {
@@ -110,8 +102,7 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
     // Single set with no deletes in the batch → likely a direct assignment or push
     const idx = remainingSetIndices[0]!;
     const val = setsByIndex.get(idx)!;
-    const hadPrev = setHadPrevious.get(idx) === true;
-    if (idx < yArrayLength && hadPrev) {
+    if (idx < yArrayLength) {
       // In-bounds single set → treat as replace (direct assignment)
       replaces.set(idx, val);
     } else {
@@ -119,32 +110,18 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
       sets.set(idx, val);
     }
   } else {
-    // Multiple sets and/or any deletes present → preserve as inserts
-    // This keeps splice-intent intact; indices will be interpreted relative
-    // to the array state after replaces/deletes are applied during flush.
+    // Multiple sets and/or any deletes present
+    // Splice-sensitive rule: indices at/after first delete are treated as inserts
     const minDeletedIndex = hasAnyDeletes ? Math.min(...Array.from(originalDeletes)) : Number.POSITIVE_INFINITY;
-    const inBoundsSetIndices = remainingSetIndices.filter((i) => i < yArrayLength).sort((a, b) => a - b);
-    const firstInBoundsIndex = inBoundsSetIndices.length > 0 ? inBoundsSetIndices[0]! : null;
     for (const idx of remainingSetIndices) {
       const val = setsByIndex.get(idx)!;
-      const hadPrev = setHadPrevious.get(idx) === true;
-      // If there are multiple in-bounds sets and no deletes, only the first in-bounds
-      // index can be a replace; subsequent in-bounds sets are treated as inserts.
-      if (!hasAnyDeletes && inBoundsSetIndices.length > 1) {
-        if (firstInBoundsIndex !== null && idx === firstInBoundsIndex && hadPrev) {
-          replaces.set(idx, val);
-        } else {
-          sets.set(idx, val);
-        }
-        continue;
-      }
       // Splice-sensitive rule with deletes: treat indices at/after the first delete as inserts.
       if (idx >= minDeletedIndex) {
         sets.set(idx, val);
         continue;
       }
-      // Allow safe replaces only for indices strictly before the first delete
-      if (idx < yArrayLength && hadPrev) {
+      // Classification rule: in-bounds → replace, out-of-bounds → set/insert
+      if (idx < yArrayLength) {
         replaces.set(idx, val);
       } else {
         sets.set(idx, val);
@@ -213,24 +190,6 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
       deletes: Array.from(deletes.values()),
       replaces: Array.from(replaces.keys()),
     });
-  }
-
-  // Post-pass: Demote ambiguous in-bounds replaces to inserts for splice-like batches
-  // Rationale: When Valtio emits multiple in-bounds sets (often from splice insertion)
-  // without explicit deletes, treating all as replaces causes off-by-one ordering.
-  if (deletes.size === 0) {
-    const inBoundsReplace = Array.from(replaces.keys()).filter((i) => i < yArrayLength).sort((a, b) => a - b);
-    if (inBoundsReplace.length > 1) {
-      const keep = inBoundsReplace[0]!;
-      for (const idx of inBoundsReplace.slice(1)) {
-        // Move from replace to set
-        replaces.delete(idx);
-        const val = setsByIndex.get(idx);
-        if (val !== undefined) {
-          sets.set(idx, val);
-        }
-      }
-    }
   }
 
   return { sets, deletes, replaces };
