@@ -67,17 +67,12 @@ function attachValtioArraySubscription(
       // Phase 1: Planning - categorize operations into explicit intents
       // Use Y.Array length as the start-of-batch baseline for deterministic planning
       const { sets, deletes, replaces } = planArrayOps(ops, yArray.length, context);
-      try {
-        // Debug: print planned intents for this array subscription batch
-        console.log('[DEBUG-TRACE] Controller plan (array):', {
-          replaces: Array.from(replaces.keys()).sort((a, b) => a - b),
-          deletes: Array.from(deletes.values()).sort((a, b) => a - b),
-          sets: Array.from(sets.keys()).sort((a, b) => a - b),
-          yLength: yArray.length,
-        });
-      } catch {
-        // ignore trace errors
-      }
+      context.log.debug('Controller plan (array):', {
+        replaces: Array.from(replaces.keys()).sort((a, b) => a - b),
+        deletes: Array.from(deletes.values()).sort((a, b) => a - b),
+        sets: Array.from(sets.keys()).sort((a, b) => a - b),
+        yLength: yArray.length,
+      });
       
       // Phase 2: Scheduling - enqueue planned operations
       
@@ -106,11 +101,11 @@ function attachValtioArraySubscription(
         const normalized = value === undefined ? null : value;
         // Validate synchronously before enqueuing (deep validation to catch nested undefined)
         validateDeepForSharedState(normalized);
-        context.log.debug('[controller][array] enqueue.set', { index });
-        {
-          const id = (normalized as { id?: unknown } | null)?.id;
-          console.log('[DEBUG-TRACE] enqueue.set', { index, hasId: !!id, id });
-        }
+        context.log.debug('[controller][array] enqueue.set', {
+          index,
+          hasId: !!((normalized as { id?: unknown } | null)?.id),
+          id: (normalized as { id?: unknown } | null)?.id,
+        });
         context.enqueueArraySet(
           yArray,
           index,
@@ -244,7 +239,10 @@ export function getOrCreateValtioProxy(context: SynchronizationContext, yType: Y
   // }
 
   // Fallback for unsupported types
-  console.warn(LOG_PREFIX, 'Unsupported Yjs type:', yType);
+  // Note: No context available here, but this should rarely happen
+  if (typeof console !== 'undefined') {
+    console.warn(LOG_PREFIX, 'Unsupported Yjs type:', yType);
+  }
   return yType as unknown as object;
 }
 

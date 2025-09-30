@@ -109,20 +109,17 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
       });
       return;
     }
-    {
-      const yJson = (yArray as unknown as { toJSON?: () => unknown }).toJSON?.();
-      console.log('[DEBUG-TRACE] reconcileValtioArray start', {
-        yLength: yArray.length,
-        valtioLength: valtioProxy.length,
-        yJson,
-      });
-    }
+    context.log.debug('reconcileValtioArray start', {
+      yLength: yArray.length,
+      valtioLength: valtioProxy.length,
+      yJson: (yArray as unknown as { toJSON?: () => unknown }).toJSON?.(),
+    });
     const newContent = yArray
       .toArray()
       .map((item) => (isYSharedContainer(item) ? getOrCreateValtioProxy(context, item, doc) : item));
     context.log.debug('reconcile array splice', newContent.length);
     valtioProxy.splice(0, valtioProxy.length, ...newContent);
-    console.log('[DEBUG-TRACE] reconcileValtioArray end', {
+    context.log.debug('reconcileValtioArray end', {
       valtioLength: valtioProxy.length,
     });
 

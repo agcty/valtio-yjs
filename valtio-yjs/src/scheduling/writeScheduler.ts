@@ -3,6 +3,28 @@ import type { PendingMapEntry, PendingArrayEntry } from './batchTypes.js';
 import type { Logger } from '../core/context.js';
 import { VALTIO_YJS_ORIGIN } from '../core/constants.js';
 
+/**
+ * Recursively collects all Y.Map and Y.Array shared types in a subtree.
+ * Used for purging stale operations when a parent is deleted/replaced.
+ */
+function collectYSubtree(root: unknown): { maps: Set<Y.Map<unknown>>; arrays: Set<Y.Array<unknown>> } {
+  const maps = new Set<Y.Map<unknown>>();
+  const arrays = new Set<Y.Array<unknown>>();
+  
+  const recurse = (node: unknown): void => {
+    if (node instanceof Y.Map) {
+      maps.add(node);
+      for (const [, v] of node.entries()) recurse(v);
+    } else if (node instanceof Y.Array) {
+      arrays.add(node);
+      for (const v of node.toArray()) recurse(v);
+    }
+  };
+  
+  recurse(root);
+  return { maps, arrays };
+}
+
 export class WriteScheduler {
   private readonly log: Logger;
   private readonly traceMode: boolean;
@@ -228,29 +250,11 @@ export class WriteScheduler {
     // This ensures we don't try to mutate a subtree after its parent is deleted/replaced in the same transaction
     if (arrayReplaces.size > 0) {
       const purged = { maps: 0, arrays: 0 };
-      const collectSubtree = (root: unknown, collectedMaps: Set<Y.Map<unknown>>, collectedArrays: Set<Y.Array<unknown>>): void => {
-        if (root instanceof Y.Map) {
-          collectedMaps.add(root);
-          // Traverse values because they may contain nested shared types
-          for (const [, v] of root.entries()) collectSubtree(v, collectedMaps, collectedArrays);
-          return;
-        }
-        if (root instanceof Y.Array) {
-          collectedArrays.add(root);
-          for (const v of root.toArray()) collectSubtree(v, collectedMaps, collectedArrays);
-          return;
-        }
-      };
       for (const [yArray, replaceMap] of arrayReplaces) {
         for (const index of replaceMap.keys()) {
           if (index >= 0 && index < yArray.length) {
             const oldItem = yArray.get(index) as unknown;
-            const maps = new Set<Y.Map<unknown>>();
-            const arrays = new Set<Y.Array<unknown>>();
-            collectSubtree(oldItem, maps, arrays);
-            // Also include the root if it's a map/array itself
-            if (oldItem instanceof Y.Map) maps.add(oldItem);
-            if (oldItem instanceof Y.Array) arrays.add(oldItem);
+            const { maps, arrays } = collectYSubtree(oldItem);
 
             // Purge map operations targeting this subtree
             for (const yMap of maps) {
@@ -273,7 +277,7 @@ export class WriteScheduler {
         }
       }
       if (purged.maps > 0 || purged.arrays > 0) {
-        console.log('[DEBUG-TRACE] Purged pending ops for replaced subtrees', purged);
+        this.log.debug('[scheduler] Purged pending ops for replaced subtrees', purged);
       }
     }
 
@@ -299,27 +303,11 @@ export class WriteScheduler {
     // Purge stale operations targeting children of items that will be deleted in this flush
     if (arrayDeletes.size > 0) {
       const purged = { maps: 0, arrays: 0 };
-      const collectSubtree = (root: unknown, collectedMaps: Set<Y.Map<unknown>>, collectedArrays: Set<Y.Array<unknown>>): void => {
-        if (root instanceof Y.Map) {
-          collectedMaps.add(root);
-          for (const [, v] of root.entries()) collectSubtree(v, collectedMaps, collectedArrays);
-          return;
-        }
-        if (root instanceof Y.Array) {
-          collectedArrays.add(root);
-          for (const v of root.toArray()) collectSubtree(v, collectedMaps, collectedArrays);
-          return;
-        }
-      };
       for (const [yArray, deleteSet] of arrayDeletes) {
-        for (const index of Array.from(deleteSet)) {
+        for (const index of deleteSet) {
           if (index >= 0 && index < yArray.length) {
             const oldItem = yArray.get(index) as unknown;
-            const maps = new Set<Y.Map<unknown>>();
-            const arrays = new Set<Y.Array<unknown>>();
-            collectSubtree(oldItem, maps, arrays);
-            if (oldItem instanceof Y.Map) maps.add(oldItem);
-            if (oldItem instanceof Y.Array) arrays.add(oldItem);
+            const { maps, arrays } = collectYSubtree(oldItem);
             for (const yMap of maps) {
               if (this.pendingMapSets.delete(yMap)) purged.maps++;
               if (this.pendingMapDeletes.delete(yMap)) purged.maps++;
@@ -338,7 +326,7 @@ export class WriteScheduler {
         }
       }
       if (purged.maps > 0 || purged.arrays > 0) {
-        console.log('[DEBUG-TRACE] Purged pending ops for deleted subtrees', purged);
+        this.log.debug('[scheduler] Purged pending ops for deleted subtrees', purged);
       }
     }
 
@@ -404,8 +392,8 @@ export class WriteScheduler {
       }
       
       if (possibleMove) {
-        console.warn(
-          '[valtio-yjs] Potential array move detected. "Move" operations are not natively supported and are treated as a separate delete and insert. For data-intensive moves, consider application-level strategies like fractional indexing.',
+        this.log.warn(
+          'Potential array move detected. "Move" operations are not natively supported and are treated as a separate delete and insert. For data-intensive moves, consider application-level strategies like fractional indexing.',
           {
             deletes: deleteIndices,
             sets: setIndices,
@@ -444,39 +432,34 @@ export class WriteScheduler {
     // Sibling purge heuristic removed in favor of precise descendant-only purging
 
     // DEBUG-TRACE: dump the exact batch about to be applied
-    try {
-      const forceTrace = (globalThis as unknown as { __VY_TRACE__?: boolean }).__VY_TRACE__ === true;
-      if (this.traceMode || forceTrace) {
-        const mapDeletesLog = Array.from(mapDeletes.entries()).map(([yMap, keySet]) => ({
-          targetId: (yMap as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
-          keys: Array.from(keySet),
-        }));
-        const mapSetsLog = Array.from(mapSets.entries()).map(([yMap, keyMap]) => ({
-          targetId: (yMap as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
-          keys: Array.from(keyMap.keys()),
-        }));
-        const arrayDeletesLog = Array.from(arrayDeletes.entries()).map(([yArr, idxSet]) => ({
-          targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
-          indices: Array.from(idxSet).sort((a, b) => a - b),
-        }));
-        const arraySetsLog = Array.from(arraySets.entries()).map(([yArr, idxMap]) => ({
-          targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
-          indices: Array.from(idxMap.keys()).sort((a, b) => a - b),
-        }));
-        const arrayReplacesLog = Array.from(arrayReplaces.entries()).map(([yArr, idxMap]) => ({
-          targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
-          indices: Array.from(idxMap.keys()).sort((a, b) => a - b),
-        }));
-        // Use console to ensure visibility regardless of logger level
-        console.log('[DEBUG-TRACE] Flushing transaction with operations:');
-        console.log('  Map Deletes:', JSON.stringify(mapDeletesLog));
-        console.log('  Map Sets:', JSON.stringify(mapSetsLog));
-        console.log('  Array Deletes:', JSON.stringify(arrayDeletesLog));
-        console.log('  Array Sets:', JSON.stringify(arraySetsLog));
-        console.log('  Array Replaces:', JSON.stringify(arrayReplacesLog));
-      }
-    } catch {
-      // ignore trace logging errors
+    if (this.traceMode) {
+      const mapDeletesLog = Array.from(mapDeletes.entries()).map(([yMap, keySet]) => ({
+        targetId: (yMap as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
+        keys: Array.from(keySet),
+      }));
+      const mapSetsLog = Array.from(mapSets.entries()).map(([yMap, keyMap]) => ({
+        targetId: (yMap as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
+        keys: Array.from(keyMap.keys()),
+      }));
+      const arrayDeletesLog = Array.from(arrayDeletes.entries()).map(([yArr, idxSet]) => ({
+        targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
+        indices: Array.from(idxSet).sort((a, b) => a - b),
+      }));
+      const arraySetsLog = Array.from(arraySets.entries()).map(([yArr, idxMap]) => ({
+        targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
+        indices: Array.from(idxMap.keys()).sort((a, b) => a - b),
+      }));
+      const arrayReplacesLog = Array.from(arrayReplaces.entries()).map(([yArr, idxMap]) => ({
+        targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
+        indices: Array.from(idxMap.keys()).sort((a, b) => a - b),
+      }));
+      this.log.debug('Flushing transaction with operations:', {
+        mapDeletes: mapDeletesLog,
+        mapSets: mapSetsLog,
+        arrayDeletes: arrayDeletesLog,
+        arraySets: arraySetsLog,
+        arrayReplaces: arrayReplacesLog,
+      });
     }
 
     doc.transact(() => {

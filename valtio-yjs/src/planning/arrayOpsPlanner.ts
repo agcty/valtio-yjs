@@ -171,15 +171,19 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
   if (possibleMoveDetected) {
     const sortedDeletes = Array.from(deletes).sort((a, b) => a - b);
     const sortedSets = Array.from(sets.keys()).sort((a, b) => a - b);
-    // Use console.warn directly to ensure visibility, independent of debug flag for safety
-    console.warn(
-      '[valtio-yjs] Potential array move detected. "Move" operations are not natively supported and are treated as a separate delete and insert. For data-intensive moves, consider application-level strategies like fractional indexing.',
-      {
-        deletes: sortedDeletes,
-        sets: sortedSets,
-        length: yArrayLength,
-      },
-    );
+    const message = 'Potential array move detected. "Move" operations are not natively supported and are treated as a separate delete and insert. For data-intensive moves, consider application-level strategies like fractional indexing.';
+    const details = {
+      deletes: sortedDeletes,
+      sets: sortedSets,
+      length: yArrayLength,
+    };
+    
+    if (context) {
+      context.log.warn(message, details);
+    } else {
+      // Fallback to console.warn when context is not available
+      console.warn('[valtio-yjs] ' + message, details);
+    }
   }
 
   // Phase 6: Trace planning result in debug sessions (controlled by debug flag)

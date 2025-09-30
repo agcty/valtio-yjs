@@ -31,30 +31,24 @@ export function applyArrayOperations(
     const replacesForArray = arrayReplaces.get(yArray) ?? new Map<number, PendingArrayEntry>();
 
     // DEBUG-TRACE: per-array batch snapshot
-    try {
-      const targetId = (yArray as unknown as { _item?: { id?: { toString?: () => string } } })._item?.id?.toString?.();
-      const trace = {
-        targetId,
-        replaces: Array.from(replacesForArray.keys()).sort((a, b) => a - b),
-        deletes: Array.from(deletesForArray.values()).sort((a, b) => a - b),
-        sets: Array.from(setsForArray.keys()).sort((a, b) => a - b),
-        lengthAtStart: yArray.length,
-      };
-      console.log('[DEBUG-TRACE] Applying ops for Y.Array:', trace);
-    } catch {
-      // ignore trace logging errors
-    }
+    context.log.debug('Applying ops for Y.Array:', {
+      targetId: (yArray as unknown as { _item?: { id?: { toString?: () => string } } })._item?.id?.toString?.(),
+      replaces: Array.from(replacesForArray.keys()).sort((a, b) => a - b),
+      deletes: Array.from(deletesForArray.values()).sort((a, b) => a - b),
+      sets: Array.from(setsForArray.keys()).sort((a, b) => a - b),
+      lengthAtStart: yArray.length,
+    });
 
     // 1) Handle Replaces first (canonical delete-then-insert at same index)
     handleReplaces(context, yArray, replacesForArray, post);
-    console.log('[DEBUG-TRACE] after replaces', {
+    context.log.debug('after replaces', {
       len: yArray.length,
       json: toJSONSafe(yArray),
     });
 
     // 2) Handle Pure Deletes next (descending order to avoid index shifts)
     handleDeletes(context, yArray, deletesForArray);
-    console.log('[DEBUG-TRACE] after deletes', {
+    context.log.debug('after deletes', {
       len: yArray.length,
       json: toJSONSafe(yArray),
     });
@@ -62,7 +56,7 @@ export function applyArrayOperations(
     // 3) Finally, handle Pure Inserts (sets)
     if (setsForArray.size > 0) {
       handleSets(context, yArray, setsForArray, deletesForArray, lengthAtStart, post);
-      console.log('[DEBUG-TRACE] after sets', {
+      context.log.debug('after sets', {
         len: yArray.length,
         json: toJSONSafe(yArray),
       });
@@ -71,7 +65,7 @@ export function applyArrayOperations(
     // Ensure the controller array proxy structure is fully reconciled after mixed operations
     // to materialize any deep children created during inserts/replaces.
     const arrayDocNow = getYDoc(yArray);
-    console.log('[DEBUG-TRACE] scheduling finalize reconcile for array', {
+    context.log.debug('scheduling finalize reconcile for array', {
       len: yArray.length,
     });
     post.push(() => reconcileValtioArray(context, yArray, arrayDocNow!));
@@ -182,10 +176,11 @@ function handleSets(
   for (const index of sortedSetIndices) {
     const entry = sets.get(index)!;
     const yValue = plainObjectToYType(entry.value, context);
-    {
-      const id = (entry.value as { id?: unknown } | null)?.id;
-      console.log('[DEBUG-TRACE] apply.set.prepare', { index, hasId: !!id, id });
-    }
+    context.log.debug('apply.set.prepare', {
+      index,
+      hasId: !!((entry.value as { id?: unknown } | null)?.id),
+      id: (entry.value as { id?: unknown } | null)?.id,
+    });
 
     if (index > yArray.length) {
       hadOutOfBoundsSet = true;
@@ -204,10 +199,11 @@ function handleSets(
     });
 
     yArray.insert(targetIndex, [yValue]);
-    {
-      const id = (yValue as unknown as { get?: (k: string) => unknown } | null)?.get?.('id');
-      console.log('[DEBUG-TRACE] apply.set.inserted', { targetIndex, hasYId: !!id, id });
-    }
+    context.log.debug('apply.set.inserted', {
+      targetIndex,
+      hasYId: !!((yValue as unknown as { get?: (k: string) => unknown } | null)?.get?.('id')),
+      id: (yValue as unknown as { get?: (k: string) => unknown } | null)?.get?.('id'),
+    });
     if (shouldAppend) tailCursor++;
 
     if (entry.after) {

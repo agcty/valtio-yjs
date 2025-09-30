@@ -71,24 +71,27 @@ export function setupSyncListener(
     const arraysWithDelta = new Set(arrayTargetToDelta.keys());
     // Inform context to skip structural reconcile for arrays that have deltas in this sync pass
     context.setArraysWithDeltaDuringSync(arraysWithDelta);
-    for (const container of boundaries) {
-      if (isYMap(container)) {
-        reconcileValtioMap(context, container, doc);
-      } else if (isYArray(container)) {
-        // Structural reconcile will internally check context.shouldSkipArrayStructuralReconcile
-        reconcileValtioArray(context, container, doc);
-        // Ensure that direct array targets with deltas still get a boundary reconcile after deltas too
-        // by scheduling a post-task via the context (apply layer already posts reconciles; this is extra safety).
+    try {
+      for (const container of boundaries) {
+        if (isYMap(container)) {
+          reconcileValtioMap(context, container, doc);
+        } else if (isYArray(container)) {
+          // Structural reconcile will internally check context.shouldSkipArrayStructuralReconcile
+          reconcileValtioArray(context, container, doc);
+          // Ensure that direct array targets with deltas still get a boundary reconcile after deltas too
+          // by scheduling a post-task via the context (apply layer already posts reconciles; this is extra safety).
+        }
       }
-    }
-    // Phase 2: apply granular array deltas to direct targets
-    for (const [arr, delta] of arrayTargetToDelta) {
-      if (delta && delta.length > 0) {
-        reconcileValtioArrayWithDelta(context, arr, doc, delta);
+      // Phase 2: apply granular array deltas to direct targets
+      for (const [arr, delta] of arrayTargetToDelta) {
+        if (delta && delta.length > 0) {
+          reconcileValtioArrayWithDelta(context, arr, doc, delta);
+        }
       }
+    } finally {
+      // Clear skip set for next sync pass (guaranteed cleanup even on error)
+      context.clearArraysWithDeltaDuringSync();
     }
-    // Clear skip set for next sync pass
-    context.clearArraysWithDeltaDuringSync();
   };
 
   yRoot.observeDeep(handleDeep);

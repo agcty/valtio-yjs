@@ -2,21 +2,6 @@ import * as Y from 'yjs';
 import { SynchronizationContext } from './core/context.js';
 import { isYArray, isYMap, isYAbstractType } from './core/guards.js';
 
-/**
- * Determines if the provided value is a supported JSON-like primitive.
- * - undefined is NOT allowed (handled separately with specific error)
- * - number must be finite (no Infinity or NaN)
- * - functions and symbols are NOT allowed
- */
-function isSupportedPrimitive(value: unknown): boolean {
-  if (value === undefined) return false;
-  if (value === null) return true;
-  const t = typeof value;
-  if (t === 'string' || t === 'boolean') return true;
-  if (t === 'number') return Number.isFinite(value as number);
-  if (t === 'function' || t === 'symbol') return false;
-  return false;
-}
 
 /** Returns true if value is a plain object (created by object literal or with null prototype). */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -83,6 +68,9 @@ export function validateValueForSharedState(jsValue: unknown): void {
     }
     if (t === 'symbol') {
       throw new Error('[valtio-yjs] Unable to convert symbol. Symbols are not allowed in shared state.');
+    }
+    if (t === 'bigint') {
+      throw new Error('[valtio-yjs] Unable to convert BigInt. BigInt is not allowed in shared state.');
     }
     if (t === 'number' && !Number.isFinite(jsValue as number)) {
       throw new Error('[valtio-yjs] Infinity and NaN are not allowed in shared state. Only finite numbers are supported.');
@@ -163,27 +151,12 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
     }
     return jsValue;
   }
-  // Primitive whitelist
+  
+  // Validate the value before conversion (reuse validation logic)
+  // Note: This will throw for undefined, functions, symbols, etc.
   if (jsValue === null || typeof jsValue !== 'object') {
-    if (jsValue === undefined) {
-      throw new Error('[valtio-yjs] undefined is not allowed in shared state. Use null, delete the key, or omit the field.');
-    }
-    
-    // Provide specific error messages for unsupported primitive types
-    const t = typeof jsValue;
-    if (t === 'function') {
-      throw new Error('[valtio-yjs] Unable to convert function. Functions are not allowed in shared state.');
-    }
-    if (t === 'symbol') {
-      throw new Error('[valtio-yjs] Unable to convert symbol. Symbols are not allowed in shared state.');
-    }
-    if (t === 'number' && !Number.isFinite(jsValue as number)) {
-      throw new Error('[valtio-yjs] Infinity and NaN are not allowed in shared state. Only finite numbers are supported.');
-    }
-    
-    if (!isSupportedPrimitive(jsValue)) {
-      throw new Error('[valtio-yjs] Unsupported primitive type.');
-    }
+    // For primitives, validate first
+    validateValueForSharedState(jsValue);
     return jsValue;
   }
 
