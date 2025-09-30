@@ -29,7 +29,9 @@ function upgradeChildIfNeeded(
   doc: Y.Doc,
 ): void {
   const current = (container as Record<string, unknown> | unknown[])[key as keyof typeof container] as unknown;
-  const isAlreadyController = current && typeof current === 'object' && context.valtioProxyToYType.has(current as object);
+  // Optimize: single WeakMap lookup instead of .has() + potential .get()
+  const underlyingYType = current && typeof current === 'object' ? context.valtioProxyToYType.get(current as object) : undefined;
+  const isAlreadyController = underlyingYType !== undefined;
   if (!isAlreadyController && isYSharedContainer(yValue)) {
     const newController = getOrCreateValtioProxy(context, yValue, doc);
     context.withReconcilingLock(() => {

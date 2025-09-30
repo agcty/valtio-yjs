@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import type { PendingMapEntry } from '../scheduling/batchTypes.js';
 import type { Logger, SynchronizationContext } from '../core/context.js';
 import { plainObjectToYType } from '../converter.js';
+import type { PostTransactionQueue } from '../scheduling/postTransactionQueue.js';
 
 // Apply pending map deletes (keys) first for determinism
 export function applyMapDeletes(mapDeletes: Map<Y.Map<unknown>, Set<string>>, log: Logger): void {
@@ -17,7 +18,7 @@ export function applyMapDeletes(mapDeletes: Map<Y.Map<unknown>, Set<string>>, lo
 }
 
 // Apply pending map sets
-export function applyMapSets(mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>, post: Array<() => void>, log: Logger, context: SynchronizationContext): void {
+export function applyMapSets(mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>, postQueue: PostTransactionQueue, log: Logger, context: SynchronizationContext): void {
   for (const [yMap, keyToEntry] of mapSets) {
     log.debug('Applying Map Sets:', {
       targetId: (yMap as unknown as { _item?: { id?: { toString?: () => string } } })._item?.id?.toString?.(),
@@ -31,7 +32,7 @@ export function applyMapSets(mapSets: Map<Y.Map<unknown>, Map<string, PendingMap
       log.debug('[mapApply] map.set', { key });
       yMap.set(key, yValue);
       if (entry.after) {
-        post.push(() => entry.after!(yValue));
+        postQueue.enqueue(() => entry.after!(yValue));
       }
     }
   }

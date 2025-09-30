@@ -2,8 +2,8 @@ import * as Y from 'yjs';
 import type { PendingArrayEntry } from '../scheduling/batchTypes.js';
 import type { SynchronizationContext } from '../core/context.js';
 import { plainObjectToYType } from '../converter.js';
-import { isYArray, isYMap } from '../core/guards.js';
-import { reconcileValtioArray, reconcileValtioMap } from '../reconcile/reconciler.js';
+import { reconcileValtioArray } from '../reconcile/reconciler.js';
+import type { PostTransactionQueue } from '../scheduling/postTransactionQueue.js';
 
 /**
  * Execute array operations with cleaner multi-stage approach based on explicit intents.
@@ -17,7 +17,7 @@ export function applyArrayOperations(
   arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
   arrayDeletes: Map<Y.Array<unknown>, Set<number>>,
   arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
-  post: Array<() => void>,
+  postQueue: PostTransactionQueue,
 ): void {
   const allArrays = new Set<Y.Array<unknown>>();
   for (const a of arraySets.keys()) allArrays.add(a);
@@ -40,7 +40,7 @@ export function applyArrayOperations(
     });
 
     // 1) Handle Replaces first (canonical delete-then-insert at same index)
-    handleReplaces(context, yArray, replacesForArray, post);
+    handleReplaces(context, yArray, replacesForArray, postQueue);
     context.log.debug('after replaces', {
       len: yArray.length,
       json: toJSONSafe(yArray),
@@ -55,7 +55,7 @@ export function applyArrayOperations(
 
     // 3) Finally, handle Pure Inserts (sets)
     if (setsForArray.size > 0) {
-      handleSets(context, yArray, setsForArray, deletesForArray, lengthAtStart, post);
+      handleSets(context, yArray, setsForArray, deletesForArray, lengthAtStart, postQueue);
       context.log.debug('after sets', {
         len: yArray.length,
         json: toJSONSafe(yArray),
@@ -68,7 +68,7 @@ export function applyArrayOperations(
     context.log.debug('scheduling finalize reconcile for array', {
       len: yArray.length,
     });
-    post.push(() => reconcileValtioArray(context, yArray, arrayDocNow!));
+    postQueue.enqueue(() => reconcileValtioArray(context, yArray, arrayDocNow!));
   }
 }
 
@@ -79,7 +79,7 @@ function handleReplaces(
   context: SynchronizationContext,
   yArray: Y.Array<unknown>,
   replaces: Map<number, PendingArrayEntry>,
-  post: Array<() => void>,
+  postQueue: PostTransactionQueue,
 ): void {
   if (replaces.size === 0) return;
 
@@ -107,16 +107,11 @@ function handleReplaces(
     
     // Handle post-integration callbacks
     if (entry.after) {
-      post.push(() => entry.after!(yValue));
+      postQueue.enqueue(() => entry.after!(yValue));
     }
     
-    // Reconcile nested shared types
-    const arrayDocNow = getYDoc(yArray);
-    if (isYMap(yValue)) {
-      post.push(() => reconcileValtioMap(context, yValue as Y.Map<unknown>, arrayDocNow!));
-    } else if (isYArray(yValue)) {
-      post.push(() => reconcileValtioArray(context, yValue as Y.Array<unknown>, arrayDocNow!));
-    }
+    // Note: Nested type reconciliation is handled by the final array reconciliation
+    // which recursively reconciles all children (see end of applyArrayOperations)
   }
 }
 
@@ -153,7 +148,7 @@ function handleSets(
   sets: Map<number, PendingArrayEntry>,
   deletes: Set<number>,
   lengthAtStart: number,
-  post: Array<() => void>,
+  postQueue: PostTransactionQueue,
 ): void {
   if (sets.size === 0) return;
 
@@ -171,8 +166,6 @@ function handleSets(
   // avoid shifting existing in-bounds items like original index 2.
   let tailCursor = yArray.length;
 
-  let hadOutOfBoundsSet = false;
-
   for (const index of sortedSetIndices) {
     const entry = sets.get(index)!;
     const yValue = plainObjectToYType(entry.value, context);
@@ -181,10 +174,6 @@ function handleSets(
       hasId: !!((entry.value as { id?: unknown } | null)?.id),
       id: (entry.value as { id?: unknown } | null)?.id,
     });
-
-    if (index > yArray.length) {
-      hadOutOfBoundsSet = true;
-    }
 
     const shouldAppend = index >= lengthAtStart || index >= firstDeleteIndex || index >= yArray.length;
     const targetIndex = shouldAppend ? tailCursor : Math.min(Math.max(index, 0), yArray.length);
@@ -207,21 +196,14 @@ function handleSets(
     if (shouldAppend) tailCursor++;
 
     if (entry.after) {
-      post.push(() => entry.after!(yValue));
+      postQueue.enqueue(() => entry.after!(yValue));
     }
 
-    const arrayDocNow = getYDoc(yArray);
-    if (isYMap(yValue)) {
-      post.push(() => reconcileValtioMap(context, yValue as Y.Map<unknown>, arrayDocNow!));
-    } else if (isYArray(yValue)) {
-      post.push(() => reconcileValtioArray(context, yValue as Y.Array<unknown>, arrayDocNow!));
-    }
+    // Note: Nested type reconciliation is handled by the final array reconciliation
   }
 
-  if (hadOutOfBoundsSet) {
-    const arrayDocNow = getYDoc(yArray);
-    post.push(() => reconcileValtioArray(context, yArray, arrayDocNow!));
-  }
+  // Note: Final array reconciliation (at end of applyArrayOperations) handles
+  // both out-of-bounds cleanup and nested type reconciliation
 }
 
 /**
@@ -232,7 +214,7 @@ function _tryOptimizedInserts(
   context: SynchronizationContext,
   yArray: Y.Array<unknown>,
   sets: Map<number, PendingArrayEntry>,
-  post: Array<() => void>,
+  postQueue: PostTransactionQueue,
 ): boolean {
   const sortedSetIndices = Array.from(sets.keys()).sort((a, b) => a - b);
   const firstSetIndex = sortedSetIndices[0]!;
@@ -258,19 +240,14 @@ function _tryOptimizedInserts(
       }
       
       context.log.debug('[arrayApply] unshift.coalesce', { insertCount: items.length });
-      const arrayDocNow = getYDoc(yArray);
       yArray.insert(0, items);
       
-      // Handle post-integration callbacks and reconciliation
+      // Handle post-integration callbacks
       items.forEach((it, i) => {
         const after = entries[i]?.after;
-        if (after) post.push(() => after(it));
-        if (isYMap(it)) {
-          post.push(() => reconcileValtioMap(context, it as Y.Map<unknown>, arrayDocNow!));
-        } else if (isYArray(it)) {
-          post.push(() => reconcileValtioArray(context, it as Y.Array<unknown>, arrayDocNow!));
-        }
+        if (after) postQueue.enqueue(() => after(it));
       });
+      // Note: Nested type reconciliation is handled by final array reconciliation
       
       return true; // Successfully optimized
     }
@@ -290,19 +267,14 @@ function _tryOptimizedInserts(
       }
       
       context.log.debug('[arrayApply] push.coalesce', { insertCount: items.length });
-      const arrayDocNow = getYDoc(yArray);
       yArray.insert(yArray.length, items);
       
-      // Handle post-integration callbacks and reconciliation
+      // Handle post-integration callbacks
       items.forEach((it, i) => {
         const after = entries[i]?.after;
-        if (after) post.push(() => after(it));
-        if (isYMap(it)) {
-          post.push(() => reconcileValtioMap(context, it as Y.Map<unknown>, arrayDocNow!));
-        } else if (isYArray(it)) {
-          post.push(() => reconcileValtioArray(context, it as Y.Array<unknown>, arrayDocNow!));
-        }
+        if (after) postQueue.enqueue(() => after(it));
       });
+      // Note: Nested type reconciliation is handled by final array reconciliation
       
       return true; // Successfully optimized
     }
@@ -320,21 +292,14 @@ function _handleIndividualInserts(
   sets: Map<number, PendingArrayEntry>,
   deletes: Set<number>,
   lengthAtStart: number,
-  post: Array<() => void>,
+  postQueue: PostTransactionQueue,
 ): void {
   // Sort indices in ascending order for inserts
   const sortedSetIndices = Array.from(sets.keys()).sort((a, b) => a - b);
   
-  let hadOutOfBoundsSet = false;
-  
   for (const index of sortedSetIndices) {
     const entry = sets.get(index)!;
     const yValue = plainObjectToYType(entry.value, context);
-    
-    // Check if this is an out-of-bounds set that would create holes
-    if (index > yArray.length) {
-      hadOutOfBoundsSet = true;
-    }
     
     // Adjust insert target relative to deletes: if there were deletions at or before
     // this index in the batch, clamp to current tail to preserve apparent splice order.
@@ -350,25 +315,15 @@ function _handleIndividualInserts(
     
     yArray.insert(targetIndex, [yValue]);
     
-    // Handle post-integration callbacks and reconciliation
+    // Handle post-integration callbacks
     if (entry.after) {
-      post.push(() => entry.after!(yValue));
+      postQueue.enqueue(() => entry.after!(yValue));
     }
-    
-    const arrayDocNow = getYDoc(yArray);
-    if (isYMap(yValue)) {
-      post.push(() => reconcileValtioMap(context, yValue as Y.Map<unknown>, arrayDocNow!));
-    } else if (isYArray(yValue)) {
-      post.push(() => reconcileValtioArray(context, yValue as Y.Array<unknown>, arrayDocNow!));
-    }
+    // Note: Nested type reconciliation is handled by final array reconciliation
   }
   
-  // If we had out-of-bounds sets that created holes in the proxy,
-  // we need to reconcile the proxy to remove those holes
-  if (hadOutOfBoundsSet) {
-    const arrayDocNow = getYDoc(yArray);
-    post.push(() => reconcileValtioArray(context, yArray, arrayDocNow!));
-  }
+  // Note: Final array reconciliation (at end of applyArrayOperations) handles
+  // both out-of-bounds cleanup and nested type reconciliation
 }
 
 // Yjs helpers

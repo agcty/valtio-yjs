@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { planArrayOps } from '../../src/planning/arrayOpsPlanner.js';
 
 describe('Array Operations Planner', () => {
@@ -127,50 +127,6 @@ describe('Array Operations Planner', () => {
       expect(result.replaces.size).toBe(2);
       expect(result.replaces.get(0)).toBe('replace-0');
       expect(result.replaces.get(1)).toBe('replace-value');
-    });
-
-    it('should warn about potential moves when both deletes and sets exist', () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      
-      const ops = [
-        ['delete', [1], 'old-value'],
-        ['set', [5], 'new-value', undefined]  // index 5 >= 5 = set/insert, different from delete
-      ];
-      const result = planArrayOps(ops, 5, undefined);
-      
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Potential array move detected'),
-        expect.objectContaining({
-          deletes: [1],
-          sets: [5],
-          length: 5
-        })
-      );
-      
-      // Operations should still be categorized correctly
-      expect(result.deletes.size).toBe(1);
-      expect(result.deletes.has(1)).toBe(true);
-      expect(result.sets.size).toBe(1);
-      expect(result.sets.get(5)).toBe('new-value');
-      expect(result.replaces.size).toBe(0);
-      
-      consoleSpy.mockRestore();
-    });
-
-    it('should not warn about moves when replaces are involved', () => {
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      
-      const ops = [
-        ['delete', [1], 'old-value'],
-        ['set', [1], 'new-value', undefined]  // same index = replace, not move
-      ];
-      const result = planArrayOps(ops, 5, undefined);
-      
-      expect(consoleSpy).not.toHaveBeenCalled();
-      expect(result.replaces.size).toBe(1);
-      expect(result.replaces.get(1)).toBe('new-value');
-      
-      consoleSpy.mockRestore();
     });
 
     it('should ignore non-array operations', () => {

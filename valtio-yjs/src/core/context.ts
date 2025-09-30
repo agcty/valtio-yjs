@@ -68,8 +68,8 @@ export class SynchronizationContext {
     this.writeScheduler = new WriteScheduler(this.log, this.traceMode);
     this.writeScheduler.setApplyFunctions(
       (mapDeletes) => applyMapDeletes(mapDeletes, this.log),
-      (mapSets, post) => applyMapSets(mapSets, post, this.log, this),
-      (arraySets, arrayDeletes, arrayReplaces, post) => applyArrayOperations(this, arraySets, arrayDeletes, arrayReplaces, post),
+      (mapSets, postQueue) => applyMapSets(mapSets, postQueue, this.log, this),
+      (arraySets, arrayDeletes, arrayReplaces, postQueue) => applyArrayOperations(this, arraySets, arrayDeletes, arrayReplaces, postQueue),
       (fn) => this.withReconcilingLock(fn),
     );
   }

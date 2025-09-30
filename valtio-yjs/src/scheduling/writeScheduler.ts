@@ -2,6 +2,7 @@ import * as Y from 'yjs';
 import type { PendingMapEntry, PendingArrayEntry } from './batchTypes.js';
 import type { Logger } from '../core/context.js';
 import { VALTIO_YJS_ORIGIN } from '../core/constants.js';
+import { PostTransactionQueue } from './postTransactionQueue.js';
 
 /**
  * Recursively collects all Y.Map and Y.Array shared types in a subtree.
@@ -42,8 +43,8 @@ export class WriteScheduler {
 
   // Callback functions for applying operations
   private applyMapDeletesFn: ((mapDeletes: Map<Y.Map<unknown>, Set<string>>) => void) | null = null;
-  private applyMapSetsFn: ((mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>, post: Array<() => void>) => void) | null = null;
-  private applyArrayOperationsFn: ((arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, post: Array<() => void>) => void) | null = null;
+  private applyMapSetsFn: ((mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>, postQueue: PostTransactionQueue) => void) | null = null;
+  private applyArrayOperationsFn: ((arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, postQueue: PostTransactionQueue) => void) | null = null;
   private withReconcilingLockFn: ((fn: () => void) => void) | null = null;
 
   constructor(log: Logger, traceMode: boolean = false) {
@@ -58,8 +59,8 @@ export class WriteScheduler {
   // Set callback functions for applying operations
   setApplyFunctions(
     applyMapDeletes: (mapDeletes: Map<Y.Map<unknown>, Set<string>>) => void,
-    applyMapSets: (mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>, post: Array<() => void>) => void,
-    applyArrayOperations: (arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, post: Array<() => void>) => void,
+    applyMapSets: (mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>, postQueue: PostTransactionQueue) => void,
+    applyArrayOperations: (arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, postQueue: PostTransactionQueue) => void,
     withReconcilingLock: (fn: () => void) => void,
   ): void {
     this.applyMapDeletesFn = applyMapDeletes;
@@ -330,9 +331,6 @@ export class WriteScheduler {
       }
     }
 
-    // no-op
-    const post: Array<() => void> = [];
-
     if (
       mapSets.size === 0 &&
       mapDeletes.size === 0 &&
@@ -462,30 +460,26 @@ export class WriteScheduler {
       });
     }
 
+    // Create post-transaction queue for callbacks
+    const postQueue = new PostTransactionQueue(this.log);
+
     doc.transact(() => {
       if (this.applyMapDeletesFn) {
         this.applyMapDeletesFn(mapDeletes);
       }
       if (this.applyMapSetsFn) {
-        this.applyMapSetsFn(mapSets, post);
+        this.applyMapSetsFn(mapSets, postQueue);
       }
       if (this.applyArrayOperationsFn) {
-        this.applyArrayOperationsFn(arraySets, arrayDeletes, arrayReplaces, post);
+        this.applyArrayOperationsFn(arraySets, arrayDeletes, arrayReplaces, postQueue);
       }
     }, VALTIO_YJS_ORIGIN);
 
-    if (post.length > 0) {
-      for (const fn of post) {
-        try {
-          if (this.withReconcilingLockFn) {
-            this.withReconcilingLockFn(() => fn());
-          } else {
-            fn();
-          }
-        } catch {
-          // ignore upgrade errors to avoid breaking data ops
-        }
-      }
+    // Flush post-transaction callbacks with reconciling lock
+    if (this.withReconcilingLockFn) {
+      postQueue.flush(this.withReconcilingLockFn);
+    } else {
+      postQueue.flush((fn) => fn());
     }
   }
 }
