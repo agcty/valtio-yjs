@@ -52,17 +52,20 @@
 - Decision: Use a reconciliation lock (`withReconcilingLock`).
 - Rationale: Separates responsibilities and keeps flows one-way during inbound updates. The origin guard stops Yjs-level echo; the lock stops Valtio-level reflection. Together they avoid feedback loops, reduce redundant writes/relay traffic, and ensure deterministic, cheap reconciliation.
 
-## 7) No implicit array move handling in the library
+## 7) Array Operations: Sets, Deletes, and Replaces
 
-- Problem: Treating Valtio array "set" ops that appear alongside "delete" ops as content replacements effectively manufactures array moves. Yjs has no native move primitive; recommended practice is handling ordering at the app layer (e.g., fractional indexing).
-- Decision:
-  - If an array batch contains any deletes, ignore all set ops for that array in that flush. The library performs structural CRUD only: delete, push (set with no deletes), and true replace (set with no deletes). Ordering belongs to the application.
-- Consequences:
-  - Eliminates reinsert/clone of existing Y types within the same document and the associated corruption hazards.
-  - Simplifies batching: delete first; apply inserts only when there were sets without deletes.
-  - Removes the need for deep-clone/"plain snapshot" mechanisms during array ops. Converters remain only at boundaries (bootstrap, creating new items for push/replace), not for runtime cloning.
-  - After array inserts, reconcile inserted Y.Map/Y.Array locally to materialize Valtio proxies immediately.
-  - Aligns library behavior with Yjs first principles and avoids timing races.
+- Problem: Valtio array operations need to map cleanly to Yjs array operations while supporting all standard array methods including moves.
+- Decision: Categorize operations into three types:
+  1. **Replaces**: Delete + insert at same index (splice replacements like `arr.splice(i, 1, newVal)`)
+  2. **Deletes**: Pure deletions (pop, shift, splice deletes)
+  3. **Sets**: Pure insertions (push, unshift, splice inserts)
+- Rationale: 
+  - Enables all standard array operations including moves via splice
+  - Prevents identity issues by detecting and merging replace patterns
+  - Applies operations in deterministic order (replaces → deletes → sets)
+  - Maintains correctness while supporting natural JavaScript array semantics
+- Implementation: See `arrayOpsPlanner.ts` for classification logic and `arrayApply.ts` for execution
+- Note: Array moves work correctly via standard splice operations (e.g., `arr.splice(from, 1); arr.splice(to, 0, item)`). For applications with high-frequency concurrent reordering where conflict resolution is critical, consider fractional indexing as an application-level optimization pattern.
 
 ## 8) Two-phase Y→Valtio reconciliation with delta-aware arrays
 

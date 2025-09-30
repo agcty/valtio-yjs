@@ -347,7 +347,7 @@ describe('Array Operations Detailed Testing', () => {
   describe('Planning Logic Testing', () => {
     it('should correctly identify operation types in planning', async () => {
       // This test will help us verify the planning logic is working
-      const { planArrayOps } = await import('../../src/planning/arrayOpsPlanner.js');
+      const { planArrayOps } = await import('../src/planning/arrayOpsPlanner.js');
       
       // Test pure delete
       let result = planArrayOps([['delete', [1], 'old-value']], 3, undefined);

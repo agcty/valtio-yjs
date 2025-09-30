@@ -32,7 +32,7 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch ./src",
-    "test": "pnpm vitest run new/"
+    "test": "pnpm vitest"
   },
   "keywords": [
     "valtio",

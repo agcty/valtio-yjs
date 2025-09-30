@@ -169,7 +169,7 @@ describe('Property-Based Testing', () => {
 
   describe('Planning Logic Property Tests', () => {
     it('should correctly categorize random operation sequences', async () => {
-      const { planArrayOps } = await import('../../src/planning/arrayOpsPlanner.js');
+      const { planArrayOps } = await import('../src/planning/arrayOpsPlanner.js');
       
       await fc.assert(
         fc.property(

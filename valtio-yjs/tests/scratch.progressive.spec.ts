@@ -36,8 +36,8 @@ import { describe, it, expect, vi } from 'vitest';
  * - it.todo('assigning a plain array upgrades to Y.Array and nested edits route to child controller')
  */
 import * as Y from 'yjs';
-import { planArrayOps } from '../../src/planning/arrayOpsPlanner.js';
-import { createYjsProxy } from '../../src/index.js';
+import { planArrayOps } from '../src/planning/arrayOpsPlanner.js';
+import { createYjsProxy } from '../src/index.js';
 
 const waitMicrotask = () => Promise.resolve();
 
@@ -148,34 +148,23 @@ describe('Scratch: Progressive checks', () => {
       }).toThrowError(/Cannot re-assign a collaborative object that is already in the document/i);
     });
 
-    it('console.warn on delete+insert at different indices (potential move)', async () => {
+    it('array move via delete+insert at different indices works correctly', async () => {
       const doc = new Y.Doc();
       const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<any>('arr');
 
       proxy.push('a', 'b', 'c', 'd');
       await waitMicrotask();
-
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       
       // Simulate a "move" by delete at one index and insert at another in same batch
       proxy.splice(1, 1); // delete 'b' at index 1
       proxy.splice(2, 0, 'b'); // insert 'b' at new position
       
-      // Wait for the scheduler to flush (warning fires during flush)
       await waitMicrotask();
       
-      // Warning should have fired during the scheduler flush
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Potential array move detected'),
-        expect.objectContaining({
-          deletes: expect.any(Array),
-          sets: expect.any(Array),
-        }),
-      );
-      
-      warnSpy.mockRestore();
+      // Move should work correctly
       expect(yArr.toJSON()).toEqual(['a', 'c', 'b', 'd']);
+      expect(proxy).toEqual(['a', 'c', 'b', 'd']);
     });
 
     it('function/symbol/class instance throws in converter', async () => {

@@ -32,15 +32,15 @@ yarn add valtio-yjs valtio yjs
 ## How to use it
 
 ```js
-import * as Y from 'yjs';
-import { proxy } from 'valtio';
-import { bind } from 'valtio-yjs';
+import * as Y from "yjs";
+import { proxy } from "valtio";
+import { bind } from "valtio-yjs";
 
 // create a new Y doc
 const ydoc = new Y.Doc();
 
 // create a Y map
-const ymap = ydoc.getMap('mymap');
+const ymap = ydoc.getMap("mymap");
 
 // create a valtio state
 const state = proxy({});
@@ -49,7 +49,7 @@ const state = proxy({});
 const unbind = bind(state, ymap);
 
 // now you can mutate the state
-state.text = 'hello';
+state.text = "hello";
 
 // you can nest objects
 state.obj = { count: 0 };
@@ -66,6 +66,85 @@ state.arr.push(4);
 // unbind them by calling the result
 unbind();
 ```
+
+## What's Supported
+
+### Data Types
+
+- ✅ **Objects** (Y.Map → Valtio proxy)
+- ✅ **Arrays** (Y.Array → Valtio proxy)
+- ✅ **Collaborative text** (Y.Text via `syncedText()`)
+- ✅ **Primitives** (string, number, boolean, null)
+- ✅ **Deep nesting** (arbitrary depth)
+
+### Array Operations
+
+All standard JavaScript array operations are fully supported:
+
+- ✅ **push**, **pop**, **unshift**, **shift**
+- ✅ **splice** (insert, delete, replace)
+- ✅ **Direct index assignment**: `arr[i] = value`
+- ✅ **Array reordering/moves**: `arr.splice(from, 1); arr.splice(to, 0, item)`
+
+```js
+// Array moves work naturally
+const [item] = state.arr.splice(2, 1); // Remove from index 2
+state.arr.splice(0, 0, item); // Insert at index 0
+// ✅ Item successfully moved!
+```
+
+### Object Operations
+
+- ✅ **Set properties**: `obj.key = value`
+- ✅ **Delete properties**: `delete obj.key`
+- ✅ **Nested updates**: `obj.nested.deep.value = x`
+- ✅ **Object replacement**: `obj.nested = { ...newObj }`
+
+### Collaboration Features
+
+- ✅ **Multi-client sync** (via Yjs providers)
+- ✅ **Conflict-free merging** (CRDT guarantees)
+- ✅ **Offline-first** (local-first architecture)
+- ✅ **Undo/Redo** (via Yjs UndoManager)
+
+## Limitations
+
+### Not Supported
+
+- ❌ **Sparse arrays** (use `splice()` for deletions, not `delete arr[i]`)
+- ❌ **`undefined` values** (use `null` or delete the key)
+- ❌ **Non-serializable types** (functions, symbols, classes)
+
+## Advanced: Fractional Indexing for List Ordering
+
+For most applications, standard array operations work great. However, if you're building a collaborative app with **high-frequency concurrent reordering** (e.g., shared task list with drag-and-drop), consider fractional indexing:
+
+```js
+// Standard approach (works for most cases)
+const [task] = tasks.splice(from, 1);
+tasks.splice(to, 0, task);
+
+// Fractional indexing (for concurrent reordering)
+type Task = { order: number, title: string };
+
+// Each task has an order field
+tasks[i].order = (tasks[i - 1].order + tasks[i + 1].order) / 2;
+
+// Display sorted by order
+const sorted = [...tasks].sort((a, b) => a.order - b.order);
+```
+
+**When to use fractional indexing:**
+
+- Multiple users frequently reordering the same list
+- Critical ordering where conflicts need deterministic resolution
+- Large lists (>100 items) with frequent moves
+
+**When NOT needed:**
+
+- Single-user applications
+- Small lists or infrequent reordering
+- Append-only lists (chat, logs)
 
 ## Demos
 

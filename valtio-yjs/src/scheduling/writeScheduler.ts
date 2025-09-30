@@ -341,66 +341,6 @@ export class WriteScheduler {
       return;
     }
 
-    // Check for potential array move operations at the batch level
-    // This is where we can see all operations together
-    // Collect all arrays that have any operations
-    const allArrays = new Set<Y.Array<unknown>>();
-    for (const arr of arraySets.keys()) allArrays.add(arr);
-    for (const arr of arrayDeletes.keys()) allArrays.add(arr);
-    for (const arr of arrayReplaces.keys()) allArrays.add(arr);
-    
-    for (const yArray of allArrays) {
-      const replaceIndices = arrayReplaces.get(yArray) ? Array.from(arrayReplaces.get(yArray)!.keys()).sort((a, b) => a - b) : [];
-      const setIndices = arraySets.get(yArray) ? Array.from(arraySets.get(yArray)!.keys()).sort((a, b) => a - b) : [];
-      const deleteIndices = arrayDeletes.get(yArray) ? Array.from(arrayDeletes.get(yArray)!).sort((a, b) => a - b) : [];
-      
-      // Detect move patterns:
-      // 1. Classic pattern: deletes and sets at different indices
-      // 2. Splice pattern: multiple consecutive replaces (shifting)
-      // 3. Mixed pattern: deletes with replaces that look like shifting
-      let possibleMove = false;
-      
-      // Check for delete+set pattern
-      if (deleteIndices.length > 0 && setIndices.length > 0) {
-        possibleMove = true;
-      }
-      
-      // Check for consecutive replaces (splice shift pattern)
-      if (replaceIndices.length >= 2) {
-        let consecutiveCount = 1;
-        for (let i = 0; i + 1 < replaceIndices.length; i++) {
-          const next = replaceIndices[i + 1]!;
-          const curr = replaceIndices[i]!;
-          if (next === curr + 1) {
-            consecutiveCount++;
-            if (consecutiveCount >= 2) {
-              possibleMove = true;
-              break;
-            }
-          } else {
-            consecutiveCount = 1;
-          }
-        }
-      }
-      
-      // Check for delete with replaces (common splice pattern)
-      if (deleteIndices.length > 0 && replaceIndices.length > 0) {
-        // This combination often indicates a move operation
-        possibleMove = true;
-      }
-      
-      if (possibleMove) {
-        this.log.warn(
-          'Potential array move detected. "Move" operations are not natively supported and are treated as a separate delete and insert. For data-intensive moves, consider application-level strategies like fractional indexing.',
-          {
-            deletes: deleteIndices,
-            sets: setIndices,
-            length: yArray.length,
-          },
-        );
-      }
-    }
-    
     // Trace mode: log planned intents for debugging
     if (this.traceMode) {
       this.log.debug('[scheduler] trace: planned intents for this flush', {
