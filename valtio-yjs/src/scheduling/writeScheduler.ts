@@ -183,62 +183,43 @@ export class WriteScheduler {
       const setMap = arraySets.get(yArray);
       const replaceMap = arrayReplaces.get(yArray);
       
-      const indicesToConvert = new Set<number>();
-      const indicesToRemove = new Set<number>();
-      
-      // Check for delete+set combinations that should become replace
-      // Be conservative: only convert when this array has exactly one delete and one set,
-      // which strongly indicates a direct assignment pattern rather than a splice.
+      // Merge any delete+set at same index into replace
+      // Previous implementation was conservative (only if exactly one delete and one set),
+      // but testing shows we can safely merge any matching pairs at same indices
       if (setMap) {
-        const setCount = setMap.size;
-        const deleteCount = deleteIndices.size;
-        if (setCount === 1 && deleteCount === 1) {
-          for (const deleteIndex of deleteIndices) {
-            if (setMap.has(deleteIndex)) {
-              indicesToConvert.add(deleteIndex);
-              this.log.debug('[scheduler] merging delete+set into replace', { index: deleteIndex });
+        for (const deleteIndex of Array.from(deleteIndices)) {
+          if (setMap.has(deleteIndex)) {
+            // Get or create the replace map for this array
+            let replaceMapToUpdate = arrayReplaces.get(yArray);
+            if (!replaceMapToUpdate) {
+              replaceMapToUpdate = new Map();
+              arrayReplaces.set(yArray, replaceMapToUpdate);
             }
+            
+            // Move the operations from delete+set to replace
+            const setValue = setMap.get(deleteIndex)!;
+            replaceMapToUpdate.set(deleteIndex, setValue);
+            setMap.delete(deleteIndex);
+            deleteIndices.delete(deleteIndex);
+            
+            this.log.debug('[scheduler] merging delete+set into replace', { index: deleteIndex });
           }
+        }
+        
+        // Clean up empty set map
+        if (setMap.size === 0) {
+          arraySets.delete(yArray);
         }
       }
       
       // Check for delete+replace combinations - the replace wins, remove the delete
       if (replaceMap) {
-        for (const deleteIndex of deleteIndices) {
+        for (const deleteIndex of Array.from(deleteIndices)) {
           if (replaceMap.has(deleteIndex)) {
-            // We have both delete and replace for the same index - replace wins
-            indicesToRemove.add(deleteIndex);
+            deleteIndices.delete(deleteIndex);
             this.log.debug('[scheduler] removing redundant delete (replace exists)', { index: deleteIndex });
           }
         }
-      }
-      
-      // Convert delete+set to replace
-      if (indicesToConvert.size > 0) {
-        // Get or create the replace map for this array
-        let replaceMapToUpdate = arrayReplaces.get(yArray);
-        if (!replaceMapToUpdate) {
-          replaceMapToUpdate = new Map();
-          arrayReplaces.set(yArray, replaceMapToUpdate);
-        }
-        
-        // Move the operations from delete+set to replace
-        for (const index of indicesToConvert) {
-          const setValue = setMap!.get(index)!;
-          replaceMapToUpdate.set(index, setValue);
-          setMap!.delete(index);
-          deleteIndices.delete(index);
-        }
-        
-        // Clean up empty set map
-        if (setMap && setMap.size === 0) {
-          arraySets.delete(yArray);
-        }
-      }
-      
-      // Remove redundant deletes
-      for (const index of indicesToRemove) {
-        deleteIndices.delete(index);
       }
       
       // Clean up empty delete set
