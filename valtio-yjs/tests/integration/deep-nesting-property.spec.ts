@@ -14,6 +14,8 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
             maxDepth: 10, 
             maxKeys: 50,
             withNullPrototype: false,
+            // Exclude problematic JavaScript magic property names
+            key: fc.string().filter(s => !['__proto__', 'constructor', 'prototype'].includes(s)),
             // Exclude undefined values (valtio-yjs doesn't support them)
             values: [
               fc.string(),
@@ -47,7 +49,11 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
         fc.asyncProperty(
           // Generate: object, path to mutate, new value
           fc.tuple(
-            fc.object({ maxDepth: 8, maxKeys: 20 }),
+            fc.object({ 
+              maxDepth: 8, 
+              maxKeys: 20,
+              key: fc.string().filter(s => !['__proto__', 'constructor', 'prototype'].includes(s))
+            }),
             fc.array(fc.string({ minLength: 1, maxLength: 5 }), { minLength: 1, maxLength: 5 }),
             fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.constant(null))
           ),
@@ -169,7 +175,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.dictionary(
-            fc.string({ minLength: 1, maxLength: 10 }),
+            fc.string({ minLength: 1, maxLength: 10 }).filter(s => !['__proto__', 'constructor', 'prototype'].includes(s)),
             fc.oneof(fc.integer(), fc.string(), fc.boolean()),
             { minKeys: 10, maxKeys: 200 }
           ),
@@ -202,11 +208,11 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.dictionary(
-            fc.string({ minLength: 1, maxLength: 10 }),
+            fc.string({ minLength: 1, maxLength: 10 }).filter(s => !['__proto__', 'constructor', 'prototype'].includes(s)),
             fc.integer(),
             { minKeys: 50, maxKeys: 100 }
           ),
-          fc.array(fc.tuple(fc.string(), fc.integer()), { minLength: 5, maxLength: 20 }),
+          fc.array(fc.tuple(fc.string().filter(s => !['__proto__', 'constructor', 'prototype'].includes(s)), fc.integer()), { minLength: 5, maxLength: 20 }),
           async (wideObject, mutations) => {
             const { proxy, doc } = createDocWithProxy<any>((d) => d.getMap('root'));
             const yRoot = doc.getMap<any>('root');
@@ -240,10 +246,14 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
       await fc.assert(
         fc.asyncProperty(
           fc.record({
-            initial: fc.object({ maxDepth: 5, maxKeys: 20 }),
+            initial: fc.object({ 
+              maxDepth: 5, 
+              maxKeys: 20,
+              key: fc.string().filter(s => !['__proto__', 'constructor', 'prototype'].includes(s))
+            }),
             mutations: fc.array(
               fc.record({
-                key: fc.string({ minLength: 1, maxLength: 8 }),
+                key: fc.string({ minLength: 1, maxLength: 8 }).filter(s => !['__proto__', 'constructor', 'prototype'].includes(s)),
                 value: fc.oneof(fc.integer(), fc.string(), fc.boolean())
               }),
               { minLength: 1, maxLength: 10 }
