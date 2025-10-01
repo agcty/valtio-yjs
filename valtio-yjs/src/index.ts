@@ -8,6 +8,7 @@ export { syncedText } from './synced-types';
 import { SynchronizationContext } from './core/context';
 import { isYArray, isYMap } from './core/guards';
 import { reconcileValtioArray, reconcileValtioMap } from './reconcile/reconciler';
+import { initializeValtioYjsIntegration } from './core/valtio-yjs-integration';
 
 // Export type utilities for advanced users
 export type {
@@ -35,6 +36,10 @@ export function createYjsProxy<T extends object>(
   doc: Y.Doc,
   options: CreateYjsProxyOptions<T>,
 ): YjsProxy<T> {
+  // Initialize Valtio customizations for Y.js compatibility
+  // This must happen before any proxies are created
+  initializeValtioYjsIntegration();
+  
   const { getRoot } = options;
   const yRoot = getRoot(doc);
 

@@ -14,12 +14,16 @@ import type { SynchronizationContext } from '../core/context';
  * Strategy:
  * 1. The leaf node is wrapped in ref() to prevent deep proxying
  * 2. We observe the leaf node's native Y.js events
- * 3. When the leaf changes, we trigger Valtio's change detection by re-assigning
+ * 3. When the leaf changes, we trigger Valtio's change detection using a workaround
  * 
  * This approach:
  * - Prevents interference with Y.js CRDT internals (ref() blocks deep proxying)
  * - Provides automatic reactivity (components re-render on content changes)
  * - Avoids method patching (simpler than SyncedStore's approach)
+ * 
+ * Note: We use a delete+set pattern because Valtio's set trap ignores
+ * reassignments of the same reference (objectIs check). By deleting first,
+ * we ensure the subsequent set is treated as a new value.
  * 
  * @param context - Synchronization context for lock management and cleanup
  * @param objProxy - The Valtio proxy object containing the leaf node
@@ -35,12 +39,15 @@ export function setupLeafNodeReactivity(
   // Observe changes to the Y.js leaf node
   const handler = () => {
     // When Y.js content changes, trigger Valtio's change detection
-    // by re-assigning the same reference. This causes Valtio's set trap
-    // to fire, which increments the version and notifies subscribers.
+    // Valtio's set trap has an optimization: if you set a property to the same value
+    // (objectIs check), it skips the notification. To work around this for ref() values,
+    // we temporarily set it to null, then back to the original value. This forces Valtio
+    // to see it as a change without triggering Y.js operations.
     context.withReconcilingLock(() => {
       const current = objProxy[key];
-      // Re-assign to trigger Valtio's change detection
-      // This doesn't actually mutate the Y.Text, just tells Valtio "this property changed"
+      // Temporarily set to null to break the objectIs check
+      objProxy[key] = null as any;
+      // Immediately restore the actual value
       objProxy[key] = current;
     });
   };
@@ -62,6 +69,9 @@ export function setupLeafNodeReactivity(
 /**
  * Alternative implementation for array elements.
  * Called when a leaf node is stored in an array proxy.
+ * 
+ * Uses the same delete+set workaround as setupLeafNodeReactivity to ensure
+ * Valtio detects the change even when the reference is the same.
  */
 export function setupLeafNodeReactivityInArray(
   context: SynchronizationContext,
@@ -71,8 +81,10 @@ export function setupLeafNodeReactivityInArray(
 ): void {
   const handler = () => {
     context.withReconcilingLock(() => {
+      // Use splice to force Valtio to detect the change
+      // splice(index, 1, value) replaces 1 item at index with value
       const current = arrProxy[index];
-      arrProxy[index] = current;
+      arrProxy.splice(index, 1, current);
     });
   };
 

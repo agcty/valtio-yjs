@@ -216,12 +216,33 @@ function attachValtioMapSubscription(
 ): () => void {
   const unsubscribe = subscribe(objProxy, (ops: unknown[]) => {
     if (context.isReconciling) return;
-    context.log.debug('[controller][map] ops', safeStringify(ops));
+    
+    // Filter out operations on internal properties of Y.js leaf types
+    // These operations occur because Valtio deep-proxies leaf types before
+    // reconciliation adds them to refSet. We should ignore these internal
+    // Y.js property changes and only track top-level assignments.
+    const filteredOps = ops.filter((op) => {
+      const rawOp = op as RawValtioOperation;
+      if (isRawSetMapOp(rawOp)) {
+        const path = rawOp[1] as (string | number)[];
+        // If path has more than 1 element, it's a nested property change
+        // Only allow top-level changes (path.length === 1)
+        return path.length === 1;
+      }
+      return true; // Keep delete ops
+    });
+    
+    if (filteredOps.length === 0) {
+      // All ops were filtered out (all were nested Y.js internal changes)
+      return;
+    }
+    
+    context.log.debug('[controller][map] ops (filtered)', safeStringify(filteredOps));
     
     // Wrap planning + enqueue in try/catch to rollback local proxy on validation failure
     try {
       // Phase 1: Planning - categorize operations
-      const { sets, deletes } = planMapOps(ops);
+      const { sets, deletes } = planMapOps(filteredOps);
       
       // Phase 2: Scheduling - enqueue planned operations
       for (const [key, value] of sets) {
@@ -242,7 +263,7 @@ function attachValtioMapSubscription(
     } catch (err) {
       // Rollback local proxy to previous values using ops metadata
       context.withReconcilingLock(() => {
-        for (const op of ops as RawValtioOperation[]) {
+        for (const op of filteredOps as RawValtioOperation[]) {
           if (isRawSetMapOp(op)) {
             const key = op[1][0];
             const prev = op[3];

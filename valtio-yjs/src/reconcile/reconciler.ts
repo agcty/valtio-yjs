@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import { ref } from 'valtio/vanilla';
+import { ref, unstable_getInternalStates } from 'valtio/vanilla';
 import { getOrCreateValtioProxy, getValtioProxyForYType } from '../bridge/valtio-bridge';
 import { SynchronizationContext } from '../core/context';
 
@@ -79,13 +79,45 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
         // Check leaf types first (before container check) since some leaf types extend containers
         // (e.g., Y.XmlHook extends Y.Map)
         if (isYLeafType(yValue)) {
-          // For leaf nodes, check if it's a different instance
-          if (current !== yValue) {
-            context.log.debug('[REPLACE] replace leaf node', key);
+          // For leaf nodes, we need to bypass Valtio's SET trap which transforms values
+          // through proxy-compare's getUntracked(). Instead, we directly modify the
+          // base object and mark the leaf value in refSet.
+          context.log.debug('[REPLACE] replace leaf node (direct)', key, {
+            currentType: current?.constructor?.name,
+            yValueType: yValue?.constructor?.name,
+            same: current === yValue,
+          });
+          
+          // Get Valtio internals to access base object and refSet
+          const { proxyStateMap, refSet } = unstable_getInternalStates();
+          const proxyState = proxyStateMap.get(valtioProxy as object);
+          
+          if (proxyState) {
+            // Access the base target object (first element of proxyState tuple)
+            const baseObject = proxyState[0] as Record<string, unknown>;
+            // Mark the Y.js type in refSet to prevent deep proxying
+            refSet.add(yValue);
+            // Directly set on base object, bypassing Valtio's SET trap
+            baseObject[key] = yValue;
+            
+            // Verify it worked
+            const readBack = valtioProxy[key];
+            context.log.debug('[REPLACE] verify read-back (direct)', key, {
+              readBackType: readBack?.constructor?.name,
+              readBackSame: readBack === yValue,
+            });
+            
+            // Only setup reactivity once per leaf node instance
+            if (current !== yValue) {
+              setupLeafNodeReactivity(context, valtioProxy, key, yValue);
+            }
+          } else {
+            context.log.warn('[REPLACE] no proxy state found, falling back to regular set', key);
             valtioProxy[key] = ref(yValue);
-            setupLeafNodeReactivity(context, valtioProxy, key, yValue);
+            if (current !== yValue) {
+              setupLeafNodeReactivity(context, valtioProxy, key, yValue);
+            }
           }
-          // If same instance, reactivity is already setup, no action needed
         } else if (isYSharedContainer(yValue)) {
           const desired = getOrCreateValtioProxy(context, yValue, doc);
           if (current !== desired) {
@@ -134,10 +166,14 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
       yJson: yTypeToJSON(yArray),
     });
     const newContent = yArray.toArray().map((item) => {
-      if (isYSharedContainer(item)) {
-        return getOrCreateValtioProxy(context, item, doc);
-      } else if (isYLeafType(item)) {
+      // Check leaf types FIRST, before containers
+      // This is critical because Y.XmlHook extends Y.Map, so it would match
+      // isYSharedContainer before isYLeafType, causing it to be incorrectly
+      // wrapped in a controller proxy instead of being treated as a leaf.
+      if (isYLeafType(item)) {
         return ref(item);
+      } else if (isYSharedContainer(item)) {
+        return getOrCreateValtioProxy(context, item, doc);
       } else {
         return item;
       }
@@ -208,10 +244,11 @@ export function reconcileValtioArrayWithDelta(
       }
       if (d.insert && d.insert.length > 0) {
         const converted = d.insert.map((item) => {
-          if (isYSharedContainer(item)) {
-            return getOrCreateValtioProxy(context, item, doc);
-          } else if (isYLeafType(item)) {
+          // Check leaf types FIRST (see comment in reconcileValtioArray above)
+          if (isYLeafType(item)) {
             return ref(item);
+          } else if (isYSharedContainer(item)) {
+            return getOrCreateValtioProxy(context, item, doc);
           } else {
             return item;
           }

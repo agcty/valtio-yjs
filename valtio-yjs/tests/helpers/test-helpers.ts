@@ -34,10 +34,10 @@ export function createTwoDocsWithRelay(): { docA: Y.Doc; docB: Y.Doc; RELAY_ORIG
   return { docA, docB, RELAY_ORIGIN } as const;
 }
 
-export function createRelayedProxiesMapRoot() {
+export function createRelayedProxiesMapRoot(options?: { debug?: boolean }) {
   const { docA, docB } = createTwoDocsWithRelay();
-  const a = createYjsProxy<any>(docA, { getRoot: (d) => d.getMap('root') });
-  const b = createYjsProxy<any>(docB, { getRoot: (d) => d.getMap('root') });
+  const a = createYjsProxy<any>(docA, { getRoot: (d) => d.getMap('root'), debug: options?.debug });
+  const b = createYjsProxy<any>(docB, { getRoot: (d) => d.getMap('root'), debug: options?.debug });
   return {
     docA,
     docB,

@@ -50,8 +50,7 @@ describe("E2E: Y.Xml Types", () => {
       expect(proxyB.fragment.get(0).nodeName).toBe("p");
     });
 
-    // TODO: XmlFragment deletions don't sync (container operation limitation)
-    it.skip("syncs deletions from Y.XmlFragment", async () => {
+    it("syncs deletions from Y.XmlFragment", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
       const fragment = new Y.XmlFragment();
@@ -206,8 +205,7 @@ describe("E2E: Y.Xml Types", () => {
       expect(proxyB.element.getAttribute("id")).toBe("main");
     });
 
-    // TODO: XmlElement child deletions don't sync (container operation limitation)
-    it.skip("syncs child removals from Y.XmlElement", async () => {
+    it("syncs child removals from Y.XmlElement", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
       const element = new Y.XmlElement("div");
@@ -319,8 +317,7 @@ describe("E2E: Y.Xml Types", () => {
       expect(proxyB.hook.get("status")).toBe("active");
     });
 
-    // TODO: Y.XmlHook reactivity needs investigation
-    it.skip("triggers Valtio updates when Y.XmlHook content changes", async () => {
+    it("triggers Valtio updates when Y.XmlHook content changes", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
       const hook = new Y.XmlHook("test");
@@ -480,8 +477,7 @@ describe("E2E: Y.Xml Types", () => {
       expect(proxyB[0].getAttribute("data-test")).toBe("value");
     });
 
-    // TODO: Y.XmlHook in arrays gets materialized as plain object (needs fix)
-    it.skip("can store Y.XmlHook in Y.Array", async () => {
+    it("can store Y.XmlHook in Y.Array", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesArrayRoot();
 
       const hook1 = new Y.XmlHook("hook1");
