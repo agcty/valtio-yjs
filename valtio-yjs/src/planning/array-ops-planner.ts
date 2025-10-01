@@ -9,6 +9,7 @@
 //   deterministically per the Translator's Guide.
 
 import { SynchronizationContext } from '../core/context';
+import { normalizeIndex } from '../utils/index-utils';
 
 // Type guards for array operations
 type ValtioArrayPath = [number | string];
@@ -30,11 +31,6 @@ function isDeleteArrayOp(op: unknown): op is ValtioDeleteArrayOp {
 // function isLengthSetOp(op: unknown): op is ['set', ['length'], number] {
 //   return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1 && op[1][0] === 'length';
 // }
-
-// Normalize array path indices coming from Valtio subscribe.
-function normalizeIndex(idx: number | string): number {
-  return typeof idx === 'number' ? idx : Number.parseInt(idx, 10);
-}
 
 export interface ArrayOpsPlans {
   sets: Map<number, unknown>;      // Pure inserts/pushes/unshifts

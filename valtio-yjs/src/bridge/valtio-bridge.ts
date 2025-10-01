@@ -18,6 +18,7 @@ import { planArrayOps } from '../planning/array-ops-planner';
 import { validateDeepForSharedState } from '../core/converter';
 import { setupLeafNodeReactivity, setupLeafNodeReactivityInArray } from './leaf-reactivity';
 import { safeStringify } from '../utils/logging';
+import { normalizeIndex } from '../utils/index-utils';
 import { 
   getContainerValue,
   setContainerValue,
@@ -143,7 +144,7 @@ function attachValtioArraySubscription(
         for (const op of ops as RawValtioOperation[]) {
           if (isRawSetArrayOp(op)) {
             const idx = op[1][0];
-            const index = typeof idx === 'number' ? idx : Number.parseInt(String(idx), 10);
+            const index = normalizeIndex(idx);
             const prev = op[3];
             arrProxy[index] = prev;
           }

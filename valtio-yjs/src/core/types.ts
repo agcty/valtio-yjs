@@ -8,6 +8,8 @@
  * - Utility types for common patterns
  */
 
+import { normalizeIndex } from '../utils/index-utils';
+
 // ============================================================================
 // Branded Types for Valtio Proxies
 // ============================================================================
@@ -137,7 +139,7 @@ export function parseValtioMapOp(op: unknown): ValtioMapOperation | null {
 export function parseValtioArrayOp(op: unknown): ValtioArrayOperation | null {
   if (isRawSetArrayOp(op)) {
     const idx = op[1][0];
-    const normalizedIndex = typeof idx === 'number' ? idx : Number.parseInt(idx, 10);
+    const normalizedIndex = normalizeIndex(idx);
     return {
       type: 'set',
       path: [normalizedIndex],
@@ -147,7 +149,7 @@ export function parseValtioArrayOp(op: unknown): ValtioArrayOperation | null {
   }
   if (isRawDeleteArrayOp(op)) {
     const idx = op[1][0];
-    const normalizedIndex = typeof idx === 'number' ? idx : Number.parseInt(idx, 10);
+    const normalizedIndex = normalizeIndex(idx);
     return {
       type: 'delete',
       path: [normalizedIndex],
