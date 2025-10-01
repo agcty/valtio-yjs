@@ -1,6 +1,6 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
 
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
 import { createRelayedProxiesMapRoot, createRelayedProxiesArrayRoot, waitMicrotask } from '../helpers/test-helpers';
 
@@ -205,28 +205,23 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     expect(proxyA[1]).toEqual([3, 4, 5]);
   });
 
-  it.skip('negative: same-tick move attempt (delete+insert) logs warning and does not move remotely', async () => {
+  it('same-tick array move (delete+insert) syncs correctly across clients', async () => {
     const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
     bootstrapA({ list: ['a', 'b', 'c', 'd'] });
     await waitMicrotask();
     expect(proxyB.list).toEqual(['a', 'b', 'c', 'd']);
 
-    const warnSpy = vi.spyOn(console, 'warn');
-
-    // Attempt a move in the same tick
-    const [moved] = proxyA.list.splice(1, 1);
-    proxyA.list.splice(3, 0, moved);
+    // Move item from index 1 to index 3 in the same tick
+    const [moved] = proxyA.list.splice(1, 1); // Remove 'b'
+    proxyA.list.splice(3, 0, moved); // Insert 'b' at end
     await waitMicrotask();
 
-    expect(
-      warnSpy.mock.calls.some((call) => call.some((arg) => typeof arg === 'string' && arg.includes('Potential array move detected'))),
-    ).toBe(true);
-    warnSpy.mockRestore();
-    // Remote should reflect only the structural delete effect (no insert in same tick)
-    expect(proxyB.list).toEqual(['a', 'c', 'd']);
+    // Both clients should reflect the move
+    expect(proxyA.list).toEqual(['a', 'c', 'd', 'b']);
+    expect(proxyB.list).toEqual(['a', 'c', 'd', 'b']);
   });
 
-  it.skip('manual delete then insert in separate ticks propagates as expected', async () => {
+  it('manual delete then insert in separate ticks propagates as expected', async () => {
     const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
     bootstrapA({ list: ['a', 'b', 'c', 'd'] });
     await waitMicrotask();
@@ -268,7 +263,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     expect(proxyB.matrix[1]).toEqual(['z', 'a', 'X', 'c']);
   });
 
-  it.skip('local replace at index reusing previous children reference syncs consistently across clients', async () => {
+  it('local replace at index reusing previous children reference syncs consistently across clients', async () => {
     const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
     bootstrapA({
       list: [
