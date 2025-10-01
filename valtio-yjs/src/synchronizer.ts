@@ -52,8 +52,8 @@ export function setupSyncListener(
       const targetContainer = isYSharedContainer(event.target) ? (event.target as YSharedContainer) : null;
       let boundary: YSharedContainer | null = targetContainer;
       while (boundary && !getValtioProxyForYType(context, boundary)) {
-        const parent = boundary.parent;
-        boundary = parent && isYSharedContainer(parent) ? parent : null;
+        const parent = boundary.parent as Y.AbstractType<unknown> | Y.Doc | null;
+        boundary = parent && isYSharedContainer(parent) ? (parent as YSharedContainer) : null;
       }
       if (!boundary) {
         boundary = yRoot;
@@ -81,6 +81,8 @@ export function setupSyncListener(
           // Ensure that direct array targets with deltas still get a boundary reconcile after deltas too
           // by scheduling a post-task via the context (apply layer already posts reconciles; this is extra safety).
         }
+        // Note: XML types (XmlFragment, XmlElement, XmlHook) are treated as leaf types,
+        // not containers, so they don't need reconciliation here
       }
       // Phase 2: apply granular array deltas to direct targets
       for (const [arr, delta] of arrayTargetToDelta) {

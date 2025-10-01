@@ -96,10 +96,12 @@ function upgradeChildIfNeeded(
       setContainerValue(container, key, wrappedLeaf);
     });
     // Setup reactivity based on container type
+    // Type assertion is safe here because isYLeafType guard confirmed the type
+    const leafNode = yValue as Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook;
     if (Array.isArray(container)) {
-      setupLeafNodeReactivityInArray(context, container, key as number, yValue);
+      setupLeafNodeReactivityInArray(context, container, key as number, leafNode);
     } else {
-      setupLeafNodeReactivity(context, container, key as string, yValue);
+      setupLeafNodeReactivity(context, container, key as string, leafNode);
     }
   } else if (!isAlreadyController && isYSharedContainer(yValue)) {
     // Upgrade plain object/array to container controller
@@ -286,7 +288,9 @@ function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.
   // Setup reactivity for leaf nodes AFTER proxy creation
   for (const [key, value] of yMap.entries()) {
     if (isYLeafType(value)) {
-      setupLeafNodeReactivity(context, objProxy, key, value);
+      // Type assertion is safe here because isYLeafType guard confirmed the type
+      const leafNode = value as Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook;
+      setupLeafNodeReactivity(context, objProxy, key, leafNode);
     }
   }
 
@@ -321,7 +325,9 @@ function getOrCreateValtioProxyForYArray(context: SynchronizationContext, yArray
   // Setup reactivity for leaf nodes AFTER proxy creation
   yArray.toArray().forEach((value, index) => {
     if (isYLeafType(value)) {
-      setupLeafNodeReactivityInArray(context, arrProxy, index, value);
+      // Type assertion is safe here because isYLeafType guard confirmed the type
+      const leafNode = value as Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook;
+      setupLeafNodeReactivityInArray(context, arrProxy, index, leafNode);
     }
   });
   
@@ -344,6 +350,9 @@ export function getYTypeForValtioProxy(context: SynchronizationContext, obj: obj
 /**
  * The main router. It takes any Yjs shared type and returns the
  * appropriate Valtio proxy controller for it, creating it if it doesn't exist.
+ * 
+ * Note: XML types (XmlFragment, XmlElement, XmlHook) are treated as leaf types,
+ * so they're handled via the leaf type logic in the map/array proxy creators.
  */
 export function getOrCreateValtioProxy(context: SynchronizationContext, yType: YSharedContainer, doc: Y.Doc): object {
   if (isYMap(yType)) {
@@ -352,13 +361,6 @@ export function getOrCreateValtioProxy(context: SynchronizationContext, yType: Y
   if (isYArray(yType)) {
     return getOrCreateValtioProxyForYArray(context, yType, doc);
   }
-  // if (yType instanceof Y.Text) {
-  //   return createYTextController(yType, doc);
-  // }
-  // Future:
-  // if (yType instanceof Y.XmlFragment) {
-  //   return createYXmlController(yType, doc);
-  // }
 
   // Fallback for unsupported types
   // Note: No context available here, but this should rarely happen

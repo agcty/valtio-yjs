@@ -30,7 +30,7 @@ export function setupLeafNodeReactivity(
   context: SynchronizationContext,
   objProxy: Record<string, unknown>,
   key: string,
-  leafNode: Y.Text | Y.XmlHook, // Y.Text (includes Y.XmlText) or Y.XmlHook
+  leafNode: Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook, // All supported leaf types
 ): void {
   // Observe changes to the Y.js leaf node
   const handler = () => {
@@ -67,7 +67,7 @@ export function setupLeafNodeReactivityInArray(
   context: SynchronizationContext,
   arrProxy: unknown[],
   index: number,
-  leafNode: Y.Text | Y.XmlHook,
+  leafNode: Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook, // All supported leaf types
 ): void {
   const handler = () => {
     context.withReconcilingLock(() => {

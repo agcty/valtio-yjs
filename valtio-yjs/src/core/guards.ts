@@ -4,11 +4,12 @@ import type { YSharedContainer } from './yjs-types';
 export function isYSharedContainer(value: unknown): value is YSharedContainer {
   return (
     value instanceof Y.Map ||
-    value instanceof Y.Array ||
-    value instanceof Y.XmlFragment ||
-    value instanceof Y.XmlElement ||
-    value instanceof Y.XmlHook
+    value instanceof Y.Array
   );
+  // Note: Y.XmlFragment, Y.XmlElement, and Y.XmlHook are treated as leaf types,
+  // not containers, even though they have container-like APIs. This is because
+  // they need to preserve their native Y.js methods and shouldn't be wrapped in
+  // Valtio proxies. See isYLeafType() for the complete list of leaf types.
 }
 
 export function isYMap(value: unknown): value is Y.Map<unknown> {
@@ -42,14 +43,21 @@ export function isYAbstractType(value: unknown): value is Y.AbstractType<unknown
 /**
  * Checks if a value is a Y.js leaf type (non-container CRDT).
  * Leaf types have internal CRDT state and should not be deeply proxied.
+ * They are stored as-is (wrapped in ref()) rather than being proxied.
  * 
  * Currently supports:
  * - Y.Text: Collaborative text CRDT
  * - Y.XmlText: XML-specific text (extends Y.Text)
- * - Y.XmlHook: Custom hook type (extends Y.Map, but needs to preserve methods)
+ * - Y.XmlFragment: XML container with array-like interface
+ * - Y.XmlElement: XML element with attributes + children
+ * - Y.XmlHook: Custom hook type (extends Y.Map)
  * 
  * Note: Y.XmlText extends Y.Text, so instanceof Y.Text catches both.
- * Y.XmlHook extends Y.Map but is treated as a leaf to preserve its Map-like methods.
+ * 
+ * XML types (XmlFragment, XmlElement, XmlHook) are treated as leaf types because:
+ * - They have their own native interfaces that shouldn't be wrapped
+ * - They need to preserve their Y.js methods (insert, setAttribute, etc.)
+ * - Proxying them would break their specialized APIs
  * 
  * To add more leaf types:
  * 1. Add instanceof check here (e.g., || value instanceof Y.SomeLeafType)
@@ -57,12 +65,17 @@ export function isYAbstractType(value: unknown): value is Y.AbstractType<unknown
  * 3. Update README.md to document the new leaf type
  * 
  * Future leaf types to consider:
- * - Custom Y.AbstractType implementations
+ * - Custom Y.AbstractType implementations with specialized APIs
  */
-export function isYLeafType(value: unknown): value is Y.Text | Y.XmlHook {
+export function isYLeafType(value: unknown): value is Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook {
   // Y.Text includes Y.XmlText since it extends Y.Text
-  // Y.XmlHook is treated as a leaf to preserve its Map-like interface
-  return value instanceof Y.Text || value instanceof Y.XmlHook;
+  // XML types are treated as leaf types to preserve their native APIs
+  return (
+    value instanceof Y.Text ||
+    value instanceof Y.XmlFragment ||
+    value instanceof Y.XmlElement ||
+    value instanceof Y.XmlHook
+  );
 }
 
 

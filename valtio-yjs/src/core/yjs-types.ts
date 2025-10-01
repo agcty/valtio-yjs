@@ -1,12 +1,11 @@
 import * as Y from 'yjs';
 
-// Shared Yjs container types supported by this library today
+// Shared Yjs container types that are deeply proxied by Valtio
+// Note: Y.XmlFragment, Y.XmlElement, and Y.XmlHook are NOT included here
+// because they are treated as leaf types to preserve their native Y.js APIs.
 export type YSharedContainer =
   | Y.Map<unknown>
-  | Y.Array<unknown>
-  | Y.XmlFragment
-  | Y.XmlElement
-  | Y.XmlHook;
+  | Y.Array<unknown>;
 
 // Event-related types used with observeDeep
 export type YArrayDelta = Array<{ retain?: number; delete?: number; insert?: unknown[] }>;

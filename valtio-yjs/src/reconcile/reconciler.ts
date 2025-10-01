@@ -148,7 +148,9 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
     // Setup reactivity for leaf nodes after splice
     yArray.toArray().forEach((item, index) => {
       if (isYLeafType(item)) {
-        setupLeafNodeReactivityInArray(context, valtioProxy, index, item);
+        // Type assertion is safe here because isYLeafType guard confirmed the type
+        const leafNode = item as Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook;
+        setupLeafNodeReactivityInArray(context, valtioProxy, index, leafNode);
       }
     });
     context.log.debug('reconcileValtioArray end', {
@@ -229,7 +231,9 @@ export function reconcileValtioArrayWithDelta(
         // Setup reactivity for inserted leaf nodes
         d.insert.forEach((item, offset) => {
           if (isYLeafType(item)) {
-            setupLeafNodeReactivityInArray(context, valtioProxy, position + offset, item);
+            // Type assertion is safe here because isYLeafType guard confirmed the type
+            const leafNode = item as Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook;
+            setupLeafNodeReactivityInArray(context, valtioProxy, position + offset, leafNode);
           }
         });
         
