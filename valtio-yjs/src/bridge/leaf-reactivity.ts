@@ -5,7 +5,7 @@
 // - Leaf types have internal CRDT state that shouldn't be deeply proxied
 // - Instead, we observe their changes and trigger Valtio updates manually
 
-import * as Y from 'yjs';
+import type { YLeafType } from '../core/yjs-types';
 import type { SynchronizationContext } from '../core/context';
 
 /**
@@ -34,7 +34,7 @@ export function setupLeafNodeReactivity(
   context: SynchronizationContext,
   objProxy: Record<string, unknown>,
   key: string,
-  leafNode: Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook, // All supported leaf types
+  leafNode: YLeafType,
 ): void {
   // Observe changes to the Y.js leaf node
   const handler = () => {
@@ -77,7 +77,7 @@ export function setupLeafNodeReactivityInArray(
   context: SynchronizationContext,
   arrProxy: unknown[],
   index: number,
-  leafNode: Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook, // All supported leaf types
+  leafNode: YLeafType,
 ): void {
   const handler = () => {
     context.withReconcilingLock(() => {

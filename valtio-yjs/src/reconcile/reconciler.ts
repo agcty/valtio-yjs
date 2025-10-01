@@ -6,6 +6,7 @@ import { SynchronizationContext } from '../core/context';
 import { isYSharedContainer, isYArray, isYMap, isYLeafType } from '../core/guards';
 import { yTypeToJSON } from '../core/types';
 import { setupLeafNodeReactivity, setupLeafNodeReactivityInArray } from '../bridge/leaf-reactivity';
+import type { YLeafType } from 'src/core/yjs-types';
 
 // Reconciler layer
 //
@@ -185,7 +186,7 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
     yArray.toArray().forEach((item, index) => {
       if (isYLeafType(item)) {
         // Type assertion is safe here because isYLeafType guard confirmed the type
-        const leafNode = item as Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook;
+        const leafNode = item as YLeafType;
         setupLeafNodeReactivityInArray(context, valtioProxy, index, leafNode);
       }
     });
@@ -269,7 +270,7 @@ export function reconcileValtioArrayWithDelta(
         d.insert.forEach((item, offset) => {
           if (isYLeafType(item)) {
             // Type assertion is safe here because isYLeafType guard confirmed the type
-            const leafNode = item as Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook;
+            const leafNode = item as YLeafType;
             setupLeafNodeReactivityInArray(context, valtioProxy, position + offset, leafNode);
           }
         });

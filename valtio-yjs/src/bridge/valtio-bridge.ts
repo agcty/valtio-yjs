@@ -10,7 +10,7 @@ import * as Y from 'yjs';
 import { proxy, subscribe, ref } from 'valtio/vanilla';
 // import removed: origin tagging handled by context scheduler
 
-import type { YSharedContainer } from '../core/yjs-types';
+import type { YSharedContainer, YLeafType } from '../core/yjs-types';
 import { SynchronizationContext } from '../core/context';
 import { isYSharedContainer, isYArray, isYMap, isYLeafType } from '../core/guards';
 import { LOG_PREFIX } from '../core/constants';
@@ -97,7 +97,7 @@ function upgradeChildIfNeeded(
     });
     // Setup reactivity based on container type
     // Type assertion is safe here because isYLeafType guard confirmed the type
-    const leafNode = yValue as Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook;
+    const leafNode = yValue as YLeafType;
     if (Array.isArray(container)) {
       setupLeafNodeReactivityInArray(context, container, key as number, leafNode);
     } else {
@@ -310,7 +310,7 @@ function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.
   for (const [key, value] of yMap.entries()) {
     if (isYLeafType(value)) {
       // Type assertion is safe here because isYLeafType guard confirmed the type
-      const leafNode = value as Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook;
+      const leafNode = value as YLeafType;
       setupLeafNodeReactivity(context, objProxy, key, leafNode);
     }
   }
@@ -347,7 +347,7 @@ function getOrCreateValtioProxyForYArray(context: SynchronizationContext, yArray
   yArray.toArray().forEach((value, index) => {
     if (isYLeafType(value)) {
       // Type assertion is safe here because isYLeafType guard confirmed the type
-      const leafNode = value as Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook;
+      const leafNode = value as YLeafType;
       setupLeafNodeReactivityInArray(context, arrProxy, index, leafNode);
     }
   });
@@ -379,16 +379,8 @@ export function getOrCreateValtioProxy(context: SynchronizationContext, yType: Y
   if (isYMap(yType)) {
     return getOrCreateValtioProxyForYMap(context, yType, doc);
   }
-  if (isYArray(yType)) {
-    return getOrCreateValtioProxyForYArray(context, yType, doc);
-  }
-
-  // Fallback for unsupported types
-  // Note: No context available here, but this should rarely happen
-  if (typeof console !== 'undefined') {
-    console.warn(LOG_PREFIX, 'Unsupported Yjs type:', yType);
-  }
-  return yType as unknown as object;
+  // TypeScript exhaustiveness check: YSharedContainer = Y.Map | Y.Array
+  return getOrCreateValtioProxyForYArray(context, yType, doc);
 }
 
 

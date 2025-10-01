@@ -1,5 +1,5 @@
 import * as Y from 'yjs';
-import type { YSharedContainer } from './yjs-types';
+import type { YSharedContainer, YLeafType } from './yjs-types';
 
 export function isYSharedContainer(value: unknown): value is YSharedContainer {
   return (
@@ -67,7 +67,7 @@ export function isYAbstractType(value: unknown): value is Y.AbstractType<unknown
  * Future leaf types to consider:
  * - Custom Y.AbstractType implementations with specialized APIs
  */
-export function isYLeafType(value: unknown): value is Y.Text | Y.XmlFragment | Y.XmlElement | Y.XmlHook {
+export function isYLeafType(value: unknown): value is YLeafType {
   // Y.Text includes Y.XmlText since it extends Y.Text
   // XML types are treated as leaf types to preserve their native APIs
   return (
