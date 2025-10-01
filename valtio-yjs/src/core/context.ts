@@ -91,6 +91,14 @@ export class SynchronizationContext {
     this.allUnsubscribers.add(unsubscribe);
   }
 
+  /**
+   * Register a generic disposable callback (e.g., for leaf node observers).
+   * Used for cleanup tasks that don't map directly to Y types.
+   */
+  registerDisposable(dispose: () => void): void {
+    this.allUnsubscribers.add(dispose);
+  }
+
   disposeAll(): void {
     for (const unsub of this.allUnsubscribers) {
       try {

@@ -71,7 +71,7 @@ dispose();
 
 - ✅ **Objects** (Y.Map → Valtio proxy)
 - ✅ **Arrays** (Y.Array → Valtio proxy)
-- ✅ **Collaborative text** (Y.Text via `syncedText()`)
+- ✅ **Collaborative text** (Y.Text & Y.XmlText) - [See below](#collaborative-text-ytext)
 - ✅ **Primitives** (string, number, boolean, null)
 - ✅ **Deep nesting** (arbitrary depth)
 
@@ -105,6 +105,115 @@ state.arr.splice(0, 0, item); // Insert at index 0
 - ✅ **Conflict-free merging** (CRDT guarantees)
 - ✅ **Offline-first** (local-first architecture)
 - ✅ **Undo/Redo** (via Yjs UndoManager)
+
+## Collaborative Text (Y.Text)
+
+valtio-yjs provides **automatic reactivity** for Y.Text and Y.XmlText with zero configuration needed.
+
+### Usage - It Just Works! ✨
+
+```js
+import { createYjsProxy, syncedText } from "valtio-yjs";
+import { useSnapshot } from "valtio/react";
+
+const { proxy } = createYjsProxy(doc, {
+  getRoot: (d) => d.getMap("root"),
+});
+
+// Create collaborative text
+proxy.document = syncedText("Hello World");
+
+// In React - automatically reactive! No hooks needed
+function Editor() {
+  const snap = useSnapshot(proxy);
+
+  return (
+    <div>
+      <p>{snap.document.toString()}</p>
+      <button onClick={() => proxy.document.insert(11, "!")}>Add !</button>
+    </div>
+  );
+}
+```
+
+**That's it!** The component automatically re-renders when the text changes, whether from local edits or remote collaborators.
+
+### Supported Leaf Types
+
+- ✅ **Y.Text** - Collaborative rich text CRDT
+- ✅ **Y.XmlText** - XML-specific text (automatically supported)
+
+### When to Use Y.Text vs Plain Strings
+
+**Use plain strings** (95% of cases):
+
+```js
+state.title = "My Document"; // ✅ Syncs perfectly
+state.author = "Alice"; // ✅ Simple and efficient
+```
+
+**Use Y.Text** only when you need:
+
+1. **Rich text editing** with formatting (bold, italic, colors)
+2. **Large documents** with efficient delta syncing
+3. **Collaborative text** where multiple users edit simultaneously
+4. **Text with embedded content** (images, mentions, etc.)
+
+```js
+// Y.Text for collaborative rich text editor
+const content = syncedText("Hello");
+content.format(0, 5, { bold: true }); // Needs Y.Text for formatting
+state.documentBody = content;
+```
+
+### Arrays and Nested Structures
+
+Y.Text works seamlessly in arrays and nested objects:
+
+```js
+// Multiple text fields
+proxy.article = {
+  title: syncedText("My Article"),
+  subtitle: syncedText("A subtitle"),
+  body: syncedText("Content here"),
+};
+
+// In React - all automatically reactive!
+function Article() {
+  const snap = useSnapshot(proxy);
+
+  return (
+    <div>
+      <h1>{snap.article.title.toString()}</h1>
+      <h2>{snap.article.subtitle.toString()}</h2>
+      <p>{snap.article.body.toString()}</p>
+    </div>
+  );
+}
+
+// Text in arrays
+proxy.paragraphs = [
+  syncedText("First paragraph"),
+  syncedText("Second paragraph"),
+];
+```
+
+### How It Works (Technical)
+
+**The Challenge**: Y.Text has internal CRDT state that can't be deeply proxied without interfering with its merge algorithm.
+
+**Our Solution**:
+
+1. **Wrap with `ref()`** - Prevents Valtio from deep-proxying Y.Text internals
+2. **Observe Y.js events** - Listen to Y.Text's native `observe()` for content changes
+3. **Trigger Valtio updates** - Re-assign the reference to notify Valtio's snapshot system
+4. **Automatic cleanup** - Unobserve when proxy is disposed
+
+**vs SyncedStore's Approach**:
+
+- SyncedStore: Patches Y.Text methods (`toString()`, `toJSON()`) to trigger reactivity
+- valtio-yjs: Observes Y.Text changes and uses Valtio's existing change detection
+- Result: Cleaner implementation, no method patching, same automatic reactivity ✨
 
 ## Limitations
 

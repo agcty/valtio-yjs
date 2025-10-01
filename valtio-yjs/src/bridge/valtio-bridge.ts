@@ -7,16 +7,17 @@
 //   transactions tagged with VALTIO_YJS_ORIGIN.
 // - Lazily create nested controllers when a Y value is another Y type.
 import * as Y from 'yjs';
-import { proxy, subscribe } from 'valtio/vanilla';
+import { proxy, subscribe, ref } from 'valtio/vanilla';
 // import removed: origin tagging handled by context scheduler
 
 import type { YSharedContainer } from '../core/yjs-types';
 import { SynchronizationContext } from '../core/context';
-import { isYSharedContainer, isYArray, isYMap } from '../core/guards';
+import { isYSharedContainer, isYArray, isYMap, isYLeafType } from '../core/guards';
 import { LOG_PREFIX } from '../core/constants';
 import { planMapOps } from '../planning/map-ops-planner';
 import { planArrayOps } from '../planning/array-ops-planner';
 import { validateDeepForSharedState } from '../core/converter';
+import { setupLeafNodeReactivity, setupLeafNodeReactivityInArray } from './leaf-reactivity';
 import { 
   getContainerValue,
   setContainerValue,
@@ -85,11 +86,25 @@ function upgradeChildIfNeeded(
   // Optimize: single WeakMap lookup instead of .has() + potential .get()
   const underlyingYType = current && typeof current === 'object' ? context.valtioProxyToYType.get(current as object) : undefined;
   const isAlreadyController = underlyingYType !== undefined;
+  
   if (!isAlreadyController && isYSharedContainer(yValue)) {
+    // Upgrade plain object/array to container controller
     const newController = getOrCreateValtioProxy(context, yValue, doc);
     context.withReconcilingLock(() => {
       setContainerValue(container, key, newController);
     });
+  } else if (isYLeafType(yValue)) {
+    // Leaf node: wrap in ref() and setup reactivity
+    const wrappedLeaf = ref(yValue);
+    context.withReconcilingLock(() => {
+      setContainerValue(container, key, wrappedLeaf);
+    });
+    // Setup reactivity based on container type
+    if (Array.isArray(container)) {
+      setupLeafNodeReactivityInArray(context, container, key as number, yValue);
+    } else {
+      setupLeafNodeReactivity(context, container, key as string, yValue);
+    }
   }
 }
 
@@ -252,12 +267,24 @@ function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.
   const initialObj: Record<string, unknown> = {};
   for (const [key, value] of yMap.entries()) {
     if (isYSharedContainer(value)) {
+      // Containers: create controller proxy recursively
       initialObj[key] = getOrCreateValtioProxy(context, value, doc);
+    } else if (isYLeafType(value)) {
+      // Leaf nodes (Y.Text, Y.XmlText): wrap in ref() to prevent deep proxying
+      initialObj[key] = ref(value);
     } else {
+      // Primitives: store as-is
       initialObj[key] = value;
     }
   }
   const objProxy = proxy(initialObj);
+
+  // Setup reactivity for leaf nodes AFTER proxy creation
+  for (const [key, value] of yMap.entries()) {
+    if (isYLeafType(value)) {
+      setupLeafNodeReactivity(context, objProxy, key, value);
+    }
+  }
 
   context.yTypeToValtioProxy.set(yMap, objProxy);
   context.valtioProxyToYType.set(objProxy, yMap);
@@ -271,10 +298,29 @@ function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.
 function getOrCreateValtioProxyForYArray(context: SynchronizationContext, yArray: Y.Array<unknown>, doc: Y.Doc): unknown[] {
   const existing = context.yTypeToValtioProxy.get(yArray) as unknown[] | undefined;
   if (existing) return existing;
-  const initialItems = yArray
-    .toArray()
-    .map((value) => (isYSharedContainer(value) ? getOrCreateValtioProxy(context, value, doc) : value));
+  
+  const initialItems = yArray.toArray().map((value) => {
+    if (isYSharedContainer(value)) {
+      // Containers: create controller proxy recursively
+      return getOrCreateValtioProxy(context, value, doc);
+    } else if (isYLeafType(value)) {
+      // Leaf nodes: wrap in ref() to prevent deep proxying
+      return ref(value);
+    } else {
+      // Primitives: store as-is
+      return value;
+    }
+  });
+  
   const arrProxy = proxy(initialItems);
+  
+  // Setup reactivity for leaf nodes AFTER proxy creation
+  yArray.toArray().forEach((value, index) => {
+    if (isYLeafType(value)) {
+      setupLeafNodeReactivityInArray(context, arrProxy, index, value);
+    }
+  });
+  
   context.yTypeToValtioProxy.set(yArray, arrProxy);
   context.valtioProxyToYType.set(arrProxy, yArray);
   const unsubscribe = attachValtioArraySubscription(context, yArray, arrProxy, doc);

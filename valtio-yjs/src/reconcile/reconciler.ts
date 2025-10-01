@@ -1,9 +1,11 @@
 import * as Y from 'yjs';
+import { ref } from 'valtio/vanilla';
 import { getOrCreateValtioProxy, getValtioProxyForYType } from '../bridge/valtio-bridge';
 import { SynchronizationContext } from '../core/context';
 
-import { isYSharedContainer, isYArray, isYMap } from '../core/guards';
+import { isYSharedContainer, isYArray, isYMap, isYLeafType } from '../core/guards';
 import { yTypeToJSON } from '../core/types';
+import { setupLeafNodeReactivity, setupLeafNodeReactivityInArray } from '../bridge/leaf-reactivity';
 
 // Reconciler layer
 //
@@ -52,6 +54,10 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
             context.log.debug('[RECONCILE-CHILD] array', key);
             reconcileValtioArray(context, yValue as Y.Array<unknown>, doc);
           }
+        } else if (isYLeafType(yValue)) {
+          context.log.debug('[ADD] set leaf node (wrapped in ref)', key);
+          valtioProxy[key] = ref(yValue);
+          setupLeafNodeReactivity(context, valtioProxy, key, yValue);
         } else {
           context.log.debug('[ADD] set primitive', key);
           valtioProxy[key] = yValue;
@@ -81,6 +87,14 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
             context.log.debug('[RECONCILE-CHILD] array', key);
             reconcileValtioArray(context, yValue as Y.Array<unknown>, doc);
           }
+        } else if (isYLeafType(yValue)) {
+          // For leaf nodes, check if it's a different Y.Text instance
+          if (current !== yValue) {
+            context.log.debug('[REPLACE] replace leaf node', key);
+            valtioProxy[key] = ref(yValue);
+            setupLeafNodeReactivity(context, valtioProxy, key, yValue);
+          }
+          // If same instance, reactivity is already setup, no action needed
         } else {
           if (current !== yValue) {
             context.log.debug('[UPDATE] primitive', key);
@@ -115,11 +129,24 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
       valtioLength: valtioProxy.length,
       yJson: yTypeToJSON(yArray),
     });
-    const newContent = yArray
-      .toArray()
-      .map((item) => (isYSharedContainer(item) ? getOrCreateValtioProxy(context, item, doc) : item));
+    const newContent = yArray.toArray().map((item) => {
+      if (isYSharedContainer(item)) {
+        return getOrCreateValtioProxy(context, item, doc);
+      } else if (isYLeafType(item)) {
+        return ref(item);
+      } else {
+        return item;
+      }
+    });
     context.log.debug('reconcile array splice', newContent.length);
     valtioProxy.splice(0, valtioProxy.length, ...newContent);
+    
+    // Setup reactivity for leaf nodes after splice
+    yArray.toArray().forEach((item, index) => {
+      if (isYLeafType(item)) {
+        setupLeafNodeReactivityInArray(context, valtioProxy, index, item);
+      }
+    });
     context.log.debug('reconcileValtioArray end', {
       valtioLength: valtioProxy.length,
     });
@@ -174,7 +201,15 @@ export function reconcileValtioArrayWithDelta(
         continue;
       }
       if (d.insert && d.insert.length > 0) {
-        const converted = d.insert.map((item) => (isYSharedContainer(item) ? getOrCreateValtioProxy(context, item, doc) : item));
+        const converted = d.insert.map((item) => {
+          if (isYSharedContainer(item)) {
+            return getOrCreateValtioProxy(context, item, doc);
+          } else if (isYLeafType(item)) {
+            return ref(item);
+          } else {
+            return item;
+          }
+        });
         // Idempotency guard: if the exact converted items already exist at this position
         // (e.g., due to a prior structural reconcile in the same sync pass), skip inserting.
         const existingSlice = valtioProxy.slice(position, position + converted.length);
@@ -186,6 +221,14 @@ export function reconcileValtioArrayWithDelta(
         }
         context.log.debug('delta.insert', { at: position, count: converted.length });
         valtioProxy.splice(position, 0, ...converted);
+        
+        // Setup reactivity for inserted leaf nodes
+        d.insert.forEach((item, offset) => {
+          if (isYLeafType(item)) {
+            setupLeafNodeReactivityInArray(context, valtioProxy, position + offset, item);
+          }
+        });
+        
         position += converted.length;
         continue;
       }
