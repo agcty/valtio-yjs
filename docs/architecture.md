@@ -34,12 +34,12 @@ Public API (bridge)  Controller Proxy Layer (how)   Synchronization Layer       
 
 ## Key Components and Their Roles
 
-- `SynchronizationContext` (`valtio-yjs/src/context.ts`):
+- `SynchronizationContext` (`valtio-yjs/src/core/context.ts`):
   - Encapsulates all per-instance state: caches (`yTypeToValtioProxy`, `valtioProxyToYType`), subscription disposers, and a reconciliation lock (`isReconciling`).
   - Central Write Scheduler: coalesces direct-child ops from all controller proxies, flushes once per microtask, applies deterministic map/array writes in a single transaction, then performs eager upgrades under the lock.
   - Prevents global state leakage; supports multiple independent instances.
 
-- `getOrCreateValtioProxy` (router) (`valtio-yjs/src/valtio-bridge.ts`):
+- `getOrCreateValtioProxy` (router) (`valtio-yjs/src/bridge/valtio-bridge.ts`):
   - Accepts supported Yjs shared types and returns the appropriate Valtio proxy that acts as its controller. Creates the proxy if it doesn't exist in the context cache.
   - Main internal factory for creating the bridge's controller proxies.
 
@@ -57,7 +57,7 @@ Public API (bridge)  Controller Proxy Layer (how)   Synchronization Layer       
     1) Walk `.parent` to find the nearest materialized ancestor (boundary) and reconcile it to ensure structure and controller materialization.
     2) Apply granular array deltas to direct array targets after parents are materialized. Arrays with recorded deltas are skipped in phase 1 to avoid double-application.
 
-- Reconciler (`reconcileValtioMap`, `reconcileValtioArray`) (`valtio-yjs/src/reconciler.ts`):
+- Reconciler (`reconcileValtioMap`, `reconcileValtioArray`) (`valtio-yjs/src/reconcile/reconciler.ts`):
   - Ensures the Valtio proxy structure matches the Yjs structure, creating missing keys/items and controller proxies for nested Y types, deleting extras, and updating primitive values.
   - Solves lazy materialization for remote changes: newly created Y objects become visible in Valtio proxies on demand.
 

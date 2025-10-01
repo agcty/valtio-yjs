@@ -33,20 +33,18 @@ yarn add valtio-yjs valtio yjs
 
 ```js
 import * as Y from "yjs";
-import { proxy } from "valtio";
-import { bind } from "valtio-yjs";
+import { createYjsProxy } from "valtio-yjs";
 
 // create a new Y doc
 const ydoc = new Y.Doc();
 
-// create a Y map
-const ymap = ydoc.getMap("mymap");
+// create a synchronized proxy
+const { proxy: state, dispose, bootstrap } = createYjsProxy(ydoc, {
+  getRoot: (doc) => doc.getMap("mymap"),
+});
 
-// create a valtio state
-const state = proxy({});
-
-// bind them
-const unbind = bind(state, ymap);
+// optionally bootstrap with initial data (only works on empty docs)
+bootstrap({});
 
 // now you can mutate the state
 state.text = "hello";
@@ -63,8 +61,8 @@ state.arr = [1, 2, 3];
 // mutating the array is also possible
 state.arr.push(4);
 
-// unbind them by calling the result
-unbind();
+// dispose when you're done to clean up listeners
+dispose();
 ```
 
 ## What's Supported
