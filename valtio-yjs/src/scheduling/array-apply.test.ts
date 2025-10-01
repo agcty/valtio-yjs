@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as Y from 'yjs';
-import { createYjsProxy } from '../src/index';
+import { createYjsProxy } from '../index';
 
 /**
  * Tests for bulk array insert optimization (_tryOptimizedInserts)

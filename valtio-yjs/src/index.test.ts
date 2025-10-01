@@ -2,7 +2,7 @@
 
 import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
-import { createYjsProxy } from 'valtio-yjs';
+import { createYjsProxy } from './index';
 
 describe('Bridge Mechanics: createYjsProxy and bootstrap', () => {
   it('createYjsProxy returns a valid proxy (map root)', async () => {

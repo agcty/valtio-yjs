@@ -2,7 +2,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import * as Y from 'yjs';
-import { createYjsProxy } from '../src/index';
+import { createYjsProxy } from '../../src/index';
 
 async function waitMicrotask() {
   await Promise.resolve();

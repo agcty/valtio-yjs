@@ -2,7 +2,7 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import * as Y from 'yjs';
-import { createRelayedProxiesMapRoot, createRelayedProxiesArrayRoot, waitMicrotask } from './test-helpers';
+import { createRelayedProxiesMapRoot, createRelayedProxiesArrayRoot, waitMicrotask } from '../helpers/test-helpers';
 
 describe('E2E Collaboration: two docs with relayed updates', () => {
   it('deep reconciliation on remote changes (unmaterialized -> materialized)', async () => {

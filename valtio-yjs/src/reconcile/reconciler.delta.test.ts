@@ -2,9 +2,9 @@
 
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
-import { SynchronizationContext } from '../src/core/context';
-import { getOrCreateValtioProxy } from '../src/bridge/valtio-bridge';
-import { reconcileValtioArrayWithDelta } from '../src/reconcile/reconciler';
+import { SynchronizationContext } from '../core/context';
+import { getOrCreateValtioProxy } from '../bridge/valtio-bridge';
+import { reconcileValtioArrayWithDelta } from './reconciler';
 
 describe('Reconciler: delta insert materializes fields immediately', () => {
   it('delta.insert of Y.Map makes fields available on proxy right away', () => {

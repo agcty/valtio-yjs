@@ -36,8 +36,8 @@ import { describe, it, expect, vi } from 'vitest';
  * - it.todo('assigning a plain array upgrades to Y.Array and nested edits route to child controller')
  */
 import * as Y from 'yjs';
-import { planArrayOps } from '../src/planning/array-ops-planner';
-import { createYjsProxy } from '../src/index';
+import { planArrayOps } from '../../src/planning/array-ops-planner';
+import { createYjsProxy } from '../../src/index';
 
 const waitMicrotask = () => Promise.resolve();
 

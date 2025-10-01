@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as Y from 'yjs';
-import { createYjsProxy } from '../src/index';
-import { yTypeToPlainObject } from '../src/core/converter';
-import { waitMicrotask } from './test-helpers';
+import { createYjsProxy } from '../../src/index';
+import { yTypeToPlainObject } from '../../src/core/converter';
+import { waitMicrotask } from '../helpers/test-helpers';
 
 /**
  * Investigation: Can we relax the conservative merge check?

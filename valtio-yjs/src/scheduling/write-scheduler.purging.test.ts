@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
-import { createYjsProxy } from '../src/index';
+import { createYjsProxy } from '../index';
 
 const waitMicrotask = () => new Promise((resolve) => setTimeout(resolve, 0));
 
@@ -214,3 +214,4 @@ describe('WriteScheduler: Subtree Purging Necessity', () => {
     });
   });
 });
+

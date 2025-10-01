@@ -1,8 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
-import { createYjsProxy } from '../src/index';
-import { yTypeToPlainObject } from '../src/core/converter';
-import { waitMicrotask } from './test-helpers';
+import { createYjsProxy } from '../index';
+import { yTypeToPlainObject } from '../core/converter';
+
+const waitMicrotask = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /**
  * Detailed investigation: What does the conservative merge check actually prevent?
@@ -190,3 +191,4 @@ describe('Conservative merge check - detailed analysis', () => {
     dispose();
   });
 });
+

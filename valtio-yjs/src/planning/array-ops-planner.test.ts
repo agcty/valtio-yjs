@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planArrayOps } from '../src/planning/array-ops-planner';
+import { planArrayOps } from './array-ops-planner';
 
 describe('Array Operations Planner', () => {
   describe('planArrayOps', () => {
@@ -219,3 +219,4 @@ describe('Array Operations Planner', () => {
     });
   });
 });
+

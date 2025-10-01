@@ -11,7 +11,12 @@ export default defineConfig({
       instances: [{ browser: "chromium" }],
       screenshotFailures: false,
     },
-    include: ['tests/**/*.test.ts', 'tests/**/*.spec.ts'],
-    // setupFiles: ['./tests/vitest-setup.ts'],
+    include: [
+      'src/**/*.test.ts',                      // Co-located unit tests
+      'tests/integration/**/*.spec.ts',        // Integration tests
+      'tests/e2e/**/*.spec.ts',                // End-to-end tests
+      'tests/investigation/**/*.spec.ts'       // Investigation/analysis tests
+    ],
+    setupFiles: ['./tests/helpers/vitest-setup.ts'],
   },
 });

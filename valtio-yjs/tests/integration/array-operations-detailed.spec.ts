@@ -3,7 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from 'valtio-yjs';
-import { planArrayOps } from '../src/planning/array-ops-planner';
+import { planArrayOps } from '../../src/planning/array-ops-planner';
 
 const waitMicrotask = () => Promise.resolve();
 
