@@ -164,7 +164,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
                 
                 expect(yJSON).toEqual(proxyJSON);
                 expect(yJSON.length).toBe(proxyJSON.length);
-              } catch (error) {
+              } catch {
                 // If operation fails, that's ok - just skip
                 // We're testing that valid operations maintain consistency
               }

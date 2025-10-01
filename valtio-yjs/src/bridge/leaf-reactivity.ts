@@ -46,7 +46,7 @@ export function setupLeafNodeReactivity(
     context.withReconcilingLock(() => {
       const current = objProxy[key];
       // Temporarily set to null to break the objectIs check
-      objProxy[key] = null as any;
+      objProxy[key] = null;
       // Immediately restore the actual value
       objProxy[key] = current;
     });

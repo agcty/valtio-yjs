@@ -124,8 +124,6 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
   });
 
   it('deep undefined values are rejected per new architecture', () => {
-    const context = new SynchronizationContext();
-    
     // Test that undefined in objects throws (validation layer)
     const objWithUndefined = {
       a: undefined,

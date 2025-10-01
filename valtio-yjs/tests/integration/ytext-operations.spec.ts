@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy, syncedText } from '../../src/index';
-import { createDocWithProxy, createRelayedProxiesMapRoot, waitMicrotask } from '../helpers/test-helpers';
+import { createRelayedProxiesMapRoot, waitMicrotask } from '../helpers/test-helpers';
 
 describe('Integration: Y.Text Operations', () => {
   describe('Single Client Y.Text Operations', () => {
@@ -393,7 +393,7 @@ describe('Integration: Y.Text Operations', () => {
     });
 
     it('concurrent Y.Text inserts merge correctly', async () => {
-      const { docA, docB, proxyA, proxyB } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       // Setup shared Y.Text
       const text = syncedText('');
