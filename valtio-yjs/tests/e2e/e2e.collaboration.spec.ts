@@ -43,7 +43,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     expect(proxyB.data.y).toBeUndefined();
   });
 
-  it.skip('array unshift and splice operations from remote client propagate', async () => {
+  it('array unshift and splice operations from remote client propagate', async () => {
     const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
     // Initialize list on A and let it sync to B

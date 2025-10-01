@@ -8,14 +8,11 @@ import { createRelayedProxiesMapRoot, waitMicrotask } from '../helpers/test-help
 describe('E2E: Y.Text Collaboration', () => {
   describe('Two Clients: Basic Y.Text Collaboration', () => {
     it('two clients can edit the same Y.Text document', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       // Client A creates a document with Y.Text
       const text = syncedText('Hello World');
       proxyA.document = text;
-      await waitMicrotask();
-
-      bootstrapA();
       await waitMicrotask();
 
       // Both clients should see the same text
@@ -31,15 +28,12 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('multiple Y.Text instances can be edited independently', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const title = syncedText('Title');
       const body = syncedText('Body content');
       proxyA.title = title;
       proxyA.body = body;
-      await waitMicrotask();
-
-      bootstrapA();
       await waitMicrotask();
 
       // Edit title on A
@@ -60,12 +54,10 @@ describe('E2E: Y.Text Collaboration', () => {
 
   describe('Concurrent Text Inserts', () => {
     it('concurrent inserts at different positions merge correctly', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello World');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // Sequential inserts with sync to ensure proper positions
@@ -89,12 +81,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('concurrent inserts at same position are ordered deterministically', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // Both clients insert at position 0
@@ -113,12 +103,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('rapid concurrent inserts converge correctly', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // Rapid inserts from both clients
@@ -140,12 +128,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('interleaved character inserts maintain consistency', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('abcdef');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A inserts at position 2
@@ -181,12 +167,10 @@ describe('E2E: Y.Text Collaboration', () => {
 
   describe('Concurrent Text Deletes', () => {
     it('concurrent deletes at different positions merge correctly', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello Beautiful World');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A deletes "Beautiful " (positions 6-16)
@@ -206,12 +190,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('overlapping deletes handle conflicts gracefully', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('0123456789');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A deletes positions 2-5 ("234")
@@ -231,12 +213,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('delete entire content from one client while other inserts', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello World');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A deletes everything
@@ -259,12 +239,10 @@ describe('E2E: Y.Text Collaboration', () => {
 
   describe('Mixed Insert and Delete Operations', () => {
     it('concurrent insert and delete at same position', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello World');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A inserts at position 5
@@ -285,12 +263,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('replace operation (delete + insert) conflicts with concurrent insert', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello World');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A replaces "World" with "Universe"
@@ -310,12 +286,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('multiple clients performing complex edits simultaneously', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('The quick brown fox jumps over the lazy dog');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A: Replace "quick" with "slow"
@@ -353,12 +327,10 @@ describe('E2E: Y.Text Collaboration', () => {
 
   describe('Y.Text Formatting (Attributes)', () => {
     it('can apply and sync text formatting attributes', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello World');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A applies bold formatting to "Hello"
@@ -375,12 +347,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('concurrent formatting operations on different ranges', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello Beautiful World');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A formats "Hello" as bold
@@ -405,12 +375,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('concurrent formatting on overlapping ranges', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello World');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A formats positions 0-7 as bold
@@ -432,12 +400,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('formatting persists through concurrent text edits', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello World');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A applies formatting
@@ -460,12 +426,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('removing formatting syncs correctly', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello World');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A applies formatting
@@ -490,13 +454,11 @@ describe('E2E: Y.Text Collaboration', () => {
 
   describe('Y.Text in Complex Structures', () => {
     it('multiple Y.Text instances in array sync correctly', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text1 = syncedText('First');
       const text2 = syncedText('Second');
       proxyA.texts = [text1, text2];
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // Edit both texts from different clients
@@ -511,7 +473,7 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('Y.Text in nested objects sync correctly', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       proxyA.document = {
         title: syncedText('Document Title'),
@@ -522,8 +484,6 @@ describe('E2E: Y.Text Collaboration', () => {
           }
         ]
       };
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // Edit from both clients
@@ -538,12 +498,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('replacing Y.Text while other client edits it', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Original');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // A replaces the entire text with a new Y.Text (this is a map key change)
@@ -563,14 +521,12 @@ describe('E2E: Y.Text Collaboration', () => {
 
   describe('Large Scale Y.Text Operations', () => {
     it('handles large text documents efficiently', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       // Create a large document
       const largeText = 'Lorem ipsum dolor sit amet. '.repeat(100);
       const text = syncedText(largeText);
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       expect(proxyB.text.toString()).toBe(largeText);
@@ -590,12 +546,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('handles many small edits in sequence', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // Simulate typing from both clients with sync after each operation
@@ -628,12 +582,10 @@ describe('E2E: Y.Text Collaboration', () => {
 
   describe('Y.Text Identity and References', () => {
     it('Y.Text reference remains stable across edits', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       const refA = proxyA.text;
@@ -652,14 +604,12 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('different Y.Text instances maintain separate identities', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text1 = syncedText('Text 1');
       const text2 = syncedText('Text 2');
       proxyA.text1 = text1;
       proxyA.text2 = text2;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       expect(proxyA.text1).not.toBe(proxyA.text2);
@@ -679,12 +629,10 @@ describe('E2E: Y.Text Collaboration', () => {
 
   describe('Edge Cases and Error Scenarios', () => {
     it('handles empty Y.Text collaboration', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText();
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       expect(proxyB.text.toString()).toBe('');
@@ -699,12 +647,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('handles Unicode and emoji in collaborative editing', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Hello 世界');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       proxyA.text.insert(8, ' 🌍');
@@ -721,12 +667,10 @@ describe('E2E: Y.Text Collaboration', () => {
     });
 
     it('handles rapid delete and recreate of Y.Text', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text1 = syncedText('First');
       proxyA.text = text1;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       expect(proxyB.text.toString()).toBe('First');

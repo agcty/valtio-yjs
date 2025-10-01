@@ -141,8 +141,7 @@ describe('Integration: Y.Text Operations', () => {
       const yText = new Y.Text('Existing content');
       yRoot.set('description', yText);
 
-      const { bootstrap, proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-      bootstrap();
+      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
 
       expect(proxy.description).toBeInstanceOf(Y.Text);
       expect(proxy.description.toString()).toBe('Existing content');
@@ -157,8 +156,7 @@ describe('Integration: Y.Text Operations', () => {
       yNested.set('text', yText);
       yRoot.set('nested', yNested);
 
-      const { bootstrap, proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-      bootstrap();
+      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
 
       expect(proxy.nested.text).toBeInstanceOf(Y.Text);
       expect(proxy.nested.text.toString()).toBe('Nested text');
@@ -171,8 +169,7 @@ describe('Integration: Y.Text Operations', () => {
       const yText = new Y.Text('Item text');
       yArr.push([yText]);
 
-      const { bootstrap, proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
-      bootstrap();
+      const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
 
       expect(proxy[0]).toBeInstanceOf(Y.Text);
       expect(proxy[0].toString()).toBe('Item text');
@@ -187,8 +184,7 @@ describe('Integration: Y.Text Operations', () => {
       yRoot.set('text1', yText1);
       yRoot.set('text2', yText2);
 
-      const { bootstrap, proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-      bootstrap();
+      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
 
       expect(proxy.text1.toString()).toBe('First');
       expect(proxy.text2.toString()).toBe('Second');
@@ -200,13 +196,11 @@ describe('Integration: Y.Text Operations', () => {
     it('syncs Y.Text changes to proxy', () => {
       const doc = new Y.Doc();
       const yRoot = doc.getMap<any>('root');
-      const { bootstrap, proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
 
       // Add Y.Text via Yjs directly (simulating remote change)
       const yText = new Y.Text('Remote text');
       yRoot.set('description', yText);
-
-      bootstrap();
 
       expect(proxy.description).toBeInstanceOf(Y.Text);
       expect(proxy.description.toString()).toBe('Remote text');
@@ -218,8 +212,7 @@ describe('Integration: Y.Text Operations', () => {
       const yText = new Y.Text('Initial');
       yRoot.set('text', yText);
 
-      const { bootstrap, proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-      bootstrap();
+      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
 
       // Modify Y.Text directly (simulating remote change)
       yText.insert(7, ' content');
@@ -233,8 +226,7 @@ describe('Integration: Y.Text Operations', () => {
       const yText = new Y.Text('Delete me');
       yRoot.set('text', yText);
 
-      const { bootstrap, proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-      bootstrap();
+      const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
 
       // Delete from Y.Text (simulating remote change)
       yText.delete(0, 7);
@@ -390,13 +382,10 @@ describe('Integration: Y.Text Operations', () => {
 
   describe('Y.Text Two-Client Collaboration', () => {
     it('Y.Text changes sync between two clients', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Shared text');
       proxyA.text = text;
-      await waitMicrotask();
-
-      bootstrapA();
       await waitMicrotask();
 
       expect(proxyB.text).toBeInstanceOf(Y.Text);
@@ -404,13 +393,11 @@ describe('Integration: Y.Text Operations', () => {
     });
 
     it('concurrent Y.Text inserts merge correctly', async () => {
-      const { docA, docB, proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { docA, docB, proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       // Setup shared Y.Text
       const text = syncedText('');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // Concurrent inserts at different positions
@@ -428,12 +415,10 @@ describe('Integration: Y.Text Operations', () => {
     });
 
     it('Y.Text modifications sync in real-time', async () => {
-      const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
+      const { proxyA, proxyB } = createRelayedProxiesMapRoot();
 
       const text = syncedText('Initial');
       proxyA.text = text;
-      await waitMicrotask();
-      bootstrapA();
       await waitMicrotask();
 
       // Client A appends

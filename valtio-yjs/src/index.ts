@@ -29,7 +29,7 @@ export interface CreateYjsProxyOptions<_T> {
 export interface YjsProxy<T> {
   proxy: T;
   dispose: () => void;
-  bootstrap: (data: T) => void;
+  bootstrap: (data?: T) => void;
 }
 
 export function createYjsProxy<T extends object>(
@@ -49,7 +49,11 @@ export function createYjsProxy<T extends object>(
   const stateProxy = getOrCreateValtioProxy(context, yRoot, doc);
 
   // 2. Provide developer-driven bootstrap for initial data.
-  const bootstrap = (data: T) => {
+  const bootstrap = (data?: T) => {
+    // If no data provided, this is a no-op (initial reconciliation happens automatically)
+    if (!data) {
+      return;
+    }
     if ((isYMap(yRoot) && yRoot.size > 0) || (isYArray(yRoot) && yRoot.length > 0)) {
       // Use console.warn directly here to ensure visibility, independent of debug
       console.warn('[valtio-yjs] bootstrap called on a non-empty document. Aborting to prevent data loss.');
@@ -88,6 +92,16 @@ export function createYjsProxy<T extends object>(
 
   // 3. Set up the reconciler-backed listener for remote changes.
   const disposeSync = setupSyncListener(context, doc, yRoot);
+
+  // 3.5. If the document already has data, do an initial reconciliation
+  // This handles the case where data exists before the proxy is created
+  if ((isYMap(yRoot) && yRoot.size > 0) || (isYArray(yRoot) && yRoot.length > 0)) {
+    if (isYMap(yRoot)) {
+      reconcileValtioMap(context, yRoot, doc);
+    } else if (isYArray(yRoot)) {
+      reconcileValtioArray(context, yRoot, doc);
+    }
+  }
 
   // 4. Return the proxy, dispose, and bootstrap function.
   const dispose = () => {

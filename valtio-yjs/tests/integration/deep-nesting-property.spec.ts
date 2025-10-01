@@ -71,8 +71,9 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
             
             // Navigate to parent
             for (let i = 0; i < path.length - 1; i++) {
-              if (current && typeof current === 'object' && !Array.isArray(current)) {
-                current = current[path[i]];
+              const key = path[i];
+              if (key !== undefined && current && typeof current === 'object' && !Array.isArray(current)) {
+                current = current[key];
               } else {
                 isValidPath = false;
                 break;
@@ -82,20 +83,25 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
             // If valid path to an object, set the value
             if (isValidPath && current && typeof current === 'object' && !Array.isArray(current)) {
               const lastKey = path[path.length - 1];
-              current[lastKey] = newValue;
-              await waitMicrotask();
+              if (lastKey !== undefined) {
+                current[lastKey] = newValue;
+                await waitMicrotask();
 
-              // Invariant: Mutation should be reflected in Y.js
-              const yJSON = (yRoot.get('data') as Y.Map<any>).toJSON();
-              
-              // Navigate the expected path
-              let expected: any = yJSON;
-              for (let i = 0; i < path.length - 1; i++) {
-                expected = expected?.[path[i]];
-              }
-              
-              if (expected && typeof expected === 'object') {
-                expect(expected[path[path.length - 1]]).toEqual(newValue);
+                // Invariant: Mutation should be reflected in Y.js
+                const yJSON = (yRoot.get('data') as Y.Map<any>).toJSON();
+                
+                // Navigate the expected path
+                let expected: any = yJSON;
+                for (let i = 0; i < path.length - 1; i++) {
+                  const key = path[i];
+                  if (key !== undefined) {
+                    expected = expected?.[key];
+                  }
+                }
+                
+                if (expected && typeof expected === 'object') {
+                  expect(expected[lastKey]).toEqual(newValue);
+                }
               }
             }
           }
@@ -192,7 +198,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
 
             // Spot check random keys
             const keys = Object.keys(wideObject);
-            const sampleKeys = [keys[0], keys[Math.floor(keys.length / 2)], keys[keys.length - 1]];
+            const sampleKeys = [keys[0], keys[Math.floor(keys.length / 2)], keys[keys.length - 1]].filter((k): k is string => k !== undefined);
             
             for (const key of sampleKeys) {
               expect(yData.get(key)).toEqual(wideObject[key]);
@@ -222,16 +228,19 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
 
             // Apply random mutations
             const keys = Object.keys(wideObject);
-            for (const [_, newValue] of mutations) {
-              if (keys.length > 0) {
+            for (const mutation of mutations) {
+              if (mutation && keys.length > 0) {
+                const [_, newValue] = mutation;
                 const randomKey = keys[Math.floor(Math.random() * keys.length)];
-                proxy.data[randomKey] = newValue;
-                await waitMicrotask();
+                if (randomKey !== undefined) {
+                  proxy.data[randomKey] = newValue;
+                  await waitMicrotask();
 
-                // Invariant: Specific key should be updated
-                const yData = yRoot.get('data') as Y.Map<any>;
-                expect(yData.get(randomKey)).toEqual(newValue);
-                expect(proxy.data[randomKey]).toEqual(newValue);
+                  // Invariant: Specific key should be updated
+                  const yData = yRoot.get('data') as Y.Map<any>;
+                  expect(yData.get(randomKey)).toEqual(newValue);
+                  expect(proxy.data[randomKey]).toEqual(newValue);
+                }
               }
             }
           }
@@ -315,14 +324,20 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
             const maxLength = Math.max(mutationsA.length, mutationsB.length);
             for (let i = 0; i < maxLength; i++) {
               if (i < mutationsA.length) {
-                const [key, value] = mutationsA[i];
-                mutationSequence.push({ client: 'A', key, value });
-                lastWrites.set(key, value);
+                const mutation = mutationsA[i];
+                if (mutation) {
+                  const [key, value] = mutation;
+                  mutationSequence.push({ client: 'A', key, value });
+                  lastWrites.set(key, value);
+                }
               }
               if (i < mutationsB.length) {
-                const [key, value] = mutationsB[i];
-                mutationSequence.push({ client: 'B', key, value });
-                lastWrites.set(key, value);
+                const mutation = mutationsB[i];
+                if (mutation) {
+                  const [key, value] = mutation;
+                  mutationSequence.push({ client: 'B', key, value });
+                  lastWrites.set(key, value);
+                }
               }
             }
 
