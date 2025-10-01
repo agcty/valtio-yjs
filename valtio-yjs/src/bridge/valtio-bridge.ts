@@ -17,6 +17,13 @@ import { LOG_PREFIX } from '../core/constants.js';
 import { planMapOps } from '../planning/mapOpsPlanner.js';
 import { planArrayOps } from '../planning/arrayOpsPlanner.js';
 import { validateDeepForSharedState } from '../converter.js';
+import { 
+  getContainerValue,
+  setContainerValue,
+  isRawSetMapOp,
+  isRawSetArrayOp,
+  type RawValtioOperation,
+} from '../core/types.js';
 
 
 // All caches are moved into SynchronizationContext
@@ -28,18 +35,14 @@ function upgradeChildIfNeeded(
   yValue: unknown,
   doc: Y.Doc,
 ): void {
-  const current = (container as Record<string, unknown> | unknown[])[key as keyof typeof container] as unknown;
+  const current = getContainerValue(container, key);
   // Optimize: single WeakMap lookup instead of .has() + potential .get()
   const underlyingYType = current && typeof current === 'object' ? context.valtioProxyToYType.get(current as object) : undefined;
   const isAlreadyController = underlyingYType !== undefined;
   if (!isAlreadyController && isYSharedContainer(yValue)) {
     const newController = getOrCreateValtioProxy(context, yValue, doc);
     context.withReconcilingLock(() => {
-      if (Array.isArray(container) && typeof key === 'number') {
-        (container as unknown[])[key] = newController as unknown;
-      } else {
-        (container as Record<string, unknown>)[String(key)] = newController as unknown;
-      }
+      setContainerValue(container, key, newController);
     });
   }
 }
@@ -118,12 +121,12 @@ function attachValtioArraySubscription(
     } catch (err) {
       // Rollback local proxy to previous values using ops metadata
       context.withReconcilingLock(() => {
-        for (const op of ops as unknown[]) {
-          if (Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1) {
+        for (const op of ops as RawValtioOperation[]) {
+          if (isRawSetArrayOp(op)) {
             const idx = op[1][0];
-            const prev = (op as ['set', [number | string], unknown, unknown])[3];
             const index = typeof idx === 'number' ? idx : Number.parseInt(String(idx), 10);
-            (arrProxy as unknown[])[index] = prev as unknown;
+            const prev = op[3];
+            arrProxy[index] = prev;
           }
         }
       });
@@ -174,18 +177,16 @@ function attachValtioMapSubscription(
     } catch (err) {
       // Rollback local proxy to previous values using ops metadata
       context.withReconcilingLock(() => {
-        for (const op of ops as unknown[]) {
-          if (Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1) {
+        for (const op of ops as RawValtioOperation[]) {
+          if (isRawSetMapOp(op)) {
             const key = op[1][0];
-            const prev = (op as ['set', [string], unknown, unknown])[3];
-            if (typeof key === 'string' || typeof key === 'number') {
-              if (prev === undefined) {
-                // Key didn't exist before, delete it
-                delete objProxy[String(key)];
-              } else {
-                // Restore previous value
-                objProxy[String(key)] = prev as unknown;
-              }
+            const prev = op[3];
+            if (prev === undefined) {
+              // Key didn't exist before, delete it
+              delete objProxy[key];
+            } else {
+              // Restore previous value
+              objProxy[key] = prev;
             }
           }
         }

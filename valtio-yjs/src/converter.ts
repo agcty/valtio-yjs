@@ -1,14 +1,7 @@
 import * as Y from 'yjs';
 import { SynchronizationContext } from './core/context.js';
 import { isYArray, isYMap, isYAbstractType } from './core/guards.js';
-
-
-/** Returns true if value is a plain object (created by object literal or with null prototype). */
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (value === null || typeof value !== 'object') return false;
-  const proto = Object.getPrototypeOf(value);
-  return proto === Object.prototype || proto === null;
-}
+import { isPlainObject } from './core/types.js';
 
 /**
  * Converts known special object instances to serializable primitive representations.

@@ -4,6 +4,7 @@ import type { SynchronizationContext } from '../core/context.js';
 import { plainObjectToYType } from '../converter.js';
 import { reconcileValtioArray } from '../reconcile/reconciler.js';
 import type { PostTransactionQueue } from '../scheduling/postTransactionQueue.js';
+import { getYItemId, getYDoc, yTypeToJSON, hasProperty } from '../core/types.js';
 
 /**
  * Execute array operations with cleaner multi-stage approach based on explicit intents.
@@ -32,7 +33,7 @@ export function applyArrayOperations(
 
     // DEBUG-TRACE: per-array batch snapshot
     context.log.debug('Applying ops for Y.Array:', {
-      targetId: (yArray as unknown as { _item?: { id?: { toString?: () => string } } })._item?.id?.toString?.(),
+      targetId: getYItemId(yArray),
       replaces: Array.from(replacesForArray.keys()).sort((a, b) => a - b),
       deletes: Array.from(deletesForArray.values()).sort((a, b) => a - b),
       sets: Array.from(setsForArray.keys()).sort((a, b) => a - b),
@@ -65,10 +66,12 @@ export function applyArrayOperations(
     // Ensure the controller array proxy structure is fully reconciled after mixed operations
     // to materialize any deep children created during inserts/replaces.
     const arrayDocNow = getYDoc(yArray);
-    context.log.debug('scheduling finalize reconcile for array', {
-      len: yArray.length,
-    });
-    postQueue.enqueue(() => reconcileValtioArray(context, yArray, arrayDocNow!));
+    if (arrayDocNow) {
+      context.log.debug('scheduling finalize reconcile for array', {
+        len: yArray.length,
+      });
+      postQueue.enqueue(() => reconcileValtioArray(context, yArray, arrayDocNow));
+    }
   }
 }
 
@@ -184,8 +187,8 @@ function handleSets(
     const yValue = plainObjectToYType(entry.value, context);
     context.log.debug('apply.set.prepare', {
       index,
-      hasId: !!((entry.value as { id?: unknown } | null)?.id),
-      id: (entry.value as { id?: unknown } | null)?.id,
+      hasId: hasProperty(entry.value, 'id'),
+      id: hasProperty(entry.value, 'id') ? entry.value.id : undefined,
     });
 
     const shouldAppend = index >= lengthAtStart || index >= firstDeleteIndex || index >= yArray.length;
@@ -201,10 +204,13 @@ function handleSets(
     });
 
     yArray.insert(targetIndex, [yValue]);
+    const yValueId = typeof yValue === 'object' && yValue !== null && 'get' in yValue && typeof yValue.get === 'function' 
+      ? (yValue.get as (key: string) => unknown)('id') 
+      : undefined;
     context.log.debug('apply.set.inserted', {
       targetIndex,
-      hasYId: !!((yValue as unknown as { get?: (k: string) => unknown } | null)?.get?.('id')),
-      id: (yValue as unknown as { get?: (k: string) => unknown } | null)?.get?.('id'),
+      hasYId: yValueId !== undefined,
+      id: yValueId,
     });
     if (shouldAppend) tailCursor++;
 
@@ -307,12 +313,7 @@ function tryOptimizedInserts(
   return false; // No optimization applied
 }
 
-// Yjs helpers
-function getYDoc(target: unknown): Y.Doc | undefined {
-  return (target as { doc?: Y.Doc | undefined })?.doc;
-}
-
+// Helper to safely convert Y.Array to JSON for logging
 function toJSONSafe(yArray: Y.Array<unknown>): unknown {
-  const arr: unknown = (yArray as unknown as { toJSON?: () => unknown }).toJSON?.();
-  return arr ?? undefined;
+  return yTypeToJSON(yArray);
 }

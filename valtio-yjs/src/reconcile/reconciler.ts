@@ -3,6 +3,7 @@ import { getOrCreateValtioProxy, getValtioProxyForYType } from '../bridge/valtio
 import { SynchronizationContext } from '../core/context.js';
 
 import { isYSharedContainer, isYArray, isYMap } from '../core/guards.js';
+import { yTypeToJSON } from '../core/types.js';
 
 // Reconciler layer
 //
@@ -29,7 +30,7 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     context.log.debug('reconcileValtioMap start', {
       yKeys: Array.from(yMap.keys()),
       valtioKeys: Object.keys(valtioProxy),
-      yJson: typeof yMap.toJSON === 'function' ? yMap.toJSON() : undefined,
+      yJson: yTypeToJSON(yMap),
     });
     const yKeys = new Set(Array.from(yMap.keys()).map((k) => String(k)));
     const valtioKeys = new Set(Object.keys(valtioProxy));
@@ -112,7 +113,7 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
     context.log.debug('reconcileValtioArray start', {
       yLength: yArray.length,
       valtioLength: valtioProxy.length,
-      yJson: (yArray as unknown as { toJSON?: () => unknown }).toJSON?.(),
+      yJson: yTypeToJSON(yArray),
     });
     const newContent = yArray
       .toArray()

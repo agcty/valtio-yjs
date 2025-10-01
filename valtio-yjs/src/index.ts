@@ -9,6 +9,17 @@ import { SynchronizationContext } from './core/context.js';
 import { isYArray, isYMap } from './core/guards.js';
 import { reconcileValtioArray, reconcileValtioMap } from './reconcile/reconciler.js';
 
+// Export type utilities for advanced users
+export type {
+  ValtioProxy,
+  ValtioProxyObject,
+  ValtioProxyArray,
+  ValtioMapOperation,
+  ValtioArrayOperation,
+  ValtioOperation,
+  RawValtioOperation,
+} from './core/types.js';
+
 export interface CreateYjsProxyOptions<_T> {
   getRoot: (doc: Y.Doc) => Y.Map<unknown> | Y.Array<unknown>;
   debug?: boolean;
