@@ -1,6 +1,6 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from 'valtio-yjs';
 
@@ -11,7 +11,6 @@ describe('Comprehensive Edge Cases', () => {
     it('should preserve object identity when possible', async () => {
       const doc = new Y.Doc();
       const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-      const yRoot = doc.getMap<any>('root');
 
       // Create nested structure
       proxy.items = [{ id: 1, data: { value: 'a' } }];
@@ -42,8 +41,6 @@ describe('Comprehensive Edge Cases', () => {
       await waitMicrotask();
       
       const containerRef = proxy.container;
-      const itemsRef = proxy.container.items;
-      const childrenRef = proxy.container.items[0].children;
       
       // Replace the entire container
       proxy.container = {
@@ -139,7 +136,7 @@ describe('Comprehensive Edge Cases', () => {
       const docB = new Y.Doc();
       
       const { proxy: proxyA } = createYjsProxy<any[]>(docA, { getRoot: (d) => d.getArray('arr') });
-      const { proxy: proxyB } = createYjsProxy<any[]>(docB, { getRoot: (d) => d.getArray('arr') });
+      createYjsProxy<any[]>(docB, { getRoot: (d) => d.getArray('arr') });
       
       // Set up relay with delay to simulate network
       docA.on('update', async (update: Uint8Array) => {

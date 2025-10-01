@@ -397,7 +397,7 @@ describe('Array Operations Detailed Testing', () => {
     }
 
     it('should sync simple replace operations between clients', async () => {
-      const { proxyA, proxyB, yArrA, yArrB } = createTwoClientSetup();
+      const { proxyA, proxyB, yArrB } = createTwoClientSetup();
       
       // Initialize on A
       proxyA.push('a', 'b', 'c');
@@ -413,7 +413,7 @@ describe('Array Operations Detailed Testing', () => {
     });
 
     it('should sync delete operations between clients', async () => {
-      const { proxyA, proxyB, yArrA, yArrB } = createTwoClientSetup();
+      const { proxyA, proxyB, yArrB } = createTwoClientSetup();
       
       // Initialize on A
       proxyA.push('a', 'b', 'c');

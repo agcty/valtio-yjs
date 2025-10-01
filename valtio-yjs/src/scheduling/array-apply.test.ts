@@ -501,11 +501,9 @@ describe('Bulk Insert Optimization - Y.Array Event Verification', () => {
     await waitMicrotask();
 
     const yArray = doc.getArray('arr');
-    let eventCount = 0;
     let totalInserted = 0;
 
     yArray.observe((event) => {
-      eventCount++;
       event.changes.delta.forEach((change) => {
         if ('insert' in change && Array.isArray(change.insert)) {
           totalInserted += change.insert.length;

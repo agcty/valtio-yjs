@@ -191,9 +191,9 @@ describe('WriteScheduler merge check investigation', () => {
       const yItems = doc.getMap('root').get('items') as Y.Array<unknown>;
       
       // Get references to original Y types
-      const orig0 = yItems.get(0);
-      const orig2 = yItems.get(2);
-      const orig4 = yItems.get(4);
+      const _orig0 = yItems.get(0);
+      const _orig2 = yItems.get(2);
+      const _orig4 = yItems.get(4);
       
       // Replace with same structure (Y.Map -> Y.Map)
       proxy.items[0] = { id: 1, value: 'modified_a' };
@@ -202,9 +202,9 @@ describe('WriteScheduler merge check investigation', () => {
       
       // After replace, the Y.Map identity should be preserved where possible
       // (this is what replace operations do - they update in place)
-      const new0 = yItems.get(0);
-      const new2 = yItems.get(2);
-      const new4 = yItems.get(4);
+      const _new0 = yItems.get(0);
+      const _new2 = yItems.get(2);
+      const _new4 = yItems.get(4);
       
       // Note: Identity preservation depends on planner's replace detection
       // If it's properly classified as replace, identity is preserved

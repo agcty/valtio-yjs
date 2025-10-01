@@ -3,6 +3,9 @@ import * as Y from 'yjs';
 import { createYjsProxy } from '../index';
 import { yTypeToPlainObject } from '../core/converter';
 
+// Helper type for accessing internal Y.js properties
+type YTypeWithInternals = { _item?: { id?: { toString: () => string } } };
+
 const waitMicrotask = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 /**
@@ -139,7 +142,7 @@ describe('Conservative merge check - detailed analysis', () => {
     
     const yItems = doc.getMap('root').get('items') as Y.Array<unknown>;
     const originalItem = yItems.get(0);
-    const originalId = (originalItem as any)._item?.id?.toString();
+    const originalId = (originalItem as YTypeWithInternals)._item?.id?.toString();
     
     console.log('Original item Y.ID:', originalId);
     
@@ -148,7 +151,7 @@ describe('Conservative merge check - detailed analysis', () => {
     await waitMicrotask();
     
     const newItem = yItems.get(0);
-    const newId = (newItem as any)._item?.id?.toString();
+    const newId = (newItem as YTypeWithInternals)._item?.id?.toString();
     
     console.log('After single assignment Y.ID:', newId);
     console.log('Identity preserved?', originalId === newId);
@@ -167,8 +170,8 @@ describe('Conservative merge check - detailed analysis', () => {
     const yItems = doc.getMap('root').get('items') as Y.Array<unknown>;
     const originalItem0 = yItems.get(0);
     const originalItem2 = yItems.get(2);
-    const originalId0 = (originalItem0 as any)._item?.id?.toString();
-    const originalId2 = (originalItem2 as any)._item?.id?.toString();
+    const originalId0 = (originalItem0 as YTypeWithInternals)._item?.id?.toString();
+    const originalId2 = (originalItem2 as YTypeWithInternals)._item?.id?.toString();
     
     console.log('Original item[0] Y.ID:', originalId0);
     console.log('Original item[2] Y.ID:', originalId2);
@@ -180,8 +183,8 @@ describe('Conservative merge check - detailed analysis', () => {
     
     const newItem0 = yItems.get(0);
     const newItem2 = yItems.get(2);
-    const newId0 = (newItem0 as any)._item?.id?.toString();
-    const newId2 = (newItem2 as any)._item?.id?.toString();
+    const newId0 = (newItem0 as YTypeWithInternals)._item?.id?.toString();
+    const newId2 = (newItem2 as YTypeWithInternals)._item?.id?.toString();
     
     console.log('After multiple assignments item[0] Y.ID:', newId0);
     console.log('After multiple assignments item[2] Y.ID:', newId2);

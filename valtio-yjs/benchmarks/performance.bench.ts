@@ -46,7 +46,7 @@ describe('Large Arrays Performance', () => {
   bench(
     'bootstrap 1000 items',
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<{ items: Array<{ id: number; value: string }> }>(
+      const { bootstrap, dispose } = createDocWithProxy<{ items: Array<{ id: number; value: string }> }>(
         (d) => d.getMap('root')
       );
 
@@ -70,7 +70,7 @@ describe('Large Arrays Performance', () => {
   bench(
     'bootstrap 5000 items',
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<{ items: Array<{ id: number; value: string }> }>(
+      const { bootstrap, dispose } = createDocWithProxy<{ items: Array<{ id: number; value: string }> }>(
         (d) => d.getMap('root')
       );
 
@@ -210,7 +210,8 @@ describe('Large Arrays Performance', () => {
 
 describe('Deep Nesting Performance', () => {
   // Helper to create deeply nested structure
-  function createDeepStructure(depth: number): any {
+  type DeepStructure = { value: string } | { nested: DeepStructure };
+  function createDeepStructure(depth: number): DeepStructure {
     if (depth === 0) {
       return { value: 'leaf' };
     }
@@ -220,17 +221,17 @@ describe('Deep Nesting Performance', () => {
   bench(
     'access deep property (10 levels) - lazy materialization',
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<any>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
 
       bootstrap({ data: createDeepStructure(10) });
       await waitMicrotask();
 
       // Access deep property (forces materialization)
-      let current = proxy.data;
+      let current: Record<string, unknown> = (proxy as Record<string, unknown>).data as Record<string, unknown>;
       for (let i = 0; i < 10; i++) {
-        current = current.nested;
+        current = current.nested as Record<string, unknown>;
       }
-      const value = current.value;
+      const _value = (current as { value: string }).value;
 
       dispose();
     },
@@ -242,17 +243,17 @@ describe('Deep Nesting Performance', () => {
   bench(
     'access deep property (20 levels) - lazy materialization',
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<any>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
 
       bootstrap({ data: createDeepStructure(20) });
       await waitMicrotask();
 
       // Access deep property (forces materialization)
-      let current = proxy.data;
+      let current: Record<string, unknown> = (proxy as Record<string, unknown>).data as Record<string, unknown>;
       for (let i = 0; i < 20; i++) {
-        current = current.nested;
+        current = current.nested as Record<string, unknown>;
       }
-      const value = current.value;
+      const _value = (current as { value: string }).value;
 
       dispose();
     },
@@ -264,19 +265,19 @@ describe('Deep Nesting Performance', () => {
   bench(
     'mutate deep property (10 levels) - propagation time',
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<any>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
 
       bootstrap({ data: createDeepStructure(10) });
       await waitMicrotask();
 
       // Navigate to deep property
-      let current = proxy.data;
+      let current: Record<string, unknown> = (proxy as Record<string, unknown>).data as Record<string, unknown>;
       for (let i = 0; i < 9; i++) {
-        current = current.nested;
+        current = current.nested as Record<string, unknown>;
       }
 
       // Mutate at depth
-      current.nested.value = 'mutated';
+      ((current.nested as Record<string, unknown>).value as string) = 'mutated';
       await waitMicrotask();
 
       dispose();
@@ -289,19 +290,19 @@ describe('Deep Nesting Performance', () => {
   bench(
     'mutate deep property (20 levels) - propagation time',
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<any>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
 
       bootstrap({ data: createDeepStructure(20) });
       await waitMicrotask();
 
       // Navigate to deep property
-      let current = proxy.data;
+      let current: Record<string, unknown> = (proxy as Record<string, unknown>).data as Record<string, unknown>;
       for (let i = 0; i < 19; i++) {
-        current = current.nested;
+        current = current.nested as Record<string, unknown>;
       }
 
       // Mutate at depth
-      current.nested.value = 'mutated';
+      ((current.nested as Record<string, unknown>).value as string) = 'mutated';
       await waitMicrotask();
 
       dispose();
@@ -314,15 +315,15 @@ describe('Deep Nesting Performance', () => {
   bench(
     'replace mid-level object in deep structure (10 levels)',
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<any>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
 
       bootstrap({ data: createDeepStructure(10) });
       await waitMicrotask();
 
       // Navigate to mid-level (level 5)
-      let current = proxy.data;
+      let current: Record<string, unknown> = (proxy as Record<string, unknown>).data as Record<string, unknown>;
       for (let i = 0; i < 4; i++) {
-        current = current.nested;
+        current = current.nested as Record<string, unknown>;
       }
 
       // Replace mid-level object (tests subtree purging)
@@ -340,14 +341,14 @@ describe('Deep Nesting Performance', () => {
     'bootstrap deep structure vs shallow - comparison',
     async () => {
       // Deep structure
-      const { proxy: proxyDeep, bootstrap: bootstrapDeep, dispose: disposeDeep } = createDocWithProxy<any>(
+      const { bootstrap: bootstrapDeep, dispose: disposeDeep } = createDocWithProxy<Record<string, unknown>>(
         (d) => d.getMap('root')
       );
       bootstrapDeep({ data: createDeepStructure(15) });
       await waitMicrotask();
 
       // Shallow structure with equivalent data
-      const { proxy: proxyShallow, bootstrap: bootstrapShallow, dispose: disposeShallow } = createDocWithProxy<any>(
+      const { bootstrap: bootstrapShallow, dispose: disposeShallow } = createDocWithProxy<Record<string, unknown>>(
         (d) => d.getMap('root')
       );
       bootstrapShallow({ items: Array(100).fill({ value: 'leaf' }) });
@@ -546,12 +547,12 @@ describe('Multi-Client Sync Latency', () => {
       await waitMicrotask();
 
       // Measure sync time
-      const start = performance.now();
+      const _start = performance.now();
       proxyA.proxy.value = 42;
       await waitMicrotask();
       // Access on B to verify sync
-      const synced = proxyB.proxy.value === 42;
-      const end = performance.now();
+      const _synced = proxyB.proxy.value === 42;
+      const _end = performance.now();
 
       proxyA.dispose();
       proxyB.dispose();
@@ -566,10 +567,10 @@ describe('Multi-Client Sync Latency', () => {
     async () => {
       const { docA, docB } = createTwoDocsWithRelay();
 
-      const proxyA = createYjsProxy<any>(docA, {
+      const proxyA = createYjsProxy<Record<string, unknown>>(docA, {
         getRoot: (d) => d.getMap('root'),
       });
-      const proxyB = createYjsProxy<any>(docB, {
+      const proxyB = createYjsProxy<Record<string, unknown>>(docB, {
         getRoot: (d) => d.getMap('root'),
       });
 
@@ -577,9 +578,9 @@ describe('Multi-Client Sync Latency', () => {
       await waitMicrotask();
 
       // Update nested object
-      proxyA.proxy.user.profile.bio = 'Senior Developer';
+      (((proxyA.proxy as Record<string, unknown>).user as Record<string, unknown>).profile as Record<string, unknown>).bio = 'Senior Developer';
       await waitMicrotask();
-      const synced = proxyB.proxy.user.profile.bio === 'Senior Developer';
+      const _synced = (((proxyB.proxy as Record<string, unknown>).user as Record<string, unknown>).profile as Record<string, unknown>).bio === 'Senior Developer';
 
       proxyA.dispose();
       proxyB.dispose();
@@ -606,10 +607,10 @@ describe('Multi-Client Sync Latency', () => {
 
       // Push 100 items in one batch
       for (let i = 0; i < 100; i++) {
-        proxyA.proxy.items.push({ id: i, value: `item-${i}` });
+        ((proxyA.proxy as Record<string, unknown>).items as Array<unknown>).push({ id: i, value: `item-${i}` });
       }
       await waitMicrotask();
-      const synced = proxyB.proxy.items.length === 100;
+      const _synced = ((proxyB.proxy as Record<string, unknown>).items as Array<unknown>).length === 100;
 
       proxyA.dispose();
       proxyB.dispose();
@@ -636,10 +637,10 @@ describe('Multi-Client Sync Latency', () => {
 
       // Update all 100 items in same tick
       for (let i = 0; i < 100; i++) {
-        proxyA.proxy[i].count++;
+        ((proxyA.proxy as Array<Record<string, unknown>>)[i] as Record<string, number>).count++;
       }
       await waitMicrotask();
-      const synced = proxyB.proxy[0].count === 1;
+      const _synced = ((proxyB.proxy as Array<Record<string, unknown>>)[0] as Record<string, number>).count === 1;
 
       proxyA.dispose();
       proxyB.dispose();
@@ -665,12 +666,12 @@ describe('Multi-Client Sync Latency', () => {
       await waitMicrotask();
 
       // Update from both sides
-      proxyA.proxy.counterA++;
-      proxyB.proxy.counterB++;
+      ((proxyA.proxy as Record<string, number>).counterA as number)++;
+      ((proxyB.proxy as Record<string, number>).counterB as number)++;
       await waitMicrotask();
 
-      const syncedA = proxyA.proxy.counterB === 1;
-      const syncedB = proxyB.proxy.counterA === 1;
+      const _syncedA = (proxyA.proxy as Record<string, number>).counterB === 1;
+      const _syncedB = (proxyB.proxy as Record<string, number>).counterA === 1;
 
       proxyA.dispose();
       proxyB.dispose();
@@ -685,14 +686,15 @@ describe('Multi-Client Sync Latency', () => {
     async () => {
       const { docA, docB } = createTwoDocsWithRelay();
 
-      const proxyA = createYjsProxy<any>(docA, {
+      const proxyA = createYjsProxy<Record<string, unknown>>(docA, {
         getRoot: (d) => d.getMap('root'),
       });
-      const proxyB = createYjsProxy<any>(docB, {
+      const proxyB = createYjsProxy<Record<string, unknown>>(docB, {
         getRoot: (d) => d.getMap('root'),
       });
 
-      function createDeepStructure(depth: number): any {
+      type DeepStructure = { value: string } | { nested: DeepStructure };
+      function createDeepStructure(depth: number): DeepStructure {
         if (depth === 0) return { value: 'leaf' };
         return { nested: createDeepStructure(depth - 1) };
       }
@@ -701,19 +703,19 @@ describe('Multi-Client Sync Latency', () => {
       await waitMicrotask();
 
       // Navigate and mutate deep property
-      let current = proxyA.proxy.data;
+      let current: Record<string, unknown> = (proxyA.proxy as Record<string, unknown>).data as Record<string, unknown>;
       for (let i = 0; i < 9; i++) {
-        current = current.nested;
+        current = current.nested as Record<string, unknown>;
       }
-      current.nested.value = 'updated';
+      ((current.nested as Record<string, unknown>).value as string) = 'updated';
       await waitMicrotask();
 
       // Verify on B
-      let currentB = proxyB.proxy.data;
+      let currentB: Record<string, unknown> = (proxyB.proxy as Record<string, unknown>).data as Record<string, unknown>;
       for (let i = 0; i < 9; i++) {
-        currentB = currentB.nested;
+        currentB = currentB.nested as Record<string, unknown>;
       }
-      const synced = currentB.nested.value === 'updated';
+      const _synced = ((currentB.nested as Record<string, unknown>).value as string) === 'updated';
 
       proxyA.dispose();
       proxyB.dispose();
@@ -747,7 +749,7 @@ describe('Memory & Efficiency', () => {
 
       // Only access 10% (tests lazy materialization benefit)
       for (let i = 0; i < 100; i++) {
-        const value = proxy.items[i * 10].nested.value;
+        const _value = (((proxy as Record<string, unknown>).items as Array<Record<string, unknown>>)[i * 10] as Record<string, Record<string, string>>).nested.value;
       }
 
       dispose();
@@ -1033,11 +1035,11 @@ describe('Bulk Insert Optimization Impact', () => {
 
       // Bulk push on A
       const items = Array.from({ length: 100 }, (_, i) => ({ id: i }));
-      proxyA.proxy.push(...items);
+      (proxyA.proxy as Array<{ id: number }>).push(...items);
       await waitMicrotask();
 
       // Verify sync
-      const synced = proxyB.proxy.length === 100;
+      const _synced = (proxyB.proxy as Array<{ id: number }>).length === 100;
 
       proxyA.dispose();
       proxyB.dispose();

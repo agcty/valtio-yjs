@@ -129,7 +129,7 @@ describe('Valtio Proxy vs Raw Y Type behavior', () => {
 
     it('should prevent assigning raw Y.Array that already has a parent', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<Record<string, unknown>>(doc, {
+      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, {
         getRoot: (d) => d.getMap('root'),
       });
 
