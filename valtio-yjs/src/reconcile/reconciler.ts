@@ -44,7 +44,13 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
 
       if (inY && !inValtio) {
         const yValue = yMap.get(key);
-        if (isYSharedContainer(yValue)) {
+        // Check leaf types first (before container check) since some leaf types extend containers
+        // (e.g., Y.XmlHook extends Y.Map)
+        if (isYLeafType(yValue)) {
+          context.log.debug('[ADD] set leaf node (wrapped in ref)', key);
+          valtioProxy[key] = ref(yValue);
+          setupLeafNodeReactivity(context, valtioProxy, key, yValue);
+        } else if (isYSharedContainer(yValue)) {
           context.log.debug('[ADD] create controller', key);
           valtioProxy[key] = getOrCreateValtioProxy(context, yValue, doc);
           if (isYMap(yValue)) {
@@ -54,10 +60,6 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
             context.log.debug('[RECONCILE-CHILD] array', key);
             reconcileValtioArray(context, yValue as Y.Array<unknown>, doc);
           }
-        } else if (isYLeafType(yValue)) {
-          context.log.debug('[ADD] set leaf node (wrapped in ref)', key);
-          valtioProxy[key] = ref(yValue);
-          setupLeafNodeReactivity(context, valtioProxy, key, yValue);
         } else {
           context.log.debug('[ADD] set primitive', key);
           valtioProxy[key] = yValue;
@@ -74,7 +76,17 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
       if (inY && inValtio) {
         const yValue = yMap.get(key);
         const current = valtioProxy[key];
-        if (isYSharedContainer(yValue)) {
+        // Check leaf types first (before container check) since some leaf types extend containers
+        // (e.g., Y.XmlHook extends Y.Map)
+        if (isYLeafType(yValue)) {
+          // For leaf nodes, check if it's a different instance
+          if (current !== yValue) {
+            context.log.debug('[REPLACE] replace leaf node', key);
+            valtioProxy[key] = ref(yValue);
+            setupLeafNodeReactivity(context, valtioProxy, key, yValue);
+          }
+          // If same instance, reactivity is already setup, no action needed
+        } else if (isYSharedContainer(yValue)) {
           const desired = getOrCreateValtioProxy(context, yValue, doc);
           if (current !== desired) {
             context.log.debug('[REPLACE] replace controller', key);
@@ -87,14 +99,6 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
             context.log.debug('[RECONCILE-CHILD] array', key);
             reconcileValtioArray(context, yValue as Y.Array<unknown>, doc);
           }
-        } else if (isYLeafType(yValue)) {
-          // For leaf nodes, check if it's a different Y.Text instance
-          if (current !== yValue) {
-            context.log.debug('[REPLACE] replace leaf node', key);
-            valtioProxy[key] = ref(yValue);
-            setupLeafNodeReactivity(context, valtioProxy, key, yValue);
-          }
-          // If same instance, reactivity is already setup, no action needed
         } else {
           if (current !== yValue) {
             context.log.debug('[UPDATE] primitive', key);

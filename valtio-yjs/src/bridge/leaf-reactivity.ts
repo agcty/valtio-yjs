@@ -24,13 +24,13 @@ import type { SynchronizationContext } from '../core/context';
  * @param context - Synchronization context for lock management and cleanup
  * @param objProxy - The Valtio proxy object containing the leaf node
  * @param key - The property key where the leaf node is stored
- * @param leafNode - The Y.js leaf type (Y.Text, Y.XmlText, etc.)
+ * @param leafNode - The Y.js leaf type (Y.Text, Y.XmlText, Y.XmlHook, etc.)
  */
 export function setupLeafNodeReactivity(
   context: SynchronizationContext,
   objProxy: Record<string, unknown>,
   key: string,
-  leafNode: Y.Text, // Y.Text is the base for all text-based leaf types
+  leafNode: Y.Text | Y.XmlHook, // Y.Text (includes Y.XmlText) or Y.XmlHook
 ): void {
   // Observe changes to the Y.js leaf node
   const handler = () => {
@@ -67,7 +67,7 @@ export function setupLeafNodeReactivityInArray(
   context: SynchronizationContext,
   arrProxy: unknown[],
   index: number,
-  leafNode: Y.Text,
+  leafNode: Y.Text | Y.XmlHook,
 ): void {
   const handler = () => {
     context.withReconcilingLock(() => {

@@ -72,6 +72,7 @@ dispose();
 - ✅ **Objects** (Y.Map → Valtio proxy)
 - ✅ **Arrays** (Y.Array → Valtio proxy)
 - ✅ **Collaborative text** (Y.Text & Y.XmlText) - [See below](#collaborative-text-ytext)
+- ✅ **XML types** (Y.XmlFragment, Y.XmlElement, Y.XmlHook) - [See below](#xml-types)
 - ✅ **Primitives** (string, number, boolean, null)
 - ✅ **Deep nesting** (arbitrary depth)
 
@@ -214,6 +215,49 @@ proxy.paragraphs = [
 - SyncedStore: Patches Y.Text methods (`toString()`, `toJSON()`) to trigger reactivity
 - valtio-yjs: Observes Y.Text changes and uses Valtio's existing change detection
 - Result: Cleaner implementation, no method patching, same automatic reactivity ✨
+
+## XML Types
+
+valtio-yjs fully supports Y.js XML types for building collaborative document editors.
+
+### Y.XmlFragment
+
+Container for XML nodes (similar to Y.Array):
+
+```js
+const fragment = new Y.XmlFragment();
+const element = new Y.XmlElement("div");
+fragment.insert(0, [element]);
+
+proxy.document = fragment;
+```
+
+### Y.XmlElement
+
+XML element with attributes and children:
+
+```js
+const element = new Y.XmlElement("div");
+element.setAttribute("class", "container");
+element.setAttribute("id", "main");
+
+const text = new Y.XmlText("Hello");
+element.insert(0, [text]);
+
+proxy.root = element;
+```
+
+### Y.XmlHook
+
+Custom hook type (extends Y.Map):
+
+```js
+const hook = new Y.XmlHook("custom-hook");
+hook.set("data", "value");
+proxy.customHook = hook;
+```
+
+**Note**: All XML types work as containers and are automatically reactive. Y.XmlText (which extends Y.Text) has the same automatic reactivity as Y.Text.
 
 ## Limitations
 

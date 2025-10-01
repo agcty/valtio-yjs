@@ -10,11 +10,11 @@
 
 Y.js has three XML-related types:
 
-| Type | Category | Description | Should Add? |
-|------|----------|-------------|-------------|
-| **Y.XmlFragment** | Container | XML document container (like Y.Array) | ✅ Add container support |
-| **Y.XmlElement** | Container | XML element with attributes + children | ✅ Add container support |
-| **Y.XmlHook** | Leaf/Container | Hook type (extends Y.Map) | ⚠️ Special case |
+| Type              | Category       | Description                            | Should Add?              |
+| ----------------- | -------------- | -------------------------------------- | ------------------------ |
+| **Y.XmlFragment** | Container      | XML document container (like Y.Array)  | ✅ Add container support |
+| **Y.XmlElement**  | Container      | XML element with attributes + children | ✅ Add container support |
+| **Y.XmlHook**     | Leaf/Container | Hook type (extends Y.Map)              | ⚠️ Special case          |
 
 **Note**: Y.XmlText is already supported (it extends Y.Text)
 
@@ -23,10 +23,11 @@ Y.js has three XML-related types:
 ## Step 1: Understand the Types
 
 ### Y.XmlFragment (Container)
+
 ```javascript
 const fragment = new Y.XmlFragment();
-fragment.insert(0, [new Y.XmlElement('div')]);  // Like Y.Array
-fragment.get(0);  // Access children
+fragment.insert(0, [new Y.XmlElement("div")]); // Like Y.Array
+fragment.get(0); // Access children
 ```
 
 **Category**: Container (holds other Y types)  
@@ -34,10 +35,11 @@ fragment.get(0);  // Access children
 **Already supported**: YES (containers work automatically)
 
 ### Y.XmlElement (Container)
+
 ```javascript
-const element = new Y.XmlElement('div');
-element.setAttribute('class', 'container');  // Attributes (like Y.Map)
-element.insert(0, [new Y.XmlText('Hello')]);  // Children (like Y.Array)
+const element = new Y.XmlElement("div");
+element.setAttribute("class", "container"); // Attributes (like Y.Map)
+element.insert(0, [new Y.XmlText("Hello")]); // Children (like Y.Array)
 ```
 
 **Category**: Container (holds children + has attributes)  
@@ -45,9 +47,10 @@ element.insert(0, [new Y.XmlText('Hello')]);  // Children (like Y.Array)
 **Already supported**: YES (containers work automatically)
 
 ### Y.XmlHook (Special Case)
+
 ```javascript
-const hook = new Y.XmlHook('custom-hook');
-hook.set('data', value);  // Like Y.Map
+const hook = new Y.XmlHook("custom-hook");
+hook.set("data", value); // Like Y.Map
 ```
 
 **Category**: Extends Y.Map (treated as container)  
@@ -82,20 +85,23 @@ export function isYXmlHook(value: unknown): value is Y.XmlHook {
 **File**: `valtio-yjs/tests/e2e/e2e.xml-types.spec.ts`
 
 ```typescript
-import { describe, it, expect } from 'vitest';
-import * as Y from 'yjs';
-import { createRelayedProxiesMapRoot, waitMicrotask } from '../helpers/test-helpers';
+import { describe, it, expect } from "vitest";
+import * as Y from "yjs";
+import {
+  createRelayedProxiesMapRoot,
+  waitMicrotask,
+} from "../helpers/test-helpers";
 
-describe('E2E: Y.Xml Types', () => {
-  describe('Y.XmlFragment', () => {
-    it('can create and sync Y.XmlFragment as a container', async () => {
+describe("E2E: Y.Xml Types", () => {
+  describe("Y.XmlFragment", () => {
+    it("can create and sync Y.XmlFragment as a container", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
       // Create XmlFragment on A
       const fragment = new Y.XmlFragment();
-      const element = new Y.XmlElement('div');
+      const element = new Y.XmlElement("div");
       fragment.insert(0, [element]);
-      
+
       proxyA.fragment = fragment;
       await waitMicrotask();
 
@@ -108,7 +114,7 @@ describe('E2E: Y.Xml Types', () => {
       expect(proxyB.fragment.get(0)).toBeInstanceOf(Y.XmlElement);
     });
 
-    it('syncs insertions into Y.XmlFragment', async () => {
+    it("syncs insertions into Y.XmlFragment", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
       const fragment = new Y.XmlFragment();
@@ -119,26 +125,26 @@ describe('E2E: Y.Xml Types', () => {
       await waitMicrotask();
 
       // A inserts an element
-      const element = new Y.XmlElement('p');
+      const element = new Y.XmlElement("p");
       proxyA.fragment.insert(0, [element]);
       await waitMicrotask();
 
       // B sees the insertion
       expect(proxyB.fragment.length).toBe(1);
       expect(proxyB.fragment.get(0)).toBeInstanceOf(Y.XmlElement);
-      expect(proxyB.fragment.get(0).nodeName).toBe('p');
+      expect(proxyB.fragment.get(0).nodeName).toBe("p");
     });
   });
 
-  describe('Y.XmlElement', () => {
-    it('can create and sync Y.XmlElement with attributes', async () => {
+  describe("Y.XmlElement", () => {
+    it("can create and sync Y.XmlElement with attributes", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
       // Create XmlElement with attributes
-      const element = new Y.XmlElement('div');
-      element.setAttribute('class', 'container');
-      element.setAttribute('id', 'main');
-      
+      const element = new Y.XmlElement("div");
+      element.setAttribute("class", "container");
+      element.setAttribute("id", "main");
+
       proxyA.element = element;
       await waitMicrotask();
 
@@ -147,15 +153,15 @@ describe('E2E: Y.Xml Types', () => {
 
       // B should see the element with attributes
       expect(proxyB.element).toBeInstanceOf(Y.XmlElement);
-      expect(proxyB.element.nodeName).toBe('div');
-      expect(proxyB.element.getAttribute('class')).toBe('container');
-      expect(proxyB.element.getAttribute('id')).toBe('main');
+      expect(proxyB.element.nodeName).toBe("div");
+      expect(proxyB.element.getAttribute("class")).toBe("container");
+      expect(proxyB.element.getAttribute("id")).toBe("main");
     });
 
-    it('syncs attribute changes', async () => {
+    it("syncs attribute changes", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
-      const element = new Y.XmlElement('div');
+      const element = new Y.XmlElement("div");
       proxyA.element = element;
       await waitMicrotask();
 
@@ -163,17 +169,17 @@ describe('E2E: Y.Xml Types', () => {
       await waitMicrotask();
 
       // A sets attribute
-      proxyA.element.setAttribute('data-test', 'value');
+      proxyA.element.setAttribute("data-test", "value");
       await waitMicrotask();
 
       // B sees the attribute
-      expect(proxyB.element.getAttribute('data-test')).toBe('value');
+      expect(proxyB.element.getAttribute("data-test")).toBe("value");
     });
 
-    it('syncs children insertions', async () => {
+    it("syncs children insertions", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
-      const element = new Y.XmlElement('div');
+      const element = new Y.XmlElement("div");
       proxyA.element = element;
       await waitMicrotask();
 
@@ -181,23 +187,23 @@ describe('E2E: Y.Xml Types', () => {
       await waitMicrotask();
 
       // A inserts a child
-      const child = new Y.XmlElement('span');
+      const child = new Y.XmlElement("span");
       proxyA.element.insert(0, [child]);
       await waitMicrotask();
 
       // B sees the child
       expect(proxyB.element.length).toBe(1);
       expect(proxyB.element.get(0)).toBeInstanceOf(Y.XmlElement);
-      expect(proxyB.element.get(0).nodeName).toBe('span');
+      expect(proxyB.element.get(0).nodeName).toBe("span");
     });
 
-    it('syncs Y.XmlText children', async () => {
+    it("syncs Y.XmlText children", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
-      const element = new Y.XmlElement('p');
-      const text = new Y.XmlText('Hello World');
+      const element = new Y.XmlElement("p");
+      const text = new Y.XmlText("Hello World");
       element.insert(0, [text]);
-      
+
       proxyA.element = element;
       await waitMicrotask();
 
@@ -207,26 +213,26 @@ describe('E2E: Y.Xml Types', () => {
       // B sees the text
       expect(proxyB.element.length).toBe(1);
       expect(proxyB.element.get(0)).toBeInstanceOf(Y.XmlText);
-      expect(proxyB.element.get(0).toString()).toBe('Hello World');
+      expect(proxyB.element.get(0).toString()).toBe("Hello World");
 
       // A edits the text
-      proxyA.element.get(0).insert(11, '!');
+      proxyA.element.get(0).insert(11, "!");
       await waitMicrotask();
 
       // B sees the edit
-      expect(proxyB.element.get(0).toString()).toBe('Hello World!');
+      expect(proxyB.element.get(0).toString()).toBe("Hello World!");
     });
   });
 
-  describe('Y.XmlHook', () => {
-    it('can create and sync Y.XmlHook as a map-like container', async () => {
+  describe("Y.XmlHook", () => {
+    it("can create and sync Y.XmlHook as a map-like container", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
       // Create XmlHook (behaves like Y.Map)
-      const hook = new Y.XmlHook('custom-hook');
-      hook.set('data', 'value');
-      hook.set('count', 42);
-      
+      const hook = new Y.XmlHook("custom-hook");
+      hook.set("data", "value");
+      hook.set("count", 42);
+
       proxyA.hook = hook;
       await waitMicrotask();
 
@@ -235,14 +241,14 @@ describe('E2E: Y.Xml Types', () => {
 
       // B should see the hook
       expect(proxyB.hook).toBeInstanceOf(Y.XmlHook);
-      expect(proxyB.hook.get('data')).toBe('value');
-      expect(proxyB.hook.get('count')).toBe(42);
+      expect(proxyB.hook.get("data")).toBe("value");
+      expect(proxyB.hook.get("count")).toBe(42);
     });
 
-    it('syncs Y.XmlHook property changes', async () => {
+    it("syncs Y.XmlHook property changes", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
-      const hook = new Y.XmlHook('custom-hook');
+      const hook = new Y.XmlHook("custom-hook");
       proxyA.hook = hook;
       await waitMicrotask();
 
@@ -250,32 +256,32 @@ describe('E2E: Y.Xml Types', () => {
       await waitMicrotask();
 
       // A sets a property
-      proxyA.hook.set('status', 'active');
+      proxyA.hook.set("status", "active");
       await waitMicrotask();
 
       // B sees the property
-      expect(proxyB.hook.get('status')).toBe('active');
+      expect(proxyB.hook.get("status")).toBe("active");
     });
   });
 
-  describe('Mixed XML Structures', () => {
-    it('handles nested XML elements with mixed content', async () => {
+  describe("Mixed XML Structures", () => {
+    it("handles nested XML elements with mixed content", async () => {
       const { proxyA, proxyB, bootstrapA } = createRelayedProxiesMapRoot();
 
       // Create a complex XML structure
-      const root = new Y.XmlElement('article');
-      root.setAttribute('lang', 'en');
-      
-      const title = new Y.XmlElement('h1');
-      const titleText = new Y.XmlText('My Article');
+      const root = new Y.XmlElement("article");
+      root.setAttribute("lang", "en");
+
+      const title = new Y.XmlElement("h1");
+      const titleText = new Y.XmlText("My Article");
       title.insert(0, [titleText]);
-      
-      const paragraph = new Y.XmlElement('p');
-      const paraText = new Y.XmlText('Some content');
+
+      const paragraph = new Y.XmlElement("p");
+      const paraText = new Y.XmlText("Some content");
       paragraph.insert(0, [paraText]);
-      
+
       root.insert(0, [title, paragraph]);
-      
+
       proxyA.article = root;
       await waitMicrotask();
 
@@ -284,17 +290,17 @@ describe('E2E: Y.Xml Types', () => {
 
       // B sees the full structure
       expect(proxyB.article).toBeInstanceOf(Y.XmlElement);
-      expect(proxyB.article.nodeName).toBe('article');
-      expect(proxyB.article.getAttribute('lang')).toBe('en');
+      expect(proxyB.article.nodeName).toBe("article");
+      expect(proxyB.article.getAttribute("lang")).toBe("en");
       expect(proxyB.article.length).toBe(2);
-      
+
       const h1 = proxyB.article.get(0);
-      expect(h1.nodeName).toBe('h1');
-      expect(h1.get(0).toString()).toBe('My Article');
-      
+      expect(h1.nodeName).toBe("h1");
+      expect(h1.get(0).toString()).toBe("My Article");
+
       const p = proxyB.article.get(1);
-      expect(p.nodeName).toBe('p');
-      expect(p.get(0).toString()).toBe('Some content');
+      expect(p.nodeName).toBe("p");
+      expect(p.get(0).toString()).toBe("Some content");
     });
   });
 });
@@ -334,7 +340,7 @@ Find the "Data Types" section and update:
 
 Add a new section after the Y.Text section:
 
-```markdown
+````markdown
 ## XML Types
 
 valtio-yjs fully supports Y.js XML types for building collaborative document editors.
@@ -345,22 +351,23 @@ Container for XML nodes (similar to Y.Array):
 
 ```js
 const fragment = new Y.XmlFragment();
-const element = new Y.XmlElement('div');
+const element = new Y.XmlElement("div");
 fragment.insert(0, [element]);
 
 proxy.document = fragment;
 ```
+````
 
 ### Y.XmlElement
 
 XML element with attributes and children:
 
 ```js
-const element = new Y.XmlElement('div');
-element.setAttribute('class', 'container');
-element.setAttribute('id', 'main');
+const element = new Y.XmlElement("div");
+element.setAttribute("class", "container");
+element.setAttribute("id", "main");
 
-const text = new Y.XmlText('Hello');
+const text = new Y.XmlText("Hello");
 element.insert(0, [text]);
 
 proxy.root = element;
@@ -371,13 +378,14 @@ proxy.root = element;
 Custom hook type (extends Y.Map):
 
 ```js
-const hook = new Y.XmlHook('custom-hook');
-hook.set('data', 'value');
+const hook = new Y.XmlHook("custom-hook");
+hook.set("data", "value");
 proxy.customHook = hook;
 ```
 
 **Note**: All XML types work as containers and are automatically reactive. Y.XmlText (which extends Y.Text) has the same automatic reactivity as Y.Text.
-```
+
+````
 
 ---
 
@@ -412,7 +420,7 @@ export function isYSharedContainer(value: unknown): value is YSharedContainer {
     value instanceof Y.XmlHook
   );
 }
-```
+````
 
 **Note**: This is optional since the current implementation already handles these types via `instanceof Y.AbstractType` checks.
 
@@ -466,10 +474,10 @@ If you encounter issues:
 3. Ensure children sync (they're stored like Y.Array items)
 
 All of these should work with the current implementation. If not, check:
+
 - Is Y.XmlText being wrapped with `ref()` like Y.Text? (It should be)
 - Are XmlFragment/XmlElement being treated as containers? (They should be)
 
 ---
 
 **Happy coding! 🚀**
-

@@ -1,7 +1,12 @@
 import * as Y from 'yjs';
 
 // Shared Yjs container types supported by this library today
-export type YSharedContainer = Y.Map<unknown> | Y.Array<unknown>;
+export type YSharedContainer =
+  | Y.Map<unknown>
+  | Y.Array<unknown>
+  | Y.XmlFragment
+  | Y.XmlElement
+  | Y.XmlHook;
 
 // Event-related types used with observeDeep
 export type YArrayDelta = Array<{ retain?: number; delete?: number; insert?: unknown[] }>;

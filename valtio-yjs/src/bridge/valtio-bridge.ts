@@ -87,13 +87,9 @@ function upgradeChildIfNeeded(
   const underlyingYType = current && typeof current === 'object' ? context.valtioProxyToYType.get(current as object) : undefined;
   const isAlreadyController = underlyingYType !== undefined;
   
-  if (!isAlreadyController && isYSharedContainer(yValue)) {
-    // Upgrade plain object/array to container controller
-    const newController = getOrCreateValtioProxy(context, yValue, doc);
-    context.withReconcilingLock(() => {
-      setContainerValue(container, key, newController);
-    });
-  } else if (isYLeafType(yValue)) {
+  // Check leaf types first (before container check) since some leaf types extend containers
+  // (e.g., Y.XmlHook extends Y.Map)
+  if (isYLeafType(yValue)) {
     // Leaf node: wrap in ref() and setup reactivity
     const wrappedLeaf = ref(yValue);
     context.withReconcilingLock(() => {
@@ -105,6 +101,12 @@ function upgradeChildIfNeeded(
     } else {
       setupLeafNodeReactivity(context, container, key as string, yValue);
     }
+  } else if (!isAlreadyController && isYSharedContainer(yValue)) {
+    // Upgrade plain object/array to container controller
+    const newController = getOrCreateValtioProxy(context, yValue, doc);
+    context.withReconcilingLock(() => {
+      setContainerValue(container, key, newController);
+    });
   }
 }
 
@@ -266,12 +268,14 @@ function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.
 
   const initialObj: Record<string, unknown> = {};
   for (const [key, value] of yMap.entries()) {
-    if (isYSharedContainer(value)) {
+    // Check leaf types first (before container check) since some leaf types extend containers
+    // (e.g., Y.XmlHook extends Y.Map)
+    if (isYLeafType(value)) {
+      // Leaf nodes (Y.Text, Y.XmlText, Y.XmlHook): wrap in ref() to prevent deep proxying
+      initialObj[key] = ref(value);
+    } else if (isYSharedContainer(value)) {
       // Containers: create controller proxy recursively
       initialObj[key] = getOrCreateValtioProxy(context, value, doc);
-    } else if (isYLeafType(value)) {
-      // Leaf nodes (Y.Text, Y.XmlText): wrap in ref() to prevent deep proxying
-      initialObj[key] = ref(value);
     } else {
       // Primitives: store as-is
       initialObj[key] = value;
