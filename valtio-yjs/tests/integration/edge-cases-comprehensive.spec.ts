@@ -261,7 +261,7 @@ describe('Comprehensive Edge Cases', () => {
         console.log(`\n=== Operation ${i + 1} ===`);
         console.log('Before:', yArr.toJSON());
         
-        operations[i]();
+        operations[i]!();
         await waitMicrotask();
         
         console.log('After:', yArr.toJSON());

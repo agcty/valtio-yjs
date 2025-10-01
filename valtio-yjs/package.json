@@ -27,13 +27,16 @@
   "sideEffects": false,
   "files": [
     "src",
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch ./src",
     "test": "pnpm vitest",
-    "bench": "vitest bench --config vitest.bench.config.ts"
+    "bench": "pnpm vitest bench --config vitest.bench.config.ts",
+    "typecheck": "pnpm tsc -b --emitDeclarationOnly",
+    "lint": "pnpm eslint ."
   },
   "keywords": [
     "valtio",

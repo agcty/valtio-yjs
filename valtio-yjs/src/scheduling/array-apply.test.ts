@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from '../index';
 
@@ -36,12 +36,12 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       await waitMicrotask();
 
       expect(proxy.length).toBe(101);
-      expect(proxy[0].id).toBe(0);
-      expect(proxy[100].id).toBe(100);
+      expect(proxy[0]!.id).toBe(0);
+      expect(proxy[100]!.id).toBe(100);
       
       // Verify contiguous
       for (let i = 0; i < 101; i++) {
-        expect(proxy[i].id).toBe(i);
+        expect(proxy[i]!.id).toBe(i);
       }
 
       dispose();
@@ -61,8 +61,8 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       await waitMicrotask();
 
       expect(proxy.length).toBe(100);
-      expect(proxy[0].id).toBe(0);
-      expect(proxy[99].id).toBe(99);
+      expect(proxy[0]!.id).toBe(0);
+      expect(proxy[99]!.id).toBe(99);
 
       dispose();
     });
@@ -105,8 +105,8 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
 
       expect(proxy.length).toBe(101);
       // Last unshift wins for position 0
-      expect(proxy[0].id).toBe(100);
-      expect(proxy[100].id).toBe(0); // Original item shifted to end
+      expect(proxy[0]!.id).toBe(100);
+      expect(proxy[100]!.id).toBe(0); // Original item shifted to end
 
       dispose();
     });
@@ -276,13 +276,13 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       await waitMicrotask();
 
       expect(proxy.length).toBe(50);
-      expect(proxy[0].nested.value).toBe('nested-0');
-      expect(proxy[49].nested.value).toBe('nested-49');
+      expect(proxy[0]!.nested.value).toBe('nested-0');
+      expect(proxy[49]!.nested.value).toBe('nested-49');
 
       // Verify nested objects are mutable
-      proxy[0].nested.value = 'updated';
+      proxy[0]!.nested.value = 'updated';
       await waitMicrotask();
-      expect(proxy[0].nested.value).toBe('updated');
+      expect(proxy[0]!.nested.value).toBe('updated');
 
       dispose();
     });
@@ -304,9 +304,9 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       await waitMicrotask();
 
       expect(proxy.length).toBe(11);
-      expect(proxy[0].id).toBe(0);
-      expect(proxy[0].children[0].name).toBe('child-0-0');
-      expect(proxy[10].id).toBe(99);
+      expect(proxy[0]!.id).toBe(0);
+      expect(proxy[0]!.children[0]!.name).toBe('child-0-0');
+      expect(proxy[10]!.id).toBe(99);
 
       dispose();
     });
@@ -345,7 +345,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
 
       // Verify sync
       expect(proxyB.proxy.length).toBe(1);
-      expect(proxyB.proxy[0].id).toBe(0);
+      expect(proxyB.proxy[0]!.id).toBe(0);
 
       // Bulk push on A
       const items = Array.from({ length: 100 }, (_, i) => ({ id: i + 1 }));
@@ -419,8 +419,8 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       const elapsed = performance.now() - start;
 
       expect(proxy.length).toBe(1000);
-      expect(proxy[0].id).toBe(0);
-      expect(proxy[999].id).toBe(999);
+      expect(proxy[0]!.id).toBe(0);
+      expect(proxy[999]!.id).toBe(999);
       
       // Should complete in reasonable time (< 100ms even without optimization)
       expect(elapsed).toBeLessThan(100);

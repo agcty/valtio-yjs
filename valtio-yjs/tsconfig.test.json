@@ -12,7 +12,9 @@
     }
   },
   "include": [
-   "tests/**/*.ts"
+    "tests/**/*.ts",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts"
   ],
   "references": [
     { "path": "./tsconfig.src.json" }
