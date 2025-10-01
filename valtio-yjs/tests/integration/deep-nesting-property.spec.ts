@@ -440,5 +440,107 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
       );
     });
   });
+
+  // Concrete edge cases from original deep-nesting.spec.ts
+  describe('Concrete Deep Structure Edge Cases', () => {
+    it('should handle tree structure with 1000 nodes', async () => {
+      const { proxy } = createDocWithProxy<any>((d) => d.getMap('root'));
+      
+      // Create tree with breadth and depth
+      const createTree = (id: number, depth: number, breadth: number): any => {
+        if (depth === 0) return { id, value: `leaf-${id}`, isLeaf: true };
+        return {
+          id,
+          value: `node-${id}`,
+          isLeaf: false,
+          children: Array.from({ length: breadth }, (_, i) => 
+            createTree(id * breadth + i + 1, depth - 1, breadth)
+          )
+        };
+      };
+
+      // Tree with depth=5, breadth=4 = ~1365 total nodes
+      proxy.tree = createTree(0, 5, 4);
+      await waitMicrotask();
+
+      // Verify root
+      expect(proxy.tree.id).toBe(0);
+      expect(proxy.tree.children.length).toBe(4);
+      expect(proxy.tree.isLeaf).toBe(false);
+
+      // Verify deep node access and that leaves exist (5 levels deep)
+      const deepNode = proxy.tree.children[0].children[0].children[0].children[0].children[0];
+      expect(deepNode.value).toBeDefined();
+      expect(deepNode.isLeaf).toBe(true);
+
+      // Mutate mid-level node
+      proxy.tree.children[2].value = 'modified';
+      await waitMicrotask();
+      expect(proxy.tree.children[2].value).toBe('modified');
+
+      // Add new child to mid-level node
+      proxy.tree.children[1].children.push({ id: 9999, value: 'new-node', isLeaf: false });
+      await waitMicrotask();
+      expect(proxy.tree.children[1].children[proxy.tree.children[1].children.length - 1].value).toBe('new-node');
+    });
+
+    it('should handle deletion in deep structure', async () => {
+      const { proxy } = createDocWithProxy<any>((d) => d.getMap('root'));
+      
+      proxy.data = { l1: { l2: { l3: { l4: { l5: { value: 'deep', toDelete: 'remove me' } } } } } };
+      await waitMicrotask();
+
+      // Delete deep property
+      delete proxy.data.l1.l2.l3.l4.l5.toDelete;
+      await waitMicrotask();
+      expect(proxy.data.l1.l2.l3.l4.l5.toDelete).toBeUndefined();
+      expect(proxy.data.l1.l2.l3.l4.l5.value).toBe('deep');
+    });
+
+    it('should handle replacing entire subtree in deep structure', async () => {
+      const { proxy } = createDocWithProxy<any>((d) => d.getMap('root'));
+      
+      proxy.data = { l1: { l2: { l3: { old: 'value' } } } };
+      await waitMicrotask();
+
+      // Replace mid-level subtree
+      proxy.data.l1.l2 = { l3: { new: 'value' }, l4: { another: 'branch' } };
+      await waitMicrotask();
+
+      expect(proxy.data.l1.l2.l3.new).toBe('value');
+      expect(proxy.data.l1.l2.l4.another).toBe('branch');
+      expect(proxy.data.l1.l2.l3.old).toBeUndefined();
+    });
+
+    it('should handle deep structure with mixed array and object nesting', async () => {
+      const { proxy } = createDocWithProxy<any>((d) => d.getMap('root'));
+      
+      proxy.complex = {
+        a: [
+          {
+            b: [
+              {
+                c: {
+                  d: [
+                    {
+                      e: { value: 'deeply mixed' }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      };
+      await waitMicrotask();
+
+      expect(proxy.complex.a[0].b[0].c.d[0].e.value).toBe('deeply mixed');
+
+      // Replace array element deeply
+      proxy.complex.a[0].b[0].c.d[0] = { e: { value: 'replaced' } };
+      await waitMicrotask();
+      expect(proxy.complex.a[0].b[0].c.d[0].e.value).toBe('replaced');
+    });
+  });
 });
 
