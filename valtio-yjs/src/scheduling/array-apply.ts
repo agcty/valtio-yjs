@@ -1,9 +1,9 @@
 import * as Y from 'yjs';
-import type { PendingArrayEntry } from '../scheduling/batch-types';
+import type { PendingArrayEntry } from './batch-types';
 import type { SynchronizationContext } from '../core/context';
-import { plainObjectToYType } from '../converter';
+import { plainObjectToYType } from '../core/converter';
 import { reconcileValtioArray } from '../reconcile/reconciler';
-import type { PostTransactionQueue } from '../scheduling/post-transaction-queue';
+import type { PostTransactionQueue } from './post-transaction-queue';
 import { getYItemId, getYDoc, yTypeToJSON, hasProperty } from '../core/types';
 
 /**

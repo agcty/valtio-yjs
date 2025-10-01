@@ -8,10 +8,10 @@
 import * as Y from 'yjs';
 import { VALTIO_YJS_ORIGIN } from './core/constants';
 import { reconcileValtioMap, reconcileValtioArray, reconcileValtioArrayWithDelta } from './reconcile/reconciler';
-import type { YSharedContainer, YArrayDelta } from './yjs-types';
+import type { YSharedContainer, YArrayDelta } from './core/yjs-types';
 import { SynchronizationContext } from './core/context';
 import { getValtioProxyForYType } from './bridge/valtio-bridge';
-import { isYArrayEvent } from './yjs-events';
+import { isYArrayEvent } from './core/yjs-events';
 import { isYArray, isYMap, isYSharedContainer } from './core/guards';
 // Synchronization strategy
 //

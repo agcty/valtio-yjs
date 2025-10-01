@@ -1,8 +1,8 @@
 import * as Y from 'yjs';
-import type { PendingMapEntry } from '../scheduling/batch-types';
+import type { PendingMapEntry } from './batch-types';
 import type { Logger, SynchronizationContext } from '../core/context';
-import { plainObjectToYType } from '../converter';
-import type { PostTransactionQueue } from '../scheduling/post-transaction-queue';
+import { plainObjectToYType } from '../core/converter';
+import type { PostTransactionQueue } from './post-transaction-queue';
 
 // Apply pending map deletes (keys) first for determinism
 export function applyMapDeletes(mapDeletes: Map<Y.Map<unknown>, Set<string>>, log: Logger): void {

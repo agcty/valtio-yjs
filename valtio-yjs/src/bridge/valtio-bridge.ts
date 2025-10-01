@@ -10,13 +10,13 @@ import * as Y from 'yjs';
 import { proxy, subscribe } from 'valtio/vanilla';
 // import removed: origin tagging handled by context scheduler
 
-import type { YSharedContainer } from '../yjs-types';
+import type { YSharedContainer } from '../core/yjs-types';
 import { SynchronizationContext } from '../core/context';
 import { isYSharedContainer, isYArray, isYMap } from '../core/guards';
 import { LOG_PREFIX } from '../core/constants';
 import { planMapOps } from '../planning/map-ops-planner';
 import { planArrayOps } from '../planning/array-ops-planner';
-import { validateDeepForSharedState } from '../converter';
+import { validateDeepForSharedState } from '../core/converter';
 import { 
   getContainerValue,
   setContainerValue,

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from '../src/index';
-import { yTypeToPlainObject } from '../src/converter';
+import { yTypeToPlainObject } from '../src/core/converter';
 import { waitMicrotask } from './test-helpers';
 
 /**

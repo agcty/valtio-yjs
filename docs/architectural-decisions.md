@@ -64,7 +64,7 @@
   - Prevents identity issues by detecting and merging replace patterns
   - Applies operations in deterministic order (replaces → deletes → sets)
   - Maintains correctness while supporting natural JavaScript array semantics
-- Implementation: See `arrayOpsPlanner.ts` for classification logic and `arrayApply.ts` for execution
+- Implementation: See `planning/array-ops-planner.ts` for classification logic and `scheduling/array-apply.ts` for execution
 - Note: Array moves work correctly via standard splice operations (e.g., `arr.splice(from, 1); arr.splice(to, 0, item)`). For applications with high-frequency concurrent reordering where conflict resolution is critical, consider fractional indexing as an application-level optimization pattern.
 
 ## 8) Two-phase Y→Valtio reconciliation with delta-aware arrays

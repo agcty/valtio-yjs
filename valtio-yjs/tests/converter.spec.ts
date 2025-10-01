@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { plainObjectToYType, yTypeToPlainObject } from '../src/converter';
+import { plainObjectToYType, yTypeToPlainObject } from '../src/core/converter';
 import { SynchronizationContext } from '../src/core/context';
 
 describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {

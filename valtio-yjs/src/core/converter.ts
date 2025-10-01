@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
-import { SynchronizationContext } from './core/context';
-import { isYArray, isYMap, isYAbstractType } from './core/guards';
-import { isPlainObject } from './core/types';
+import { SynchronizationContext } from './context';
+import { isYArray, isYMap, isYAbstractType } from './guards';
+import { isPlainObject } from './types';
 
 /**
  * Converts known special object instances to serializable primitive representations.

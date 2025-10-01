@@ -1,4 +1,4 @@
-import { isYArray, isYMap } from './core/guards';
+import { isYArray, isYMap } from './guards';
 import type { YArrayEvent, YMapEvent } from './yjs-types';
 
 // Event types and type guards for Yjs observeDeep events

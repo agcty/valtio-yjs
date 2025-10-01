@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { getOrCreateValtioProxy } from './bridge/valtio-bridge';
 import { setupSyncListener } from './synchronizer';
-import { plainObjectToYType } from './converter';
+import { plainObjectToYType } from './core/converter';
 import { VALTIO_YJS_ORIGIN } from './core/constants';
 export { VALTIO_YJS_ORIGIN } from './core/constants';
 export { syncedText } from './synced-types';

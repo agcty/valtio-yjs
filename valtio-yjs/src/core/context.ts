@@ -1,9 +1,9 @@
 import * as Y from 'yjs';
 import { WriteScheduler } from '../scheduling/write-scheduler';
-import { applyMapDeletes, applyMapSets } from '../applying/map-apply';
-import { applyArrayOperations } from '../applying/array-apply';
+import { applyMapDeletes, applyMapSets } from '../scheduling/map-apply';
+import { applyArrayOperations } from '../scheduling/array-apply';
 import { LOG_PREFIX } from './constants';
-import type { YSharedContainer } from '../yjs-types';
+import type { YSharedContainer } from './yjs-types';
 
 /**
  * Encapsulates all state for a single valtio-yjs instance.
