@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from 'valtio-yjs';
 import * as fc from 'fast-check';
+import { planArrayOps } from '../src/planning/array-ops-planner';
 
 const waitMicrotask = () => Promise.resolve();
 
@@ -168,10 +169,8 @@ describe('Property-Based Testing', () => {
   });
 
   describe('Planning Logic Property Tests', () => {
-    it('should correctly categorize random operation sequences', async () => {
-      const { planArrayOps } = await import('../src/planning/arrayOpsPlanner.js');
-      
-      await fc.assert(
+    it('should correctly categorize random operation sequences', () => {
+      fc.assert(
         fc.property(
           fc.array(
             fc.oneof(

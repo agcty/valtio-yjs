@@ -10,20 +10,20 @@ import * as Y from 'yjs';
 import { proxy, subscribe } from 'valtio/vanilla';
 // import removed: origin tagging handled by context scheduler
 
-import type { YSharedContainer } from '../yjs-types.js';
-import { SynchronizationContext } from '../core/context.js';
-import { isYSharedContainer, isYArray, isYMap } from '../core/guards.js';
-import { LOG_PREFIX } from '../core/constants.js';
-import { planMapOps } from '../planning/mapOpsPlanner.js';
-import { planArrayOps } from '../planning/arrayOpsPlanner.js';
-import { validateDeepForSharedState } from '../converter.js';
+import type { YSharedContainer } from '../yjs-types';
+import { SynchronizationContext } from '../core/context';
+import { isYSharedContainer, isYArray, isYMap } from '../core/guards';
+import { LOG_PREFIX } from '../core/constants';
+import { planMapOps } from '../planning/map-ops-planner';
+import { planArrayOps } from '../planning/array-ops-planner';
+import { validateDeepForSharedState } from '../converter';
 import { 
   getContainerValue,
   setContainerValue,
   isRawSetMapOp,
   isRawSetArrayOp,
   type RawValtioOperation,
-} from '../core/types.js';
+} from '../core/types';
 
 
 // All caches are moved into SynchronizationContext

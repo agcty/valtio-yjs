@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from 'valtio-yjs';
+import { planArrayOps } from '../src/planning/array-ops-planner';
 
 const waitMicrotask = () => Promise.resolve();
 
@@ -345,10 +346,9 @@ describe('Array Operations Detailed Testing', () => {
   });
 
   describe('Planning Logic Testing', () => {
-    it('should correctly identify operation types in planning', async () => {
+    it('should correctly identify operation types in planning', () => {
       // This test will help us verify the planning logic is working
-      const { planArrayOps } = await import('../src/planning/arrayOpsPlanner.js');
-      
+
       // Test pure delete
       let result = planArrayOps([['delete', [1], 'old-value']], 3, undefined);
       expect(result.deletes.has(1)).toBe(true);

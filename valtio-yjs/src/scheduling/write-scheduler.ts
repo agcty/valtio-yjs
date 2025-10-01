@@ -1,8 +1,8 @@
 import * as Y from 'yjs';
-import type { PendingMapEntry, PendingArrayEntry } from './batchTypes.js';
-import type { Logger } from '../core/context.js';
-import { VALTIO_YJS_ORIGIN } from '../core/constants.js';
-import { PostTransactionQueue } from './postTransactionQueue.js';
+import type { PendingMapEntry, PendingArrayEntry } from './batch-types';
+import type { Logger } from '../core/context';
+import { VALTIO_YJS_ORIGIN } from '../core/constants';
+import { PostTransactionQueue } from './post-transaction-queue';
 
 /**
  * Recursively collects all Y.Map and Y.Array shared types in a subtree.

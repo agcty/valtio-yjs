@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { createYjsProxy } from '../src/index.js';
+import { createYjsProxy } from '../src/index';
 
 const waitMicrotask = () => Promise.resolve();
 

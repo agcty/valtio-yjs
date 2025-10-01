@@ -8,7 +8,7 @@
 //   equivalent to splice(i, 1, val). We do not forbid it; we translate it
 //   deterministically per the Translator's Guide.
 
-import { SynchronizationContext } from '../core/context.js';
+import { SynchronizationContext } from '../core/context';
 
 // Type guards for array operations
 type ValtioArrayPath = [number | string];

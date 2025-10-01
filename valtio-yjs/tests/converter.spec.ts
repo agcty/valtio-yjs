@@ -2,8 +2,8 @@
 
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { plainObjectToYType, yTypeToPlainObject } from '../src/converter.js';
-import { SynchronizationContext } from '../src/core/context.js';
+import { plainObjectToYType, yTypeToPlainObject } from '../src/converter';
+import { SynchronizationContext } from '../src/core/context';
 
 describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
   it('plainObjectToYType handles primitives, undefined, null', () => {

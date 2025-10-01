@@ -1,10 +1,10 @@
 import * as Y from 'yjs';
-import type { PendingArrayEntry } from '../scheduling/batchTypes.js';
-import type { SynchronizationContext } from '../core/context.js';
-import { plainObjectToYType } from '../converter.js';
-import { reconcileValtioArray } from '../reconcile/reconciler.js';
-import type { PostTransactionQueue } from '../scheduling/postTransactionQueue.js';
-import { getYItemId, getYDoc, yTypeToJSON, hasProperty } from '../core/types.js';
+import type { PendingArrayEntry } from '../scheduling/batch-types';
+import type { SynchronizationContext } from '../core/context';
+import { plainObjectToYType } from '../converter';
+import { reconcileValtioArray } from '../reconcile/reconciler';
+import type { PostTransactionQueue } from '../scheduling/post-transaction-queue';
+import { getYItemId, getYDoc, yTypeToJSON, hasProperty } from '../core/types';
 
 /**
  * Execute array operations with cleaner multi-stage approach based on explicit intents.

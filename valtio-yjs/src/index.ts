@@ -1,13 +1,13 @@
 import * as Y from 'yjs';
-import { getOrCreateValtioProxy } from './bridge/valtio-bridge.js';
-import { setupSyncListener } from './synchronizer.js';
-import { plainObjectToYType } from './converter.js';
-import { VALTIO_YJS_ORIGIN } from './core/constants.js';
-export { VALTIO_YJS_ORIGIN } from './core/constants.js';
-export { syncedText } from './syncedTypes.js';
-import { SynchronizationContext } from './core/context.js';
-import { isYArray, isYMap } from './core/guards.js';
-import { reconcileValtioArray, reconcileValtioMap } from './reconcile/reconciler.js';
+import { getOrCreateValtioProxy } from './bridge/valtio-bridge';
+import { setupSyncListener } from './synchronizer';
+import { plainObjectToYType } from './converter';
+import { VALTIO_YJS_ORIGIN } from './core/constants';
+export { VALTIO_YJS_ORIGIN } from './core/constants';
+export { syncedText } from './synced-types';
+import { SynchronizationContext } from './core/context';
+import { isYArray, isYMap } from './core/guards';
+import { reconcileValtioArray, reconcileValtioMap } from './reconcile/reconciler';
 
 // Export type utilities for advanced users
 export type {
@@ -18,7 +18,7 @@ export type {
   ValtioArrayOperation,
   ValtioOperation,
   RawValtioOperation,
-} from './core/types.js';
+} from './core/types';
 
 export interface CreateYjsProxyOptions<_T> {
   getRoot: (doc: Y.Doc) => Y.Map<unknown> | Y.Array<unknown>;

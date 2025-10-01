@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from 'valtio-yjs';
-import { reconcileValtioMap, reconcileValtioArray, reconcileValtioArrayWithDelta } from '../src/reconcile/reconciler.js';
-import { SynchronizationContext } from '../src/core/context.js';
+import { reconcileValtioMap, reconcileValtioArray, reconcileValtioArrayWithDelta } from '../src/reconcile/reconciler';
+import { SynchronizationContext } from '../src/core/context';
 // no direct usage
 
 describe('Reconciler: map/array/delta', () => {

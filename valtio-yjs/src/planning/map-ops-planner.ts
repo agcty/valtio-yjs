@@ -4,7 +4,7 @@
 // - Analyze Valtio subscription ops and categorize map operations
 // - Separate planning (what to do) from scheduling (when to do it)
 
-import { isRawSetMapOp, isRawDeleteMapOp } from '../core/types.js';
+import { isRawSetMapOp, isRawDeleteMapOp } from '../core/types';
 
 export interface MapOpsPlans {
   sets: Map<string, unknown>;

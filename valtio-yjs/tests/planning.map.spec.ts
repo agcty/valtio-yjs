@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planMapOps } from '../src/planning/mapOpsPlanner.js';
+import { planMapOps } from '../src/planning/map-ops-planner';
 
 describe('Map Operations Planner', () => {
   describe('planMapOps', () => {
