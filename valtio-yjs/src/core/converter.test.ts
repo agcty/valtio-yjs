@@ -42,18 +42,20 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
     );
   });
 
-  it('plainObjectToYType converts Date to ISO string', () => {
+  it('plainObjectToYType rejects Date (must be explicitly converted)', () => {
     const context = new SynchronizationContext();
     const d = new Date('2020-01-01T00:00:00.000Z');
-    const out = plainObjectToYType(d, context);
-    expect(out).toBe('2020-01-01T00:00:00.000Z');
+    expect(() => plainObjectToYType(d, context)).toThrow(
+      /Unable to convert non-plain object of type "Date"/
+    );
   });
 
-  it('plainObjectToYType converts RegExp to string representation', () => {
+  it('plainObjectToYType rejects RegExp (must be explicitly converted)', () => {
     const context = new SynchronizationContext();
     const r = /abc/gi;
-    const out = plainObjectToYType(r, context);
-    expect(out).toBe(r.toString());
+    expect(() => plainObjectToYType(r, context)).toThrow(
+      /Unable to convert non-plain object of type "RegExp"/
+    );
   });
 
   it('plainObjectToYType throws on unknown non-plain objects', () => {
@@ -63,26 +65,27 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
     expect(() => plainObjectToYType(foo, context)).toThrowError();
   });
 
-  it('plainObjectToYType converts URL to href string', () => {
+  it('plainObjectToYType rejects URL (must be explicitly converted)', () => {
     const context = new SynchronizationContext();
     const u = new URL('https://example.com/path?q=1');
-    const out = plainObjectToYType(u, context);
-    expect(out).toBe('https://example.com/path?q=1');
+    expect(() => plainObjectToYType(u, context)).toThrow(
+      /Unable to convert non-plain object of type "URL"/
+    );
   });
 
   it('roundtrip: plain → Y → plain for supported shapes (normalized)', () => {
     const context = new SynchronizationContext();
-    // Use only supported values - no undefined
+    // Use only supported values - no undefined, explicitly convert Date/RegExp/URL
     const input = {
       a: 1,
       b: 's',
       c: true,
       d: null,
-      f: [1, { x: 2 }],  // Removed undefined from nested object
+      f: [1, { x: 2 }],
       g: { nested: [{ k: 'v' }] },
-      dte: new Date('2020-01-02T00:00:00.000Z'),
-      re: /ab+/i,
-      url: new URL('https://example.com/x?y=1'),
+      dte: new Date('2020-01-02T00:00:00.000Z').toISOString(),
+      re: /ab+/i.toString(),
+      url: new URL('https://example.com/x?y=1').href,
     } as const;
     const yVal = plainObjectToYType(input, context) as Y.Map<unknown>;
     const doc = new Y.Doc();
@@ -102,9 +105,13 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
     });
   });
 
-  it('arrays of special objects convert to string arrays', () => {
+  it('arrays of explicitly converted special objects convert to string arrays', () => {
     const context = new SynchronizationContext();
-    const arr = [new Date('2021-01-01T00:00:00.000Z'), /x/gi, new URL('https://x.test/')];
+    const arr = [
+      new Date('2021-01-01T00:00:00.000Z').toISOString(),
+      /x/gi.toString(),
+      new URL('https://x.test/').href
+    ];
     const y = plainObjectToYType(arr, context) as Y.Array<unknown>;
     const doc = new Y.Doc();
     const root = doc.getArray('arr');
@@ -171,19 +178,42 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
     expect(() => plainObjectToYType(arr, context)).toThrowError();
   });
 
-  it('converts nested Date/RegExp/URL inside containers', () => {
+  it('rejects nested Date/RegExp/URL inside containers (must be explicitly converted)', () => {
     const context = new SynchronizationContext();
     const d = new Date('2020-01-01T00:00:00.000Z');
     const r = /abc/gi;
     const u = new URL('https://example.com');
-    const input = { d, r, u, list: [d, r, u] } as const;
+    
+    // Test that raw Date/RegExp/URL are rejected in objects
+    expect(() => plainObjectToYType({ d }, context)).toThrow(
+      /Unable to convert non-plain object of type "Date"/
+    );
+    expect(() => plainObjectToYType({ r }, context)).toThrow(
+      /Unable to convert non-plain object of type "RegExp"/
+    );
+    expect(() => plainObjectToYType({ u }, context)).toThrow(
+      /Unable to convert non-plain object of type "URL"/
+    );
+    
+    // Test that explicitly converted values work
+    const input = {
+      d: d.toISOString(),
+      r: r.toString(),
+      u: u.href,
+      list: [d.toISOString(), r.toString(), u.href]
+    };
     const yVal = plainObjectToYType(input, context) as Y.Map<unknown>;
     expect(yVal instanceof Y.Map).toBe(true);
     const doc = new Y.Doc();
     const root = doc.getMap('root');
     root.set('val', yVal);
     const json = (root.get('val') as Y.Map<unknown>).toJSON();
-    expect(json).toEqual({ d: d.toISOString(), r: r.toString(), u: 'https://example.com/', list: [d.toISOString(), r.toString(), 'https://example.com/'] });
+    expect(json).toEqual({
+      d: '2020-01-01T00:00:00.000Z',
+      r: '/abc/gi',
+      u: 'https://example.com/',
+      list: ['2020-01-01T00:00:00.000Z', '/abc/gi', 'https://example.com/']
+    });
   });
 
   it('plainObjectToYType leaves AbstractType and controller proxies as-is', () => {

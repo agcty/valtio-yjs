@@ -103,3 +103,44 @@
   - Provides clear error messages at the point of invalid assignment
   - Enables defensive programming patterns with try/catch
 - Test Coverage: See `tests/map-validation-rollback.spec.ts` for comprehensive validation scenarios
+
+## 10) No Implicit Type Conversions (Date, RegExp, etc.)
+
+- Problem: JavaScript has several built-in types (Date, RegExp, URL, etc.) that could potentially be "magically" converted to strings or other primitive representations for storage in Yjs, but this creates ambiguity about what's actually stored and how it will be deserialized.
+- Options:
+  - **Implicit conversion**: Automatically convert Date → ISO string, RegExp → string representation, etc.
+  - **Explicit conversion only**: Reject these types and require users to convert them explicitly.
+- Decision: Reject non-plain objects including Date, RegExp, URL, and require explicit conversion.
+- Rationale:
+  - **Explicitness over magic**: Users should explicitly convert `date.toISOString()` or `regex.toString()` to make serialization obvious
+  - **Predictability**: Clear contract about what types are allowed eliminates surprises
+  - **No ambiguity**: Prevents confusion about whether a string is a date/regex or just a string
+  - **Deserialization control**: Users handle both serialization and deserialization, maintaining full control
+  - **Consistency**: All non-plain objects are rejected uniformly - no special cases
+- Implementation:
+  - `validateDeepForSharedState` rejects all non-plain objects except:
+    - Primitives (string, number, boolean, null)
+    - Plain objects (created with `{}` or `Object.create(null)`)
+    - Plain arrays
+    - Y.js collaborative types (Y.Map, Y.Array, Y.Text)
+- Examples:
+  ```typescript
+  // ❌ Rejected - implicit conversion
+  proxy.date = new Date();
+  
+  // ✅ Accepted - explicit conversion
+  proxy.date = new Date().toISOString();
+  
+  // ❌ Rejected - implicit conversion
+  proxy.pattern = /test/i;
+  
+  // ✅ Accepted - explicit conversion
+  proxy.pattern = /test/i.toString(); // or .source
+  ```
+- Benefits:
+  - Clear mental model: only primitives, plain objects/arrays, and Y.js types are allowed
+  - No hidden conversions that could surprise users
+  - Forces good practices: explicit serialization/deserialization
+  - Easier to debug: what you assign is what gets stored (no transformations)
+  - Better TypeScript support: no special cases to type
+- Test Coverage: See `tests/integration/error-handling.spec.ts` for validation of type rejection

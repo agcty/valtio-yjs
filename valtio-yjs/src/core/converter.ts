@@ -4,20 +4,6 @@ import { isYArray, isYMap, isYAbstractType } from './guards';
 import { isPlainObject } from './types';
 
 /**
- * Converts known special object instances to serializable primitive representations.
- * - Date → ISO string
- * - RegExp → string representation
- * - URL → href string
- * Returns undefined when the value is not a supported special object.
- */
-function convertSpecialObjectIfSupported(value: object): unknown | undefined {
-  if (value instanceof Date) return value.toISOString();
-  if (value instanceof RegExp) return value.toString();
-  if (typeof URL !== 'undefined' && value instanceof URL) return value.href;
-  return undefined;
-}
-
-/**
  * Recursively converts a Yjs shared type (or primitive) into a plain JavaScript object/array.
  */
 export function yTypeToPlainObject(yValue: unknown): unknown {
@@ -71,10 +57,6 @@ export function validateValueForSharedState(jsValue: unknown): void {
     return; // Valid primitive
   }
   
-  // Special objects that get converted to strings are valid
-  const special = convertSpecialObjectIfSupported(jsValue as object);
-  if (special !== undefined) return;
-  
   // Arrays and plain objects are valid (will be recursively validated during conversion)
   if (Array.isArray(jsValue) || isPlainObject(jsValue)) return;
   
@@ -82,7 +64,7 @@ export function validateValueForSharedState(jsValue: unknown): void {
   const ctorName = (jsValue as { constructor?: { name?: string } }).constructor?.name ?? 'UnknownObject';
   throw new Error(
     `[valtio-yjs] Unable to convert non-plain object of type "${ctorName}". ` +
-      'Only plain objects/arrays/primitives are supported, with special handling for Date and RegExp.',
+      'Only plain objects/arrays/primitives are supported. Use explicit conversion for Date, RegExp, etc.',
   );
 }
 
@@ -132,7 +114,7 @@ export function validateDeepForSharedState(jsValue: unknown): void {
   const ctorName = (jsValue as { constructor?: { name?: string } }).constructor?.name ?? 'UnknownObject';
   throw new Error(
     `[valtio-yjs] Unable to convert non-plain object of type "${ctorName}". ` +
-      'Only plain objects/arrays/primitives are supported, with special handling for Date and RegExp.',
+      'Only plain objects/arrays/primitives are supported. Use explicit conversion for Date, RegExp, etc.',
   );
 }
 
@@ -161,10 +143,6 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
     validateValueForSharedState(jsValue);
     return jsValue;
   }
-
-  // Special supported objects
-  const special = convertSpecialObjectIfSupported(jsValue as object);
-  if (special !== undefined) return special;
 
   // If this is one of our controller proxies, return the underlying Y type if it has no parent,
   // otherwise clone it to prevent re-parenting
@@ -206,7 +184,7 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
   const ctorName = jsValue.constructor?.name ?? 'UnknownObject';
   throw new Error(
     `[valtio-yjs] Unable to convert non-plain object of type "${ctorName}". ` +
-      'Only plain objects/arrays/primitives are supported, with special handling for Date and RegExp.',
+      'Only plain objects/arrays/primitives are supported. Use explicit conversion for Date, RegExp, etc.',
   );
 }
 

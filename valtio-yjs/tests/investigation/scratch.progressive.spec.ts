@@ -189,7 +189,7 @@ describe('Scratch: Progressive checks', () => {
       }).toThrowError();
     });
 
-    it('Date/RegExp/URL convert to serializable forms', async () => {
+    it('Date/RegExp/URL must be explicitly converted', async () => {
       const doc = new Y.Doc();
       const { proxy, bootstrap } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<any>('root');
@@ -198,10 +198,16 @@ describe('Scratch: Progressive checks', () => {
       const regex = /test.*pattern/gi;
       const url = new URL('https://example.com/path?query=1');
 
+      // Raw Date/RegExp/URL should be rejected
+      expect(() => bootstrap({ date })).toThrow(/Unable to convert non-plain object of type "Date"/);
+      expect(() => bootstrap({ regex })).toThrow(/Unable to convert non-plain object of type "RegExp"/);
+      expect(() => bootstrap({ url })).toThrow(/Unable to convert non-plain object of type "URL"/);
+
+      // Explicitly converted values should work
       bootstrap({
-        date: date,
-        regex: regex,
-        url: url,
+        date: date.toISOString(),
+        regex: regex.toString(),
+        url: url.href,
       });
 
       // Check Y state has serialized forms

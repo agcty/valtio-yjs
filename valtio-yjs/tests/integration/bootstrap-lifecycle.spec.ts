@@ -109,25 +109,33 @@ describe('Bootstrap & Lifecycle', () => {
       expect(yItem.get('title')).toBe('B');
     });
 
-    it('converts Date to ISO string', async () => {
+    it('rejects Date (must be explicitly converted)', async () => {
       const doc = new Y.Doc();
       const yRoot = doc.getMap<any>('root');
       const { bootstrap } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
 
       const d = new Date('2020-01-01T00:00:00.000Z');
-      bootstrap({ myDate: d });
-
+      expect(() => bootstrap({ myDate: d })).toThrow(
+        /Unable to convert non-plain object of type "Date"/
+      );
+      
+      // Test that explicit conversion works
+      bootstrap({ myDate: d.toISOString() });
       expect(yRoot.get('myDate')).toBe('2020-01-01T00:00:00.000Z');
     });
 
-    it('converts RegExp to string representation', async () => {
+    it('rejects RegExp (must be explicitly converted)', async () => {
       const doc = new Y.Doc();
       const yRoot = doc.getMap<any>('root');
       const { bootstrap } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
 
       const r = /abc/gi;
-      bootstrap({ myRegex: r });
-
+      expect(() => bootstrap({ myRegex: r })).toThrow(
+        /Unable to convert non-plain object of type "RegExp"/
+      );
+      
+      // Test that explicit conversion works
+      bootstrap({ myRegex: r.toString() });
       expect(yRoot.get('myRegex')).toBe(r.toString());
     });
 
