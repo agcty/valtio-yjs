@@ -12,8 +12,7 @@ import { proxy, subscribe, ref } from 'valtio/vanilla';
 
 import type { YSharedContainer, YLeafType } from '../core/yjs-types';
 import { SynchronizationContext } from '../core/context';
-import { isYSharedContainer, isYArray, isYMap, isYLeafType } from '../core/guards';
-import { LOG_PREFIX } from '../core/constants';
+import { isYSharedContainer, isYMap, isYLeafType } from '../core/guards';
 import { planMapOps } from '../planning/map-ops-planner';
 import { planArrayOps } from '../planning/array-ops-planner';
 import { validateDeepForSharedState } from '../core/converter';

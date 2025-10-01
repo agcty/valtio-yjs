@@ -4,6 +4,20 @@ import { isYArray, isYMap, isYAbstractType } from './guards';
 import { isPlainObject } from './types';
 
 /**
+ * Throws if a Y.js type is already parented (attached to a document).
+ * Re-parenting Y.js types can cause data corruption, so we forbid it.
+ */
+function throwIfReparenting(yType: Y.AbstractType<unknown>): void {
+  if (yType.parent !== null) {
+    throw new Error(
+      '[valtio-yjs] Cannot re-assign a collaborative object that is already in the document. ' +
+      'If you intended to move or copy this object, you must explicitly create a deep clone of it ' +
+      'at the application layer before assigning it.'
+    );
+  }
+}
+
+/**
  * Recursively converts a Yjs shared type (or primitive) into a plain JavaScript object/array.
  */
 export function yTypeToPlainObject(yValue: unknown): unknown {
@@ -25,13 +39,7 @@ export function yTypeToPlainObject(yValue: unknown): unknown {
 export function validateValueForSharedState(jsValue: unknown): void {
   // Check for re-parenting of existing Y types
   if (isYAbstractType(jsValue)) {
-    if ((jsValue as Y.AbstractType<unknown>).parent !== null) {
-      throw new Error(
-        '[valtio-yjs] Cannot re-assign a collaborative object that is already in the document. ' +
-        'If you intended to move or copy this object, you must explicitly create a deep clone of it ' +
-        'at the application layer before assigning it.'
-      );
-    }
+    throwIfReparenting(jsValue);
     return; // Y types are valid
   }
   
@@ -75,13 +83,7 @@ export function validateValueForSharedState(jsValue: unknown): void {
 export function validateDeepForSharedState(jsValue: unknown): void {
   // Y types are valid, but check for forbidden re-parenting
   if (isYAbstractType(jsValue)) {
-    if ((jsValue as Y.AbstractType<unknown>).parent !== null) {
-      throw new Error(
-        '[valtio-yjs] Cannot re-assign a collaborative object that is already in the document. ' +
-        'If you intended to move or copy this object, you must explicitly create a deep clone of it ' +
-        'at the application layer before assigning it.'
-      );
-    }
+    throwIfReparenting(jsValue);
     return;
   }
 
@@ -125,14 +127,7 @@ export function validateDeepForSharedState(jsValue: unknown): void {
 export function plainObjectToYType(jsValue: unknown, context: SynchronizationContext): unknown {
   // Already a Yjs value: check for forbidden re-parenting
   if (isYAbstractType(jsValue)) {
-    // Check if this Yjs type already has a parent (is already in the document tree)
-    if ((jsValue as Y.AbstractType<unknown>).parent !== null) {
-      throw new Error(
-        '[valtio-yjs] Cannot re-assign a collaborative object that is already in the document. ' +
-        'If you intended to move or copy this object, you must explicitly create a deep clone of it ' +
-        'at the application layer before assigning it.'
-      );
-    }
+    throwIfReparenting(jsValue);
     return jsValue;
   }
   
@@ -172,9 +167,8 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
   if (isPlainObject(jsValue)) {
     const yMap = new Y.Map();
     for (const [key, value] of Object.entries(jsValue)) {
-      if (value === undefined) {
-        throw new Error('[valtio-yjs] undefined is not allowed in objects for shared state. Use null, delete the key, or omit the field.');
-      }
+      // Note: Validation should happen via validateDeepForSharedState before calling this function.
+      // This converter assumes inputs are pre-validated.
       yMap.set(key, plainObjectToYType(value, context));
     }
     return yMap;

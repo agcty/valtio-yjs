@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { getOrCreateValtioProxy } from './bridge/valtio-bridge';
 import { setupSyncListener } from './synchronizer';
-import { plainObjectToYType } from './core/converter';
+import { plainObjectToYType, validateDeepForSharedState } from './core/converter';
 import { VALTIO_YJS_ORIGIN } from './core/constants';
 export { VALTIO_YJS_ORIGIN } from './core/constants';
 export { syncedText } from './synced-types';
@@ -55,8 +55,7 @@ export function createYjsProxy<T extends object>(
       return;
     }
     if ((isYMap(yRoot) && yRoot.size > 0) || (isYArray(yRoot) && yRoot.length > 0)) {
-      // Use console.warn directly here to ensure visibility, independent of debug
-      console.warn('[valtio-yjs] bootstrap called on a non-empty document. Aborting to prevent data loss.');
+      context.log.warn('bootstrap called on a non-empty document. Aborting to prevent data loss.');
       return;
     }
     // Pre-convert to ensure deterministic behavior: either all converts or none
@@ -65,7 +64,8 @@ export function createYjsProxy<T extends object>(
       const convertedEntries: Array<[string, unknown]> = [];
       for (const key of Object.keys(record)) {
         const value = record[key];
-        // plainObjectToYType throws on undefined; enforce architectural rule
+        // Validate before conversion (throws on undefined, functions, etc.)
+        validateDeepForSharedState(value);
         const converted = plainObjectToYType(value, context);
         convertedEntries.push([key, converted]);
       }
@@ -75,7 +75,10 @@ export function createYjsProxy<T extends object>(
         }
       }, VALTIO_YJS_ORIGIN);
     } else if (isYArray(yRoot)) {
-      const items = (data as unknown as unknown[]).map((v) => plainObjectToYType(v, context));
+      const items = (data as unknown as unknown[]).map((v) => {
+        validateDeepForSharedState(v);
+        return plainObjectToYType(v, context);
+      });
       doc.transact(() => {
         if (items.length > 0) yRoot.insert(0, items);
       }, VALTIO_YJS_ORIGIN);
