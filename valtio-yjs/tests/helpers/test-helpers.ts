@@ -1,7 +1,7 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
 
 import * as Y from 'yjs';
-import { createYjsProxy } from 'valtio-yjs';
+import { createYjsProxy } from '../../src/index';
 
 export const waitMicrotask = () => Promise.resolve();
 

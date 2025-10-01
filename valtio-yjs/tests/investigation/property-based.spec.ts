@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { createYjsProxy } from 'valtio-yjs';
+import { createYjsProxy } from '../../src/index';
 import * as fc from 'fast-check';
 import { planArrayOps } from '../../src/planning/array-ops-planner';
 
