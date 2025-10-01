@@ -64,10 +64,10 @@ describe('Property-Based Testing', () => {
                     }
                     break;
                   case 'delete':
-                    // Note: `delete` on arrays creates holes (sparse arrays)
-                    // and doesn't shift elements. Use splice for actual removal.
+                    // Note: Both `delete arr[i]` and `splice()` work correctly in valtio-yjs.
+                    // The `delete` operator is intercepted and properly removes the element.
+                    // Using splice here for property-based testing consistency.
                     if (operation.index < proxy.length) {
-                      // Use splice for proper array element removal
                       proxy.splice(operation.index, 1);
                     }
                     break;
