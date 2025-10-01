@@ -2,7 +2,8 @@
 
 **Project Context**: valtio-yjs is a bridge library that synchronizes Valtio reactive state with Yjs CRDTs. It uses a sophisticated "Live Controller Proxy" model with microtask batching, two-phase reconciliation, and eager upgrades.
 
-**Current Status**: 
+**Current Status**:
+
 - 220 tests passing (206 original + 14 new from Task 4)
 - Architecture is solid (8/10 rating)
 - Move detection removed (~58 lines saved)
@@ -29,17 +30,14 @@ Create a comprehensive performance benchmark suite that measures:
    - Initial bootstrap time
    - Batch update performance (100 simultaneous updates)
    - Memory usage patterns
-   
 2. **Deep nesting** (10+ levels)
    - Nested object access time
    - Deep mutation propagation time
    - Compare lazy vs eager materialization impact
-   
 3. **Rapid mutations** (batching effectiveness)
    - Single microtask with 1000 operations
    - Multiple microtasks with 100 operations each
    - Measure transaction count vs operation count
-   
 4. **Multi-client sync latency**
    - Two-client setup with relay
    - Measure time from mutation to remote update
@@ -50,11 +48,12 @@ Create a comprehensive performance benchmark suite that measures:
 **File to create**: `valtio-yjs/benchmarks/performance.bench.ts`
 
 **Use Vitest's bench API**:
-```typescript
-import { bench, describe } from 'vitest';
 
-describe('Performance benchmarks', () => {
-  bench('large array bootstrap (1000 items)', async () => {
+```typescript
+import { bench, describe } from "vitest";
+
+describe("Performance benchmarks", () => {
+  bench("large array bootstrap (1000 items)", async () => {
     // Your benchmark code
   });
 });
@@ -103,8 +102,8 @@ Extract trace logging into a separate `SchedulerDebugger` class that's only inst
 **File to create**: `valtio-yjs/src/scheduling/schedulerDebugger.ts`
 
 ```typescript
-import type { Logger } from '../core/context.js';
-import type { PendingMapEntry, PendingArrayEntry } from './batchTypes.js';
+import type { Logger } from "../core/context.js";
+import type { PendingMapEntry, PendingArrayEntry } from "./batchTypes.js";
 
 export class SchedulerDebugger {
   constructor(private log: Logger) {}
@@ -114,7 +113,7 @@ export class SchedulerDebugger {
     mapDeletes: Map<Y.Map<unknown>, Set<string>>,
     arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
     arrayDeletes: Map<Y.Array<unknown>, Set<number>>,
-    arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
+    arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>
   ): void {
     // Move the planned intents logging here (lines 345-368)
   }
@@ -124,7 +123,7 @@ export class SchedulerDebugger {
     mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>,
     arrayDeletes: Map<Y.Array<unknown>, Set<number>>,
     arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
-    arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
+    arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>
   ): void {
     // Move the transaction batch logging here (lines 373-401)
   }
@@ -148,11 +147,23 @@ export class WriteScheduler {
   private flush(): void {
     // ...
     if (this.debugger) {
-      this.debugger.logPlannedIntents(mapSets, mapDeletes, arraySets, arrayDeletes, arrayReplaces);
+      this.debugger.logPlannedIntents(
+        mapSets,
+        mapDeletes,
+        arraySets,
+        arrayDeletes,
+        arrayReplaces
+      );
     }
     // ...
     if (this.debugger) {
-      this.debugger.logTransactionBatch(mapDeletes, mapSets, arrayDeletes, arraySets, arrayReplaces);
+      this.debugger.logTransactionBatch(
+        mapDeletes,
+        mapSets,
+        arrayDeletes,
+        arraySets,
+        arrayReplaces
+      );
     }
   }
 }
@@ -190,6 +201,7 @@ export class WriteScheduler {
 The codebase currently uses heavy type assertions and `unknown` types in several places. This can lead to runtime errors that TypeScript should catch. From the architecture assessment (lines 289-300):
 
 > **Observations**:
+>
 > - Heavy use of `unknown` and type assertions
 > - Some unsafe casts: `(container as Record<string, unknown>)[key as keyof typeof container] as unknown`
 
@@ -204,6 +216,7 @@ Improve type safety across the codebase to reduce runtime errors and improve dev
 **Problem**: Can't distinguish Valtio controller proxies from plain objects at type level
 
 **Solution**: Use branded types
+
 ```typescript
 // In valtio-yjs/src/core/types.ts (create this file)
 declare const ValtioProxyBrand: unique symbol;
@@ -218,11 +231,13 @@ export function isValtioProxy<T>(value: unknown): value is ValtioProxy<T> {
 #### 2. Reduce Type Assertions in Guards
 
 **Files to improve**:
+
 - `valtio-yjs/src/core/guards.ts`
 - `valtio-yjs/src/bridge/valtio-bridge.ts`
 - `valtio-yjs/src/converter.ts`
 
 **Pattern to replace**:
+
 ```typescript
 // Before (unsafe)
 const value = (container as Record<string, unknown>)[key] as unknown;
@@ -241,6 +256,7 @@ function getValueSafely<T extends Record<string, unknown>>(
 **File**: `valtio-yjs/tsconfig.dev.json` (for development)
 
 Add stricter checks:
+
 ```json
 {
   "extends": "./tsconfig.json",
@@ -267,12 +283,14 @@ Add stricter checks:
 ### Files to Audit
 
 Run this to find type assertions:
+
 ```bash
 cd valtio-yjs
 grep -r " as " src/ --include="*.ts" | grep -v ".spec.ts" | wc -l
 ```
 
 Focus on:
+
 - `valtio-yjs/src/core/guards.ts`
 - `valtio-yjs/src/bridge/valtio-bridge.ts`
 - `valtio-yjs/src/converter.ts`
@@ -298,6 +316,7 @@ Focus on:
 From `ARCHITECTURE_ASSESSMENT_2025.md` (lines 147-153):
 
 > **Observations**:
+>
 > - **Array subscription has rollback** on validation error (lines 118-131)
 > - **Map subscription does NOT have rollback** (lines 149-174)
 > - Inconsistency could lead to partial state on map validation errors
@@ -313,11 +332,12 @@ Add rollback mechanism to map subscription to match array subscription behavior.
 **File to modify**: `valtio-yjs/src/bridge/valtio-bridge.ts`
 
 **Current array subscription pattern** (lines 118-131):
+
 ```typescript
 subscribe(valtioArray, (ops) => {
   // Capture previous state
   const prevState = new Map(valtioArray.map((item, i) => [i, item]));
-  
+
   try {
     // Process operations
     for (const op of ops) {
@@ -333,11 +353,12 @@ subscribe(valtioArray, (ops) => {
 ```
 
 **Apply similar pattern to map subscription** (lines 149-174):
+
 ```typescript
 subscribe(valtioMap, (ops) => {
   // TODO: Add rollback mechanism similar to array subscription
   const prevState = new Map(Object.entries(valtioMap));
-  
+
   try {
     // Process operations
     for (const [op, path] of ops) {
@@ -363,17 +384,17 @@ subscribe(valtioMap, (ops) => {
 **Create test file**: `valtio-yjs/tests/map-validation-rollback.spec.ts`
 
 ```typescript
-describe('Map validation rollback', () => {
-  it('should rollback map changes on validation error', () => {
+describe("Map validation rollback", () => {
+  it("should rollback map changes on validation error", () => {
     const { proxy, bootstrap } = createYjsProxy(/* ... */);
-    bootstrap({ user: { name: 'Alice', age: 30 } });
-    
+    bootstrap({ user: { name: "Alice", age: 30 } });
+
     const originalState = { ...proxy.user };
-    
+
     expect(() => {
-      proxy.user = { name: 'Bob', invalid: new Error('not serializable') };
+      proxy.user = { name: "Bob", invalid: new Error("not serializable") };
     }).toThrow();
-    
+
     // Should rollback to original state
     expect(proxy.user).toEqual(originalState);
   });
@@ -393,6 +414,7 @@ describe('Map validation rollback', () => {
 **Implemented**: January 30, 2025
 
 **What Was Done**:
+
 1. Added deep validation with rollback to map subscription in `valtio-bridge.ts`
 2. Enhanced `validateDeepForSharedState` to check Y type re-parenting synchronously
 3. Created comprehensive test suite with 14 new tests across 2 files:
@@ -402,6 +424,7 @@ describe('Map validation rollback', () => {
 5. All 220 tests passing
 
 **Key Improvements**:
+
 - Maps and arrays now have consistent error handling behavior
 - Validation errors are caught synchronously where assignment happens
 - Automatic rollback prevents partial state corruption
@@ -434,6 +457,7 @@ describe('Map validation rollback', () => {
 Users need to understand the performance implications of different usage patterns. The architecture assessment noted (lines 357-369):
 
 > **Potential Concerns**:
+>
 > - Parent chain walking: On every observeDeep event for lazy materialization
 > - Subtree collection: Recursive traversal on every replace/delete
 
@@ -455,16 +479,19 @@ Create comprehensive documentation explaining performance characteristics and be
 valtio-yjs is designed for typical UI state synchronization scenarios. Here's what you need to know:
 
 ### Microtask Batching
+
 - All operations in the same JavaScript task are batched
 - Results in single Y.js transaction per microtask
 - **Impact**: Hundreds of operations → 1 network update
 
 ### Lazy Materialization
+
 - Nested objects only create proxies when accessed
 - **Trade-off**: Memory efficient but requires parent chain walking
 - **Best for**: Sparse data structures, large trees with partial access
 
 ### Subtree Purging
+
 - Prevents stale operations on deleted/replaced nodes
 - Recursive traversal on replace/delete operations
 - **Benchmark**: ~5.8ms for 100 items (negligible overhead)
@@ -472,12 +499,15 @@ valtio-yjs is designed for typical UI state synchronization scenarios. Here's wh
 ## Performance Profiles
 
 ### Best Case: Shallow, Frequent Updates
+
 ...
 
 ### Worst Case: Deep Nesting with Full Traversal
+
 ...
 
 ### Typical Case: UI State Sync
+
 ...
 ```
 
@@ -489,16 +519,19 @@ Add section to `README.md`:
 ## Performance Best Practices
 
 ### ✅ Do
+
 - Batch related updates in the same tick
 - Use shallow structures when possible
 - Access only the data you need (lazy materialization)
 
 ### ⚠️ Be Careful
+
 - Very deep nesting (10+ levels) has overhead
 - Large array operations (1000+ items) should be tested
 - Hot paths: profile before optimizing
 
 ### 📊 Benchmarks
+
 - Bootstrap 1000 items: ~Xms
 - 100 simultaneous updates: ~Xms
 - Deep nesting (10 levels): ~Xms
@@ -512,12 +545,14 @@ Document in `docs/architecture.md`:
 ## Performance Considerations
 
 ### Parent Chain Walking
+
 On every inbound Y.js event, the system walks the parent chain...
 
 **When it matters**: Deep nesting (>10 levels) with many updates
 **Mitigation**: Cache nearest materialized ancestor (future optimization)
 
 ### Subtree Collection
+
 On replace/delete operations, recursively collects descendants...
 
 **When it matters**: Large subtrees (>100 nested objects)
@@ -552,12 +587,14 @@ On replace/delete operations, recursively collects descendants...
 ### Before Starting
 
 1. Read the architecture documents:
+
    - `ARCHITECTURE_ASSESSMENT_2025.md`
    - `SCHEDULER_COMPLEXITY_FINDINGS.md`
    - `docs/architecture.md`
    - `docs/data-flow.md`
 
 2. Run the test suite to establish baseline:
+
    ```bash
    cd valtio-yjs && npm test
    ```
@@ -582,18 +619,19 @@ On replace/delete operations, recursively collects descendants...
 - [ ] Documentation updated
 - [ ] Code formatted and linted
 - [ ] Commit with descriptive message following pattern:
+
   ```
   <type>(<scope>): <description>
-  
+
   <detailed explanation>
-  
+
   Changes:
   - <change 1>
   - <change 2>
-  
+
   Testing:
   - <test description>
-  
+
   Benefits:
   - <benefit 1>
   ```
