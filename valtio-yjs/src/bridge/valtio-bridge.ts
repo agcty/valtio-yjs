@@ -30,6 +30,7 @@ import {
 
 // All caches are moved into SynchronizationContext
 
+// Helper: Upgrade a child value (leaf or container) in the parent proxy
 function upgradeChildIfNeeded(
   context: SynchronizationContext,
   container: Record<string, unknown> | unknown[],
@@ -61,6 +62,68 @@ function upgradeChildIfNeeded(
       setContainerValue(container, key, newController);
     });
   }
+}
+
+// Helper: Filter out internal/nested operations from Valtio map operations
+function filterMapOperations(ops: unknown[]): unknown[] {
+  return ops.filter((op) => {
+    const rawOp = op as RawValtioOperation;
+    if (isRawSetMapOp(rawOp)) {
+      const path = rawOp[1] as (string | number)[];
+      // If path has more than 1 element, it's a nested property change
+      // Only allow top-level changes (path.length === 1)
+      if (path.length !== 1) {
+        return false;
+      }
+      // Filter out internal valtio-yjs properties (version counter, leaf storage)
+      const key = String(path[0]);
+      if (key.startsWith('__valtio_yjs_')) {
+        return false;
+      }
+    }
+    return true; // Keep delete ops and other operations
+  });
+}
+
+// Helper: Rollback array proxy to previous state on validation failure
+function rollbackArrayChanges(
+  context: SynchronizationContext,
+  arrProxy: unknown[],
+  ops: RawValtioOperation[],
+): void {
+  context.withReconcilingLock(() => {
+    for (const op of ops) {
+      if (isRawSetArrayOp(op)) {
+        const idx = op[1][0];
+        const index = normalizeIndex(idx);
+        const prev = op[3];
+        arrProxy[index] = prev;
+      }
+    }
+  });
+}
+
+// Helper: Rollback map proxy to previous state on validation failure
+function rollbackMapChanges(
+  context: SynchronizationContext,
+  objProxy: Record<string, unknown>,
+  ops: RawValtioOperation[],
+): void {
+  context.withReconcilingLock(() => {
+    for (const op of ops) {
+      if (isRawSetMapOp(op)) {
+        const key = op[1][0];
+        const prev = op[3];
+        if (prev === undefined) {
+          // Key didn't exist before, delete it
+          delete objProxy[key];
+        } else {
+          // Restore previous value
+          objProxy[key] = prev;
+        }
+      }
+    }
+  });
 }
 
 
@@ -136,16 +199,7 @@ function attachValtioArraySubscription(
       }
     } catch (err) {
       // Rollback local proxy to previous values using ops metadata
-      context.withReconcilingLock(() => {
-        for (const op of ops as RawValtioOperation[]) {
-          if (isRawSetArrayOp(op)) {
-            const idx = op[1][0];
-            const index = normalizeIndex(idx);
-            const prev = op[3];
-            arrProxy[index] = prev;
-          }
-        }
-      });
+      rollbackArrayChanges(context, arrProxy, ops as RawValtioOperation[]);
       throw err;
     }
   }, true);
@@ -171,23 +225,7 @@ function attachValtioMapSubscription(
     // Filter out operations on internal properties
     // 1. Filter out nested Y.js internal property changes (path.length > 1)
     // 2. Filter out valtio-yjs internal properties (__valtio_yjs_*)
-    const filteredOps = ops.filter((op) => {
-      const rawOp = op as RawValtioOperation;
-      if (isRawSetMapOp(rawOp)) {
-        const path = rawOp[1] as (string | number)[];
-        // If path has more than 1 element, it's a nested property change
-        // Only allow top-level changes (path.length === 1)
-        if (path.length !== 1) {
-          return false;
-        }
-        // Filter out internal valtio-yjs properties (version counter, leaf storage)
-        const key = String(path[0]);
-        if (key.startsWith('__valtio_yjs_')) {
-          return false;
-        }
-      }
-      return true; // Keep delete ops and other operations
-    });
+    const filteredOps = filterMapOperations(ops);
     
     if (filteredOps.length === 0) {
       // All ops were filtered out (all were nested Y.js internal changes)
@@ -219,42 +257,30 @@ function attachValtioMapSubscription(
       }
     } catch (err) {
       // Rollback local proxy to previous values using ops metadata
-      context.withReconcilingLock(() => {
-        for (const op of filteredOps as RawValtioOperation[]) {
-          if (isRawSetMapOp(op)) {
-            const key = op[1][0];
-            const prev = op[3];
-            if (prev === undefined) {
-              // Key didn't exist before, delete it
-              delete objProxy[key];
-            } else {
-              // Restore previous value
-              objProxy[key] = prev;
-            }
-          }
-        }
-      });
+      rollbackMapChanges(context, objProxy, filteredOps as RawValtioOperation[]);
       throw err;
     }
   }, true);
   return unsubscribe;
 }
 
-// Create (or reuse from cache) a Valtio proxy that mirrors a Y.Map.
-// Nested Y types are recursively materialized via getOrCreateValtioProxy.
-function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.Map<unknown>, doc: Y.Doc): object {
-  const existing = context.yTypeToValtioProxy.get(yMap);
-  if (existing) return existing;
-
+// Helper: Process Y.Map entries and categorize them
+function processYMapEntries(
+  context: SynchronizationContext,
+  yMap: Y.Map<unknown>,
+  doc: Y.Doc,
+): {
+  initialObj: Record<string, unknown>;
+  leafNodesToSetup: Array<[string, YLeafType]>;
+} {
   const initialObj: Record<string, unknown> = {};
   const leafNodesToSetup: Array<[string, YLeafType]> = [];
-  const versionKey = '__valtio_yjs_version';
   
   for (const [key, value] of yMap.entries()) {
     // Check leaf types first (before container check) since some leaf types extend containers
     // (e.g., Y.XmlHook extends Y.Map)
     if (isYLeafType(value)) {
-      // Leaf nodes: we'll setup computed properties BEFORE creating the proxy
+      // Leaf nodes: we'll setup computed properties AFTER creating the proxy
       leafNodesToSetup.push([key, value as YLeafType]);
     } else if (isYSharedContainer(value)) {
       // Containers: create controller proxy recursively
@@ -265,51 +291,82 @@ function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.
     }
   }
   
+  return { initialObj, leafNodesToSetup };
+}
+
+// Helper: Define computed property for a leaf node on a map proxy
+function defineLeafPropertyOnMap(
+  objProxy: Record<string, unknown>,
+  key: string,
+  leafNode: YLeafType,
+  versionKey: string,
+): void {
+  // Store the ref'd leaf in a hidden string property
+  const storageKey = `__valtio_yjs_leaf_${key}`;
+  objProxy[storageKey] = ref(leafNode);
+  
+  // Define the computed property ON THE PROXY (after proxy creation)
+  Object.defineProperty(objProxy, key, {
+    get() {
+      // Touch the version counter - this creates a Valtio dependency
+      void (this as unknown as Record<string, unknown>)[versionKey];
+      // Return the stored leaf node
+      return (this as unknown as Record<string, unknown>)[storageKey];
+    },
+    enumerable: true,
+    configurable: true,
+  });
+}
+
+// Helper: Setup Y.js observer for leaf node in map
+function setupLeafObserverForMap(
+  context: SynchronizationContext,
+  objProxy: Record<string, unknown>,
+  key: string,
+  leafNode: YLeafType,
+  versionKey: string,
+): void {
+  const handler = () => {
+    const currentVersion = objProxy[versionKey] as number;
+    objProxy[versionKey] = currentVersion + 1;
+  };
+  
+  leafNode.observe(handler);
+  context.registerDisposable(() => {
+    leafNode.unobserve(handler);
+  });
+  
+  context.log.debug('[leaf-computed] setup complete', {
+    key,
+    type: leafNode.constructor.name,
+  });
+}
+
+// Create (or reuse from cache) a Valtio proxy that mirrors a Y.Map.
+// Nested Y types are recursively materialized via getOrCreateValtioProxy.
+function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.Map<unknown>, doc: Y.Doc): object {
+  const existing = context.yTypeToValtioProxy.get(yMap);
+  if (existing) return existing;
+
+  const versionKey = '__valtio_yjs_version';
+  const { initialObj, leafNodesToSetup } = processYMapEntries(context, yMap, doc);
+  
   // Initialize version counter BEFORE creating proxy
   if (leafNodesToSetup.length > 0) {
     initialObj[versionKey] = 0;
   }
   
   // Create the proxy FIRST (with regular properties only)
-  const objProxy = proxy(initialObj);
+  const objProxy = proxy(initialObj) as Record<string, unknown>;
   
   // NOW setup computed properties AFTER proxy creation
-  // Define them ON THE PROXY (like the working valtio-computed-test does)
   for (const [key, leafNode] of leafNodesToSetup) {
-    // Store the ref'd leaf in a hidden string property
-    const storageKey = `__valtio_yjs_leaf_${key}`;
-    (objProxy as Record<string, unknown>)[storageKey] = ref(leafNode);
-    
-    // Define the computed property ON THE PROXY (after proxy creation)
-    Object.defineProperty(objProxy, key, {
-      get() {
-        // Touch the version counter - this creates a Valtio dependency
-        void (this as unknown as Record<string, unknown>)[versionKey];
-        // Return the stored leaf node
-        return (this as unknown as Record<string, unknown>)[storageKey];
-      },
-      enumerable: true,
-      configurable: true,
-    });
+    defineLeafPropertyOnMap(objProxy, key, leafNode, versionKey);
   }
 
   // Setup Y.js observers AFTER proxy creation
   for (const [key, leafNode] of leafNodesToSetup) {
-    const handler = () => {
-      const proxyAsRecord = objProxy as Record<string, unknown>;
-      const currentVersion = proxyAsRecord[versionKey] as number;
-      proxyAsRecord[versionKey] = currentVersion + 1;
-    };
-    
-    leafNode.observe(handler);
-    context.registerDisposable(() => {
-      leafNode.unobserve(handler);
-    });
-    
-    context.log.debug('[leaf-computed] setup complete', {
-      key,
-      type: leafNode.constructor.name,
-    });
+    setupLeafObserverForMap(context, objProxy, key, leafNode, versionKey);
   }
 
   context.yTypeToValtioProxy.set(yMap, objProxy);
@@ -321,11 +378,13 @@ function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.
   return objProxy;
 }
 
-function getOrCreateValtioProxyForYArray(context: SynchronizationContext, yArray: Y.Array<unknown>, doc: Y.Doc): unknown[] {
-  const existing = context.yTypeToValtioProxy.get(yArray) as unknown[] | undefined;
-  if (existing) return existing;
-  
-  const initialItems = yArray.toArray().map((value) => {
+// Helper: Process Y.Array items and convert them for the initial proxy
+function processYArrayItems(
+  context: SynchronizationContext,
+  yArray: Y.Array<unknown>,
+  doc: Y.Doc,
+): unknown[] {
+  return yArray.toArray().map((value) => {
     if (isYSharedContainer(value)) {
       // Containers: create controller proxy recursively
       return getOrCreateValtioProxy(context, value, doc);
@@ -337,10 +396,14 @@ function getOrCreateValtioProxyForYArray(context: SynchronizationContext, yArray
       return value;
     }
   });
-  
-  const arrProxy = proxy(initialItems);
-  
-  // Setup reactivity for leaf nodes AFTER proxy creation
+}
+
+// Helper: Setup leaf nodes in an array proxy after creation
+function setupLeafNodesInArray(
+  context: SynchronizationContext,
+  yArray: Y.Array<unknown>,
+  arrProxy: unknown[],
+): void {
   yArray.toArray().forEach((value, index) => {
     if (isYLeafType(value)) {
       // Type assertion is safe here because isYLeafType guard confirmed the type
@@ -349,6 +412,17 @@ function getOrCreateValtioProxyForYArray(context: SynchronizationContext, yArray
       setupLeafNodeAsComputedInArray(context, arrProxy, index, leafNode);
     }
   });
+}
+
+function getOrCreateValtioProxyForYArray(context: SynchronizationContext, yArray: Y.Array<unknown>, doc: Y.Doc): unknown[] {
+  const existing = context.yTypeToValtioProxy.get(yArray) as unknown[] | undefined;
+  if (existing) return existing;
+  
+  const initialItems = processYArrayItems(context, yArray, doc);
+  const arrProxy = proxy(initialItems);
+  
+  // Setup reactivity for leaf nodes AFTER proxy creation
+  setupLeafNodesInArray(context, yArray, arrProxy);
   
   context.yTypeToValtioProxy.set(yArray, arrProxy);
   context.valtioProxyToYType.set(arrProxy, yArray);
