@@ -39,7 +39,11 @@ import { createYjsProxy } from "valtio-yjs";
 const ydoc = new Y.Doc();
 
 // create a synchronized proxy
-const { proxy: state, dispose, bootstrap } = createYjsProxy(ydoc, {
+const {
+  proxy: state,
+  dispose,
+  bootstrap,
+} = createYjsProxy(ydoc, {
   getRoot: (doc) => doc.getMap("mymap"),
 });
 
@@ -63,6 +67,121 @@ state.arr.push(4);
 
 // dispose when you're done to clean up listeners
 dispose();
+```
+
+## Bootstrap vs Direct Assignment
+
+In most cases, you'll use **direct assignment** to initialize and update your state. The `bootstrap` function is optional and only needed for specific scenarios.
+
+### Direct Assignment (Recommended for Most Cases)
+
+```js
+// ✅ Just assign directly - this works great!
+if (!state.todos) {
+  state.todos = [
+    { id: 1, text: "Learn valtio-yjs" },
+    { id: 2, text: "Build something cool" },
+  ];
+}
+
+// ✅ Update anytime
+state.user = { name: "Alice", age: 30 };
+state.settings = { theme: "dark" };
+```
+
+**How it works:**
+
+- Validates data synchronously
+- Converts plain objects/arrays to Y.js types automatically
+- Flushes to Y.js document on next microtask
+- Replaces plain values with live controller proxies
+
+### When to Use Bootstrap
+
+Use `bootstrap()` when you need these specific guarantees:
+
+#### 1. **Automatic Empty-Document Check**
+
+```js
+// Bootstrap won't overwrite existing data (safe for network sync)
+provider.on("synced", () => {
+  bootstrap({ todos: [] }); // ✅ No-op if remote data exists
+});
+
+// Direct assignment requires manual check
+provider.on("synced", () => {
+  if (!state.todos) {
+    // ⚠️ Must check manually
+    state.todos = [];
+  }
+});
+```
+
+#### 2. **All-or-Nothing Atomicity**
+
+```js
+// ✅ Bootstrap: Either ALL data is valid and written, or NOTHING is written
+bootstrap({
+  todos: [...],
+  users: [...],
+  settings: {...}
+});
+
+// ⚠️ Direct assignment: Partial state possible if validation fails
+state.todos = [...];      // ✅ Succeeds
+state.users = [...];      // ✅ Succeeds
+state.settings = invalid; // ❌ Fails - but todos & users already written!
+```
+
+#### 3. **Same-Tick Nested Edits**
+
+```js
+// ✅ Bootstrap materializes nested proxies immediately
+bootstrap({ item: { title: "A", tags: [] } });
+state.item.title = "B"; // Works in same tick
+
+// ⚠️ Direct assignment requires waiting for microtask
+state.item = { title: "A", tags: [] };
+await Promise.resolve(); // Must wait
+state.item.title = "B"; // Now safe
+```
+
+### Quick Decision Guide
+
+**Use direct assignment when:**
+
+- ✅ Building single-user or local-first apps
+- ✅ You're comfortable with manual empty checks (`if (!state.todos)`)
+- ✅ Initializing data incrementally (one field at a time)
+- ✅ You don't need same-tick nested edits
+
+**Use bootstrap when:**
+
+- ✅ Syncing with network providers (y-websocket, y-webrtc)
+- ✅ You want automatic safety against overwriting remote data
+- ✅ Initializing large, complex initial state atomically
+- ✅ You need immediate nested object access in same tick
+
+### Example: Network Sync Pattern
+
+```js
+import { WebsocketProvider } from "y-websocket";
+
+const ydoc = new Y.Doc();
+const provider = new WebsocketProvider("ws://localhost:1234", "room", ydoc);
+
+const { proxy, bootstrap } = createYjsProxy(ydoc, {
+  getRoot: (doc) => doc.getMap("state"),
+});
+
+// Wait for sync, then safely initialize if empty
+provider.on("synced", () => {
+  bootstrap({
+    todos: [],
+    settings: { theme: "light" },
+  });
+  // ✅ Won't overwrite data from other clients
+});
 ```
 
 ## What's Supported
