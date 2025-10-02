@@ -7,7 +7,7 @@
 //   transactions tagged with VALTIO_YJS_ORIGIN.
 // - Lazily create nested controllers when a Y value is another Y type.
 import * as Y from 'yjs';
-import { proxy, subscribe, ref, unstable_getInternalStates } from 'valtio/vanilla';
+import { proxy, subscribe, ref } from 'valtio/vanilla';
 // import removed: origin tagging handled by context scheduler
 
 import type { YSharedContainer, YLeafType } from '../core/yjs-types';
@@ -19,7 +19,7 @@ import { validateDeepForSharedState } from '../core/converter';
 import { setupLeafNodeAsComputed, setupLeafNodeAsComputedInArray } from './leaf-computed';
 import { safeStringify } from '../utils/logging';
 import { normalizeIndex } from '../utils/index-utils';
-import { 
+import {
   getContainerValue,
   setContainerValue,
   isRawSetMapOp,
