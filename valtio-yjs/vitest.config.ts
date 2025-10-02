@@ -1,21 +1,21 @@
-/// <reference types="vitest" />
-
 import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  plugins: [react()],
   test: {
     browser: {
-      provider: "playwright",
+      provider: 'playwright',
       enabled: true,
       headless: true,
-      instances: [{ browser: "chromium" }],
+      instances: [{ browser: 'chromium' }],
       screenshotFailures: false,
     },
     include: [
-      'src/**/*.test.ts',                      // Co-located unit tests
-      'tests/integration/**/*.spec.ts',        // Integration tests
-      'tests/e2e/**/*.spec.ts',                // End-to-end tests
-      'tests/investigation/**/*.spec.ts'       // Investigation/analysis tests
+      'src/**/*.test.ts', // Co-located unit tests
+      'tests/integration/**/*.spec.{ts,tsx}', // Integration tests (TS and TSX)
+      'tests/e2e/**/*.spec.{ts,tsx}', // End-to-end tests (TS and TSX)
+      'tests/investigation/**/*.spec.ts', // Investigation/analysis tests
     ],
     setupFiles: ['./tests/helpers/vitest-setup.ts'],
   },
