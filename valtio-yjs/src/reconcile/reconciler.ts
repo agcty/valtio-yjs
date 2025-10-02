@@ -1,11 +1,10 @@
 import * as Y from 'yjs';
-import { ref, unstable_getInternalStates } from 'valtio/vanilla';
 import { getOrCreateValtioProxy, getValtioProxyForYType } from '../bridge/valtio-bridge';
 import { SynchronizationContext } from '../core/context';
 
 import { isYSharedContainer, isYArray, isYMap, isYLeafType } from '../core/guards';
 import { yTypeToJSON } from '../core/types';
-import { setupLeafNodeReactivity, setupLeafNodeReactivityInArray } from '../bridge/leaf-reactivity';
+import { setupLeafNodeAsComputed, setupLeafNodeAsComputedInArray, getUnderlyingLeaf } from '../bridge/leaf-computed';
 import type { YLeafType } from 'src/core/yjs-types';
 
 // Reconciler layer
@@ -36,7 +35,10 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
       yJson: yTypeToJSON(yMap),
     });
     const yKeys = new Set(Array.from(yMap.keys()).map((k) => String(k)));
-    const valtioKeys = new Set(Object.keys(valtioProxy));
+    // EXCLUDE internal valtio-yjs properties from reconciliation
+    // These properties (like __valtio_yjs_version, __valtio_yjs_leaf_*) are used for reactivity
+    // and should NOT be synced with Y.Map or deleted during reconciliation
+    const valtioKeys = new Set(Object.keys(valtioProxy).filter(key => !key.startsWith('__valtio_yjs_')));
     const allKeys = new Set<string>([...yKeys, ...valtioKeys]);
 
     for (const key of allKeys) {
@@ -48,9 +50,8 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
         // Check leaf types first (before container check) since some leaf types extend containers
         // (e.g., Y.XmlHook extends Y.Map)
         if (isYLeafType(yValue)) {
-          context.log.debug('[ADD] set leaf node (wrapped in ref)', key);
-          valtioProxy[key] = ref(yValue);
-          setupLeafNodeReactivity(context, valtioProxy, key, yValue);
+          context.log.debug('[ADD] set leaf node (computed)', key);
+          setupLeafNodeAsComputed(context, valtioProxy, key, yValue);
         } else if (isYSharedContainer(yValue)) {
           context.log.debug('[ADD] create controller', key);
           valtioProxy[key] = getOrCreateValtioProxy(context, yValue, doc);
@@ -80,44 +81,30 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
         // Check leaf types first (before container check) since some leaf types extend containers
         // (e.g., Y.XmlHook extends Y.Map)
         if (isYLeafType(yValue)) {
-          // For leaf nodes, we need to bypass Valtio's SET trap which transforms values
-          // through proxy-compare's getUntracked(). Instead, we directly modify the
-          // base object and mark the leaf value in refSet.
-          context.log.debug('[REPLACE] replace leaf node (direct)', key, {
+          context.log.debug('[RECONCILE] leaf node detected', key, {
             currentType: current?.constructor?.name,
             yValueType: yValue?.constructor?.name,
             same: current === yValue,
           });
           
-          // Get Valtio internals to access base object and refSet
-          const { proxyStateMap, refSet } = unstable_getInternalStates();
-          const proxyState = proxyStateMap.get(valtioProxy as object);
+          // Get the underlying Y.js leaf node from the computed property
+          const underlyingCurrent = getUnderlyingLeaf(valtioProxy, key);
           
-          if (proxyState) {
-            // Access the base target object (first element of proxyState tuple)
-            const baseObject = proxyState[0] as Record<string, unknown>;
-            // Mark the Y.js type in refSet to prevent deep proxying
-            refSet.add(yValue);
-            // Directly set on base object, bypassing Valtio's SET trap
-            baseObject[key] = yValue;
-            
-            // Verify it worked
-            const readBack = valtioProxy[key];
-            context.log.debug('[REPLACE] verify read-back (direct)', key, {
-              readBackType: readBack?.constructor?.name,
-              readBackSame: readBack === yValue,
-            });
-            
-            // Only setup reactivity once per leaf node instance
-            if (current !== yValue) {
-              setupLeafNodeReactivity(context, valtioProxy, key, yValue);
-            }
+          context.log.debug('[RECONCILE] underlying current', {
+            key,
+            underlyingCurrent,
+            yValue,
+            same: underlyingCurrent === yValue,
+          });
+          
+          // Only replace if the underlying Y.js instance has changed
+          if (underlyingCurrent !== yValue) {
+            context.log.debug('[RECONCILE] setting up leaf node', key);
+            // Setup new computed property with reactivity
+            setupLeafNodeAsComputed(context, valtioProxy, key, yValue);
           } else {
-            context.log.warn('[REPLACE] no proxy state found, falling back to regular set', key);
-            valtioProxy[key] = ref(yValue);
-            if (current !== yValue) {
-              setupLeafNodeReactivity(context, valtioProxy, key, yValue);
-            }
+            // Same Y.js instance - computed property is already correct
+            context.log.debug('[RECONCILE] leaf node unchanged, skipping setup', key);
           }
         } else if (isYSharedContainer(yValue)) {
           const desired = getOrCreateValtioProxy(context, yValue, doc);
@@ -172,7 +159,8 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
       // isYSharedContainer before isYLeafType, causing it to be incorrectly
       // wrapped in a controller proxy instead of being treated as a leaf.
       if (isYLeafType(item)) {
-        return ref(item);
+        // For array items, we'll set up computed properties after the splice
+        return null;
       } else if (isYSharedContainer(item)) {
         return getOrCreateValtioProxy(context, item, doc);
       } else {
@@ -182,12 +170,12 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
     context.log.debug('reconcile array splice', newContent.length);
     valtioProxy.splice(0, valtioProxy.length, ...newContent);
     
-    // Setup reactivity for leaf nodes after splice
+    // Setup computed properties for leaf nodes after splice
     yArray.toArray().forEach((item, index) => {
       if (isYLeafType(item)) {
         // Type assertion is safe here because isYLeafType guard confirmed the type
         const leafNode = item as YLeafType;
-        setupLeafNodeReactivityInArray(context, valtioProxy, index, leafNode);
+        setupLeafNodeAsComputedInArray(context, valtioProxy, index, leafNode);
       }
     });
     context.log.debug('reconcileValtioArray end', {
@@ -247,7 +235,8 @@ export function reconcileValtioArrayWithDelta(
         const converted = d.insert.map((item) => {
           // Check leaf types FIRST (see comment in reconcileValtioArray above)
           if (isYLeafType(item)) {
-            return ref(item);
+            // For array items, we'll set up computed properties after the insert
+            return null;
           } else if (isYSharedContainer(item)) {
             return getOrCreateValtioProxy(context, item, doc);
           } else {
@@ -266,12 +255,12 @@ export function reconcileValtioArrayWithDelta(
         context.log.debug('delta.insert', { at: position, count: converted.length });
         valtioProxy.splice(position, 0, ...converted);
         
-        // Setup reactivity for inserted leaf nodes
+        // Setup computed properties for inserted leaf nodes
         d.insert.forEach((item, offset) => {
           if (isYLeafType(item)) {
             // Type assertion is safe here because isYLeafType guard confirmed the type
             const leafNode = item as YLeafType;
-            setupLeafNodeReactivityInArray(context, valtioProxy, position + offset, leafNode);
+            setupLeafNodeAsComputedInArray(context, valtioProxy, position + offset, leafNode);
           }
         });
         

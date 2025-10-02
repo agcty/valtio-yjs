@@ -157,6 +157,7 @@ function ClientView({ name, stateProxy, color, clientId }: ClientViewProps) {
   const snap = useSnapshot(stateProxy);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [isOnline, setIsOnline] = useState(clientId === 1 ? getClient1Online() : getClient2Online());
+  const cursorPositionRef = useRef<number | null>(null);
   
   useEffect(() => {
     const unsubscribe = subscribeToStatus(() => {
@@ -164,6 +165,18 @@ function ClientView({ name, stateProxy, color, clientId }: ClientViewProps) {
     });
     return unsubscribe;
   }, [clientId]);
+  
+  // Get text content (safe even if sharedText is undefined)
+  const textContent = snap.sharedText?.toString() || '';
+  
+  // Restore cursor position after re-render from remote changes
+  useEffect(() => {
+    if (cursorPositionRef.current !== null && textareaRef.current) {
+      const pos = cursorPositionRef.current;
+      textareaRef.current.setSelectionRange(pos, pos);
+      cursorPositionRef.current = null;
+    }
+  }, [textContent]);
   
   // Safety check: ensure sharedText exists (after all hooks)
   if (!snap.sharedText) {
@@ -189,28 +202,38 @@ function ClientView({ name, stateProxy, color, clientId }: ClientViewProps) {
     
     if (!textarea) return;
     
+    // Skip if values are the same (shouldn't happen but defensive)
+    if (newValue === oldValue) {
+      return;
+    }
+    
     const cursorPos = textarea.selectionStart;
     
     // Calculate the diff and apply minimal changes to Y.Text
     if (newValue.length > oldValue.length) {
       // Text was inserted
       const inserted = newValue.substring(cursorPos - (newValue.length - oldValue.length), cursorPos);
-      stateProxy.sharedText.insert(cursorPos - inserted.length, inserted);
+      const insertPos = cursorPos - inserted.length;
+      stateProxy.sharedText.insert(insertPos, inserted);
+      // Save cursor position to restore after re-render
+      cursorPositionRef.current = cursorPos;
     } else if (newValue.length < oldValue.length) {
       // Text was deleted
       const deleteCount = oldValue.length - newValue.length;
       stateProxy.sharedText.delete(cursorPos, deleteCount);
+      // Save cursor position to restore after re-render
+      cursorPositionRef.current = cursorPos;
     } else {
       // Text was replaced (same length) - delete and insert
       const diffStart = Array.from(oldValue).findIndex((char, i) => char !== newValue[i]);
       if (diffStart !== -1 && diffStart < newValue.length) {
         stateProxy.sharedText.delete(diffStart, 1);
         stateProxy.sharedText.insert(diffStart, newValue[diffStart]!);
+        cursorPositionRef.current = cursorPos;
       }
     }
   };
 
-  const textContent = snap.sharedText.toString();
   const charCount = textContent.length;
   const wordCount = textContent.trim() ? textContent.trim().split(/\s+/).length : 0;
 

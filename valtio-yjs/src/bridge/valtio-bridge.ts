@@ -7,7 +7,7 @@
 //   transactions tagged with VALTIO_YJS_ORIGIN.
 // - Lazily create nested controllers when a Y value is another Y type.
 import * as Y from 'yjs';
-import { proxy, subscribe, ref } from 'valtio/vanilla';
+import { proxy, subscribe, ref, unstable_getInternalStates } from 'valtio/vanilla';
 // import removed: origin tagging handled by context scheduler
 
 import type { YSharedContainer, YLeafType } from '../core/yjs-types';
@@ -16,7 +16,7 @@ import { isYSharedContainer, isYMap, isYLeafType } from '../core/guards';
 import { planMapOps } from '../planning/map-ops-planner';
 import { planArrayOps } from '../planning/array-ops-planner';
 import { validateDeepForSharedState } from '../core/converter';
-import { setupLeafNodeReactivity, setupLeafNodeReactivityInArray } from './leaf-reactivity';
+import { setupLeafNodeAsComputed, setupLeafNodeAsComputedInArray } from './leaf-computed';
 import { safeStringify } from '../utils/logging';
 import { normalizeIndex } from '../utils/index-utils';
 import { 
@@ -45,18 +45,14 @@ function upgradeChildIfNeeded(
   // Check leaf types first (before container check) since some leaf types extend containers
   // (e.g., Y.XmlHook extends Y.Map)
   if (isYLeafType(yValue)) {
-    // Leaf node: wrap in ref() and setup reactivity
-    const wrappedLeaf = ref(yValue);
-    context.withReconcilingLock(() => {
-      setContainerValue(container, key, wrappedLeaf);
-    });
-    // Setup reactivity based on container type
+    // Leaf node: use computed property approach for reactivity
     // Type assertion is safe here because isYLeafType guard confirmed the type
     const leafNode = yValue as YLeafType;
+    // Setup reactivity based on container type
     if (Array.isArray(container)) {
-      setupLeafNodeReactivityInArray(context, container, key as number, leafNode);
+      setupLeafNodeAsComputedInArray(context, container, key as number, leafNode);
     } else {
-      setupLeafNodeReactivity(context, container, key as string, leafNode);
+      setupLeafNodeAsComputed(context, container as Record<string | symbol, unknown>, key as string, leafNode);
     }
   } else if (!isAlreadyController && isYSharedContainer(yValue)) {
     // Upgrade plain object/array to container controller
@@ -172,19 +168,25 @@ function attachValtioMapSubscription(
   const unsubscribe = subscribe(objProxy, (ops: unknown[]) => {
     if (context.isReconciling) return;
     
-    // Filter out operations on internal properties of Y.js leaf types
-    // These operations occur because Valtio deep-proxies leaf types before
-    // reconciliation adds them to refSet. We should ignore these internal
-    // Y.js property changes and only track top-level assignments.
+    // Filter out operations on internal properties
+    // 1. Filter out nested Y.js internal property changes (path.length > 1)
+    // 2. Filter out valtio-yjs internal properties (__valtio_yjs_*)
     const filteredOps = ops.filter((op) => {
       const rawOp = op as RawValtioOperation;
       if (isRawSetMapOp(rawOp)) {
         const path = rawOp[1] as (string | number)[];
         // If path has more than 1 element, it's a nested property change
         // Only allow top-level changes (path.length === 1)
-        return path.length === 1;
+        if (path.length !== 1) {
+          return false;
+        }
+        // Filter out internal valtio-yjs properties (version counter, leaf storage)
+        const key = String(path[0]);
+        if (key.startsWith('__valtio_yjs_')) {
+          return false;
+        }
       }
-      return true; // Keep delete ops
+      return true; // Keep delete ops and other operations
     });
     
     if (filteredOps.length === 0) {
@@ -245,12 +247,15 @@ function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.
   if (existing) return existing;
 
   const initialObj: Record<string, unknown> = {};
+  const leafNodesToSetup: Array<[string, YLeafType]> = [];
+  const versionKey = '__valtio_yjs_version';
+  
   for (const [key, value] of yMap.entries()) {
     // Check leaf types first (before container check) since some leaf types extend containers
     // (e.g., Y.XmlHook extends Y.Map)
     if (isYLeafType(value)) {
-      // Leaf nodes (Y.Text, Y.XmlText, Y.XmlHook): wrap in ref() to prevent deep proxying
-      initialObj[key] = ref(value);
+      // Leaf nodes: we'll setup computed properties BEFORE creating the proxy
+      leafNodesToSetup.push([key, value as YLeafType]);
     } else if (isYSharedContainer(value)) {
       // Containers: create controller proxy recursively
       initialObj[key] = getOrCreateValtioProxy(context, value, doc);
@@ -259,15 +264,52 @@ function getOrCreateValtioProxyForYMap(context: SynchronizationContext, yMap: Y.
       initialObj[key] = value;
     }
   }
+  
+  // Initialize version counter BEFORE creating proxy
+  if (leafNodesToSetup.length > 0) {
+    initialObj[versionKey] = 0;
+  }
+  
+  // Create the proxy FIRST (with regular properties only)
   const objProxy = proxy(initialObj);
+  
+  // NOW setup computed properties AFTER proxy creation
+  // Define them ON THE PROXY (like the working valtio-computed-test does)
+  for (const [key, leafNode] of leafNodesToSetup) {
+    // Store the ref'd leaf in a hidden string property
+    const storageKey = `__valtio_yjs_leaf_${key}`;
+    (objProxy as Record<string, unknown>)[storageKey] = ref(leafNode);
+    
+    // Define the computed property ON THE PROXY (after proxy creation)
+    Object.defineProperty(objProxy, key, {
+      get() {
+        // Touch the version counter - this creates a Valtio dependency
+        void (this as unknown as Record<string, unknown>)[versionKey];
+        // Return the stored leaf node
+        return (this as unknown as Record<string, unknown>)[storageKey];
+      },
+      enumerable: true,
+      configurable: true,
+    });
+  }
 
-  // Setup reactivity for leaf nodes AFTER proxy creation
-  for (const [key, value] of yMap.entries()) {
-    if (isYLeafType(value)) {
-      // Type assertion is safe here because isYLeafType guard confirmed the type
-      const leafNode = value as YLeafType;
-      setupLeafNodeReactivity(context, objProxy, key, leafNode);
-    }
+  // Setup Y.js observers AFTER proxy creation
+  for (const [key, leafNode] of leafNodesToSetup) {
+    const handler = () => {
+      const proxyAsRecord = objProxy as Record<string, unknown>;
+      const currentVersion = proxyAsRecord[versionKey] as number;
+      proxyAsRecord[versionKey] = currentVersion + 1;
+    };
+    
+    leafNode.observe(handler);
+    context.registerDisposable(() => {
+      leafNode.unobserve(handler);
+    });
+    
+    context.log.debug('[leaf-computed] setup complete', {
+      key,
+      type: leafNode.constructor.name,
+    });
   }
 
   context.yTypeToValtioProxy.set(yMap, objProxy);
@@ -288,8 +330,8 @@ function getOrCreateValtioProxyForYArray(context: SynchronizationContext, yArray
       // Containers: create controller proxy recursively
       return getOrCreateValtioProxy(context, value, doc);
     } else if (isYLeafType(value)) {
-      // Leaf nodes: wrap in ref() to prevent deep proxying
-      return ref(value);
+      // Leaf nodes: initialize with null, will be set after proxy creation
+      return null;
     } else {
       // Primitives: store as-is
       return value;
@@ -303,7 +345,8 @@ function getOrCreateValtioProxyForYArray(context: SynchronizationContext, yArray
     if (isYLeafType(value)) {
       // Type assertion is safe here because isYLeafType guard confirmed the type
       const leafNode = value as YLeafType;
-      setupLeafNodeReactivityInArray(context, arrProxy, index, leafNode);
+      // Use computed property approach for reactivity
+      setupLeafNodeAsComputedInArray(context, arrProxy, index, leafNode);
     }
   });
   
