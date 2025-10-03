@@ -11,6 +11,7 @@ Y.Text reactivity is now working! React components re-render when Y.Text content
 **Problem**: Reconciliation was deleting the `__valtio_yjs_version` counter because it saw it in the Valtio proxy but not in Y.Map, treating it as stale data.
 
 **Fix**: Filter internal properties from reconciliation key comparison
+
 - **File**: `valtio-yjs/src/reconcile/reconciler.ts` (line 41)
 - **Change**: Exclude keys starting with `__valtio_yjs_` from reconciliation
 
@@ -25,13 +26,14 @@ const valtioKeys = new Set(
 **Problem**: When the version counter was modified, it was being synced TO Y.Map. Then reconciliation would sync the old value back FROM Y.Map, overwriting the increment.
 
 **Fix**: Filter internal properties from Valtio→Y.js sync
+
 - **File**: `valtio-yjs/src/bridge/valtio-bridge.ts` (line 184)
 - **Change**: Exclude `__valtio_yjs_*` properties from being written to Y.Map
 
 ```typescript
 // Filter out internal valtio-yjs properties (version counter, leaf storage)
 const key = String(path[0]);
-if (key.startsWith('__valtio_yjs_')) {
+if (key.startsWith("__valtio_yjs_")) {
   return false;
 }
 ```
@@ -48,11 +50,13 @@ The solution uses **computed properties with a version counter**:
 ### Key Implementation Files
 
 1. **`bridge/leaf-computed.ts`**: Computed property setup
+
    - Defines getter that touches version counter
    - Sets up Y.js observer
    - Stores leaf node in symbol property (ref'd)
 
 2. **`bridge/valtio-bridge.ts`**: Initial setup for Y.Map proxies
+
    - Creates version counter property
    - Defines computed properties for leaf nodes
    - Registers Y.js observers
@@ -76,6 +80,7 @@ The solution uses **computed properties with a version counter**:
 Some tests still fail, but these failures appear to be **timing or browser keyboard input issues**, not reactivity problems:
 
 - `ytext-typing-sequential.spec.tsx` (2/3 tests): Keyboard typing tests timeout
+
   - The test uses `userEvent.keyboard()` to simulate real typing
   - The `onChange` callback fires but the textarea value doesn't update
   - This is likely a browser input handling issue, not a reactivity issue
@@ -113,13 +118,16 @@ React re-renders component ✅
 ### Internal Properties
 
 Internal properties are prefixed with `__valtio_yjs_`:
+
 - `__valtio_yjs_version`: Version counter for reactivity
 - `__valtio_yjs_leaf_{key}`: Storage for ref'd leaf nodes (string properties for valtio-bridge.ts inline implementation)
 
 Symbol properties:
+
 - `Symbol.for('valtio-yjs:leaf:{key}')`: Storage for ref'd leaf nodes (used by leaf-computed.ts)
 
 These properties are:
+
 - **NOT synced to Y.Map** (filtered in valtio-bridge.ts)
 - **NOT reconciled** (filtered in reconciler.ts)
 - **Internal to valtio-yjs** (infrastructure for reactivity)
@@ -127,26 +135,29 @@ These properties are:
 ## Comparison to SyncedStore
 
 SyncedStore patches Y.Text methods directly:
+
 ```typescript
 // SyncedStore approach
-value.toString = function() {
-  atom.reportObserved();  // Track dependency
+value.toString = function () {
+  atom.reportObserved(); // Track dependency
   return originalToString.apply(this, arguments);
 };
 ```
 
 Our approach is less invasive:
+
 ```typescript
 // valtio-yjs approach
-Object.defineProperty(proxy, 'text', {
+Object.defineProperty(proxy, "text", {
   get() {
-    void this.__valtio_yjs_version;  // Track dependency
-    return this[storageKey];  // Return Y.Text
-  }
+    void this.__valtio_yjs_version; // Track dependency
+    return this[storageKey]; // Return Y.Text
+  },
 });
 ```
 
 **Advantages of computed property approach**:
+
 - Less invasive (doesn't modify Y.js objects)
 - More composable (works with Valtio's existing reactivity)
 - Easier to debug (clear separation of concerns)
@@ -170,4 +181,3 @@ Object.defineProperty(proxy, 'text', {
 The Y.Text reactivity issue is **SOLVED**! The computed property + version counter approach works correctly. The remaining test failures appear to be unrelated timing/input issues, not core reactivity problems.
 
 **Status**: ✅ **PRODUCTION READY** (pending final integration testing)
-

@@ -17,10 +17,11 @@ Y.Xml types (XmlFragment, XmlElement, XmlHook) are partially supported in valtio
 **Test**: `syncs deletions from Y.XmlFragment`
 
 **Problem**:
+
 ```typescript
 const fragment = new Y.XmlFragment();
 fragment.insert(0, [el1, el2, el3]); // Works ✅
-fragment.delete(1, 1);                // Deletion doesn't sync to remote peer ❌
+fragment.delete(1, 1); // Deletion doesn't sync to remote peer ❌
 ```
 
 **Expected**: Remote peer sees 2 elements (el1, el3)  
@@ -35,10 +36,11 @@ fragment.delete(1, 1);                // Deletion doesn't sync to remote peer �
 **Test**: `syncs child removals from Y.XmlElement`
 
 **Problem**:
+
 ```typescript
 const element = new Y.XmlElement("div");
 element.insert(0, [child1, child2]); // Works ✅
-element.delete(0, 1);                 // Deletion doesn't sync to remote peer ❌
+element.delete(0, 1); // Deletion doesn't sync to remote peer ❌
 ```
 
 **Expected**: Remote peer sees 1 child (child2)  
@@ -55,6 +57,7 @@ element.delete(0, 1);                 // Deletion doesn't sync to remote peer �
 **Test**: `triggers Valtio updates when Y.XmlHook content changes`
 
 **Problem**:
+
 ```typescript
 const hook = new Y.XmlHook("test");
 proxyA.hook = hook;
@@ -74,7 +77,8 @@ await waitMicrotask();
 
 **Location**: Y.XmlHook leaf reactivity mechanism in `src/bridge/leaf-reactivity.ts`
 
-**Note**: 
+**Note**:
+
 - Data DOES sync correctly between peers ✅
 - Only the automatic reactivity notification is missing
 - Regular sync tests pass (see: `syncs Y.XmlHook property changes`)
@@ -86,6 +90,7 @@ await waitMicrotask();
 **Test**: `can store Y.XmlHook in Y.Array`
 
 **Problem**:
+
 ```typescript
 const hook = new Y.XmlHook("hook1");
 hook.set("name", "first");
@@ -100,13 +105,15 @@ await waitMicrotask();
 **Expected**: Y.XmlHook instance preserved in arrays  
 **Actual**: Y.XmlHook gets materialized as plain JavaScript object `{ name: 'first' }`
 
-**Impact**: 
+**Impact**:
+
 - Lost access to Y.XmlHook methods (`.get()`, `.set()`, etc.)
 - Type information lost
 
 **Location**: Array reconciliation logic doesn't properly handle Y.XmlHook as leaf type
 
 **Note**:
+
 - Y.XmlElement in arrays works correctly ✅
 - Y.XmlFragment in arrays works correctly ✅
 - Only Y.XmlHook has this issue
@@ -116,11 +123,13 @@ await waitMicrotask();
 ## What Works (18 passing tests)
 
 ### ✅ Y.XmlFragment
+
 - Creating and syncing as containers
 - Inserting elements
 - Empty fragments
 
 ### ✅ Y.XmlElement
+
 - Creating with attributes
 - Syncing attribute changes
 - **Attribute deletions** (via `removeAttribute()`)
@@ -130,11 +139,13 @@ await waitMicrotask();
 - Deep nesting (5+ levels tested)
 
 ### ✅ Y.XmlHook
+
 - Creating as map-like containers
 - Property changes sync correctly
 - Property deletions sync correctly
 
 ### ✅ Mixed Structures
+
 - Nested XML elements
 - XML types mixed with regular objects
 - Y.XmlElement in arrays
@@ -145,16 +156,19 @@ await waitMicrotask();
 ## Root Cause Analysis
 
 ### Container Deletions Issue
+
 - Likely: Deletion events from Y.XmlFragment/Y.XmlElement not being observed or reconciled
 - Insertions work, so the event observation is partially set up
 - May need to add specific handlers for XML container deletion events
 
 ### Y.XmlHook Reactivity Issue
+
 - Y.XmlHook extends Y.Map but is treated as a leaf type
 - Leaf reactivity setup may not work the same way for Y.Map-based types
 - The `observe()` handler may not be triggering Valtio's change detection correctly
 
 ### Y.XmlHook in Arrays Issue
+
 - Array reconciliation code checks for leaf types, but Y.XmlHook may be getting materialized before the check
 - May need special handling in `reconcileValtioArrayWithDelta` or `reconcileValtioArray`
 - The wrapping with `ref()` may not be happening for Y.XmlHook in array contexts
@@ -166,6 +180,7 @@ await waitMicrotask();
 All tests are in: `valtio-yjs/tests/e2e/e2e.xml-types.spec.ts`
 
 **Skipped tests** (search for `it.skip`):
+
 - Line ~54: `syncs deletions from Y.XmlFragment`
 - Line ~210: `syncs child removals from Y.XmlElement`
 - Line ~323: `triggers Valtio updates when Y.XmlHook content changes`
@@ -182,4 +197,3 @@ All tests are in: `valtio-yjs/tests/e2e/e2e.xml-types.spec.ts`
 ---
 
 **Last Updated**: Implementation completed with 18/22 tests passing
-
