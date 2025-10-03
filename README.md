@@ -536,6 +536,18 @@ const sorted = [...tasks].sort((a, b) => a.order - b.order);
 - Small lists or infrequent reordering
 - Append-only lists (chat, logs)
 
+## Implementation Notes & Limitations
+
+**Y.Map, Y.Array, primitives:** ✅ Work really well with clean implementations
+
+**Leaf types (Y.Text, Y.Xml\*):** ⚠️ Work with multi-layer workarounds; tests pass but potential edge cases remain
+
+The core container types (Y.Map, Y.Array) have straightforward, reliable implementations. The leaf type integration requires workarounds due to architectural constraints between Yjs and Valtio. While the current approach works for tested scenarios, we'd prefer a cleaner architectural solution.
+
+For detailed technical discussion, see [**LIMITATIONS.md**](./docs/LIMITATIONS.md).
+
+---
+
 ## Demos
 
 Using `useSnapshot` in valtio and

@@ -59,7 +59,7 @@
   1. **Replaces**: Delete + insert at same index (splice replacements like `arr.splice(i, 1, newVal)`)
   2. **Deletes**: Pure deletions (pop, shift, splice deletes)
   3. **Sets**: Pure insertions (push, unshift, splice inserts)
-- Rationale: 
+- Rationale:
   - Enables all standard array operations including moves via splice
   - Prevents identity issues by detecting and merging replace patterns
   - Applies operations in deterministic order (replaces → deletes → sets)
@@ -124,19 +124,21 @@
     - Plain arrays
     - Y.js collaborative types (Y.Map, Y.Array, Y.Text)
 - Examples:
+
   ```typescript
   // ❌ Rejected - implicit conversion
   proxy.date = new Date();
-  
+
   // ✅ Accepted - explicit conversion
   proxy.date = new Date().toISOString();
-  
+
   // ❌ Rejected - implicit conversion
   proxy.pattern = /test/i;
-  
+
   // ✅ Accepted - explicit conversion
   proxy.pattern = /test/i.toString(); // or .source
   ```
+
 - Benefits:
   - Clear mental model: only primitives, plain objects/arrays, and Y.js types are allowed
   - No hidden conversions that could surprise users
