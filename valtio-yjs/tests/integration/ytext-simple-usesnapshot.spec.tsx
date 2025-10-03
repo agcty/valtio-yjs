@@ -3,7 +3,6 @@ import { render } from 'vitest-browser-react';
 import * as Y from 'yjs';
 import { createYjsProxy, syncedText } from '../../src';
 import { useSnapshot, subscribe } from 'valtio';
-import React from 'react';
 
 describe('Y.Text Simple useSnapshot Test', () => {
   it('should re-render when Y.Text changes (minimal test)', async () => {

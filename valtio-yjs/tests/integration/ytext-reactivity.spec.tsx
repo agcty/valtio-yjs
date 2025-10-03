@@ -3,7 +3,6 @@ import { render } from 'vitest-browser-react';
 import * as Y from 'yjs';
 import { createYjsProxy, syncedText } from '../../src';
 import { useSnapshot } from 'valtio';
-import React from 'react';
 
 describe('Y.Text Reactivity with React', () => {
   it('updates React component when Y.Text content changes', async () => {

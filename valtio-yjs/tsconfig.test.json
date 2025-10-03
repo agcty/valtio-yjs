@@ -9,10 +9,13 @@
     "paths": {
       "src/*": ["./src/*"],
       "test/*": ["./test/*"]
-    }
+    },
+    "types": ["node", "react"],
+    "jsx": "react-jsx"
   },
   "include": [
     "tests/**/*.ts",
+    "tests/**/*.tsx",
     "src/**/*.test.ts",
     "src/**/*.spec.ts"
   ],

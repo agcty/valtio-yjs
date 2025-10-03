@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render } from 'vitest-browser-react';
 import * as Y from 'yjs';
 import { createYjsProxy, syncedText } from '../../src';
@@ -196,6 +196,7 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
     function TestComponent() {
       const snap = useSnapshot(proxy);
       const textContent = snap.text.toString();
+      // eslint-disable-next-line react-hooks/react-compiler
       renderCount += 1;
       
       const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

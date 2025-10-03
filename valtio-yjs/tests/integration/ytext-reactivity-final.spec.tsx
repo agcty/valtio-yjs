@@ -3,7 +3,6 @@ import { render } from 'vitest-browser-react';
 import * as Y from 'yjs';
 import { createYjsProxy, syncedText } from '../../src';
 import { useSnapshot } from 'valtio';
-import React from 'react';
 
 describe('Y.Text Reactivity - Final Test', () => {
   it('should re-render React component when Y.Text changes', async () => {
@@ -114,4 +113,5 @@ describe('Y.Text Reactivity - Final Test', () => {
     console.log(`✅ SUCCESS: ${renderCount} renders for 3 updates`);
   });
 });
+
 
