@@ -15,6 +15,7 @@ import dirt from './assets/dirt.jpg';
 
 const ydoc = new Y.Doc();
 
+
 const provider = new WebrtcProvider('minecraft-valtio-yjs-demo-3', ydoc, {
   signaling: ['ws://localhost:4444'],
 });
@@ -23,7 +24,7 @@ const provider = new WebrtcProvider('minecraft-valtio-yjs-demo-3', ydoc, {
 
 
 const { proxy: state, bootstrap } = createYjsProxy<{
-  cubes: [number, number, number][];
+  cubes?: [number, number, number][];
 }>(ydoc, {
   getRoot: (doc: Y.Doc) => doc.getMap('map'),
 });
@@ -46,13 +47,17 @@ provider.on('synced', () => {
 
 const addCube = (x: number, y: number, z: number) => {
   const arr = state.cubes;
+  if (!arr) {
+    state.cubes = [[x, y, z]];
+    return;
+  }
   arr[arr.length] = [x, y, z];
 };
 
 export const Cubes = () => {
-  const snap = useSnapshot(state, { sync: true });
+  const snap = useSnapshot(state);
   const cubes = snap.cubes;
-  return cubes.map((coords, index) => {
+  return cubes?.map((coords, index) => {
     const pos = Array.from(coords) as [number, number, number];
     return <Cube key={index} position={pos} />;
   });
