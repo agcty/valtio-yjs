@@ -171,8 +171,10 @@ state.items.shift();
 state.items[0] = updatedItem;
 delete state.items[2]; // Removes element (no sparse arrays)
 
-// Splice for complex operations
+// Splice for complex operations (recommended for resizing)
 state.items.splice(1, 2, replacement1, replacement2);
+state.items.splice(0); // Clear array (instead of: arr.length = 0)
+state.items.splice(5); // Truncate to 5 items (instead of: arr.length = 5)
 
 // Moving items
 const [item] = state.items.splice(2, 1); // Remove from index 2
@@ -324,6 +326,7 @@ const user = state.users[0]; // Materializes this user only
 
 - ❌ **`undefined` values** (use `null` or delete the key)
 - ❌ **Non-serializable types** (functions, symbols, class instances)
+- ❌ **Direct length manipulation** (use `array.splice()` instead of `array.length = N`)
 
 ### What Works
 

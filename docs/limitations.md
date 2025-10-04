@@ -17,6 +17,9 @@ These work **really well** with clean, straightforward implementations:
 
 - **Y.Map** - Full bidirectional sync with Valtio proxy objects
 - **Y.Array** - Full bidirectional sync with Valtio proxy arrays
+  - Standard methods: `push()`, `pop()`, `shift()`, `unshift()`
+  - Direct index assignment: `arr[i] = value`
+  - Splice operations: `arr.splice(start, deleteCount, ...items)`
 - **Primitives** - Strings, numbers, booleans, null
 - **Nested structures** - Deep nesting of maps, arrays, and primitives
 - **Network sync** - WebRTC, WebSocket providers work correctly
@@ -33,6 +36,56 @@ These **work in practice** but use multi-layer workarounds. Tests pass, but ther
 - **Y.XmlText** - XML text nodes
 
 **Current status:** The implementation works for tested scenarios, but the workaround-heavy approach means we can't be 100% confident about all edge cases.
+
+---
+
+## What Doesn't Work (By Design)
+
+### ❌ Direct Array Length Manipulation
+
+The library **intentionally does not support** direct `length` property manipulation on arrays:
+
+```javascript
+// ❌ Not supported
+arr.length = 0; // Clear array
+arr.length = 5; // Extend array
+arr.length = 2; // Truncate array
+
+// ✅ Use splice instead
+arr.splice(0); // Clear array
+arr.splice(5, 0, ...Array(5 - arr.length).fill(null)); // Extend
+arr.splice(2); // Truncate array
+```
+
+**Why this limitation?**
+
+1. **CRDT semantics**: Y.Array is a continuous sequence without native support for "holes" or sparse arrays
+2. **Collaborative conflicts**: Length changes during concurrent edits create ambiguous merge scenarios
+3. **JSON serialization**: Sparse arrays serialize to `null`-filled arrays anyway
+4. **Clearer intent**: `splice()` makes mutations explicit and maps cleanly to Y.Array operations
+5. **Implementation complexity**: Valtio generates complex operation sequences for length mutations that don't translate cleanly to CRDT operations
+
+**Design decision**: This is a **collaborative state synchronization library**, not a general-purpose JavaScript array emulator. It supports common, collaborative-friendly patterns and explicitly rejects patterns that don't translate well to CRDTs.
+
+### ❌ Sparse Arrays
+
+Related to the above, sparse arrays (arrays with "holes") are not supported:
+
+```javascript
+// ❌ Don't do this
+const arr = ["a", "b", "c"];
+arr.length = 5; // Creates holes
+arr.toString(); // "a,b,c,," - but syncing will be unreliable
+
+// ✅ Be explicit about null values
+arr.push(null, null); // ['a', 'b', 'c', null, null]
+```
+
+Sparse arrays in JavaScript are essentially a quirk of the language that don't have a natural representation in:
+
+- JSON (they serialize to null-filled arrays)
+- CRDTs (Y.Array doesn't have a concept of "empty slots")
+- Collaborative editing (what does it mean to have a hole that two users fill simultaneously?)
 
 ---
 

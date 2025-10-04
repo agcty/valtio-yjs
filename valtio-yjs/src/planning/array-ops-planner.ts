@@ -28,10 +28,6 @@ function isDeleteArrayOp(op: unknown): op is ValtioDeleteArrayOp {
   return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
 }
 
-// function isLengthSetOp(op: unknown): op is ['set', ['length'], number] {
-//   return Array.isArray(op) && op[0] === 'set' && Array.isArray(op[1]) && op[1].length === 1 && op[1][0] === 'length';
-// }
-
 export interface ArrayOpsPlans {
   sets: Map<number, unknown>;      // Pure inserts/pushes/unshifts
   deletes: Set<number>;            // Pure deletions
