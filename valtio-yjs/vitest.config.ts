@@ -16,6 +16,7 @@ export default defineConfig({
       'tests/integration/**/*.spec.{ts,tsx}', // Integration tests (TS and TSX)
       'tests/e2e/**/*.spec.{ts,tsx}', // End-to-end tests (TS and TSX)
       'tests/investigation/**/*.spec.ts', // Investigation/analysis tests
+      'tests/basic/**/*.spec.ts', // Basic feature demonstrations (readable examples)
     ],
     setupFiles: ['./tests/helpers/vitest-setup.ts'],
   },
