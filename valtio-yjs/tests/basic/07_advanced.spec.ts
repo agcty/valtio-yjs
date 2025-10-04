@@ -7,7 +7,7 @@ import { syncedText } from '../../src/synced-types';
 
 const waitMicrotask = () => Promise.resolve();
 
-describe('New Architecture Showcase: Advanced Capabilities', () => {
+describe('Advanced Capabilities', () => {
   describe('1. Identity Preservation (React-Friendly)', () => {
     it('nested objects maintain identity across remote updates', async () => {
       // This is crucial for React - components can keep references without re-mounting
