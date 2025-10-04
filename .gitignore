@@ -4,3 +4,4 @@ node_modules
 **/dist
 **/repomix-output.xml
 *.tsbuild
+.DS_Store
