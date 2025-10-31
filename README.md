@@ -213,41 +213,6 @@ setTimeout(() => {
 }, 1000);
 ```
 
-### Collaborative text editing (Y.Text)
-
-For rich text editors with formatting, use `Y.Text`:
-
-```js
-import { syncedText } from "valtio-y";
-
-// Create collaborative text
-state.document = syncedText("Hello World");
-
-// Text operations
-state.document.insert(11, "!");
-state.document.delete(0, 5);
-state.document.format(0, 5, { bold: true });
-
-// In React - automatically reactive!
-function Editor() {
-  const snap = useSnapshot(state);
-
-  return (
-    <div>
-      <p>{snap.document.toString()}</p>
-      <button onClick={() => state.document.insert(0, "New text: ")}>
-        Add Text
-      </button>
-    </div>
-  );
-}
-```
-
-**When to use Y.Text vs plain strings:**
-
-- Plain strings: Perfect for titles, labels, simple fields (95% of cases)
-- Y.Text: Only when you need rich text formatting, large documents with efficient deltas, or complex collaborative text editing
-
 ### Undo/Redo
 
 Use Yjs's UndoManager:
@@ -332,12 +297,18 @@ const user = state.users[0]; // Materializes this user only
 
 - ✅ **Objects & Arrays** - Full support with deep nesting
 - ✅ **Primitives** - string, number, boolean, null
-- ✅ **Y.Text & Y.XmlText** - Collaborative text (see Recipes)
-- ✅ **XML types** - Y.XmlFragment, Y.XmlElement, Y.XmlHook
 - ✅ **All array methods** - push, pop, splice, etc.
 - ✅ **Undo/Redo** - via Yjs UndoManager
 
-**Implementation note:** Core types (Y.Map, Y.Array, primitives) have clean, well-tested implementations. Leaf types (Y.Text, XML) use workarounds that pass all tests but may have edge cases. See [LIMITATIONS.md](./docs/limitations.md) for technical details.
+### Research In Progress
+
+We are actively researching the best approach for integrating collaborative text editing (Y.Text) and XML types (Y.XmlFragment, Y.XmlElement, Y.XmlText) with Valtio's reactive system. These integrations are non-trivial and require careful architectural consideration.
+
+**Current status:**
+- Core types (Y.Map, Y.Array, primitives) are production-ready with clean, well-tested implementations
+- Leaf types (Y.Text, XML) integration is being researched in the `research/ytext-integration` branch
+
+For most use cases, plain strings work perfectly for text fields. If you have specific needs for collaborative rich text editing, please open an issue to discuss your requirements.
 
 ---
 
@@ -348,7 +319,7 @@ const user = state.users[0]; // Materializes this user only
 - ✅ Batch related updates in the same tick (automatically optimized into one transaction)
 - ✅ Use bulk array operations (`push(...items)`) for better performance
 - ✅ Initialize with `bootstrap()` when using network sync providers
-- ✅ Use plain strings for simple text fields (Y.Text only when you need rich formatting)
+- ✅ Use plain strings for all text fields
 - ✅ Cache references to deeply nested objects in loops
 
 **Don't:**
@@ -389,7 +360,6 @@ Try these live collaborative demos:
 - **[Minecraft clone](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/03_minecraft)** - Multi-player 3D world with WebRTC
 - **[Todo app](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/04_todos)** - Full-featured collaborative todo list
 - **[Simple todos](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/05_todos_simple)** - Minimal todo example
-- **[Y.Text editor](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/06_ytext)** - Collaborative text editing
 
 All examples use `useSnapshot` from Valtio and work with any Yjs provider for real-time sync.
 
