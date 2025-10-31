@@ -1,0 +1,262 @@
+<div align="center">
+
+# AGENTS.md — Agent Guide for the valtio-yjs Monorepo
+
+</div>
+
+> **Goal:** Give you (the AI agent) a predictable playbook for working inside this Bun workspace. If you ever feel stuck, skim this file first.
+
+---
+
+## 🧭 Quick Start Cheat Sheet
+
+| If you need to…               | Run this command                     |
+| ----------------------------- | ------------------------------------ |
+| Lint code                     | `bun run lint`                       |
+| Fix lint issues automatically | `bun run lint:fix`                   |
+| Format code                   | `bun run format`                     |
+| Check formatting              | `bun run format:check`               |
+| Format + lint (full check)    | `bun run check`                      |
+| Run tests                     | `cd valtio-yjs && bun run test`      |
+| Build package                 | `cd valtio-yjs && bun run build`     |
+| Type check                    | `cd valtio-yjs && bun run typecheck` |
+| Watch mode (dev)              | `cd valtio-yjs && bun run dev`       |
+| Run benchmarks                | `cd valtio-yjs && bun run bench`     |
+
+Keep these commands nearby—most tasks you perform will be a combination of them.
+
+---
+
+## 🗺️ Table of Contents
+
+1. [Standard Agent Workflow](#agent-workflow)
+2. [Guiding Human Developers](#human-workflow)
+3. [Command Reference Library](#command-reference)
+4. [Project Overview](#project-overview)
+5. [Critical Rules for AI Agents](#critical-rules)
+6. [Documentation Reference](#documentation)
+7. [Quick Wins](#quick-wins)
+8. [Need Help?](#need-help)
+
+Use the links above to jump directly to the guidance you need.
+
+---
+
+<a id="agent-workflow"></a>
+
+## 🛠️ Standard Agent Workflow
+
+This monorepo is designed so you can verify correctness entirely through static checks and targeted tests.
+
+1. **Execute targeted tests** – Use `cd valtio-yjs && bun run test` to run all tests, or `bun vitest --run src/path/to/test.ts` to run specific test files. Avoid watch mode unless explicitly requested.
+
+2. **Type check** – `cd valtio-yjs && bun run typecheck` ensures TypeScript correctness and catches type errors, const reassignments, type mismatches, and other compilation errors. **This is equally important as linting** – both tools serve different purposes.
+
+3. **Lint + Format** – Run `bun run lint:fix` to fix lint issues automatically, then `bun run format` to format code. Both commands are fast enough to run across the whole repo when needed. Use `bun run check` to run both formatting and linting in one command.
+
+4. **Repeat as Needed** – After changes, re-run the relevant steps. If you touch multiple packages, rebuild and verify each affected project.
+
+**Important:** Use **both** type checking and linting in equal parts:
+
+- **Type checking (`bun run typecheck`)** catches type errors, const violations, duplicate declarations
+- **Linting (`bun run lint`)** catches code style, patterns, and best practices
+
+These tools are complementary, not redundant. Your IDE may show both types of errors, but you need to run both commands to verify correctness.
+
+This is **your** loop. You do **not** need to run dev servers or browsers to verify your work.
+
+---
+
+<a id="human-workflow"></a>
+
+## 🧑‍🤝‍🧑 Guiding Human Developers
+
+When answering questions from humans, point them to the development workflow:
+
+**For testing:**
+
+```bash
+cd valtio-yjs && bun run test
+```
+
+**For development with watch mode:**
+
+```bash
+cd valtio-yjs && bun run dev
+```
+
+**For building:**
+
+```bash
+cd valtio-yjs && bun run build
+```
+
+**For running examples:**
+Each example directory has its own setup. Navigate to the example directory and follow its README or package.json scripts.
+
+---
+
+<a id="command-reference"></a>
+
+## 🧰 Command Reference Library
+
+Below is a categorized command index. Skim the left column to find the action you need, then run the command in the right column.
+
+| Area         | Situation                       | Command                                                 |
+| ------------ | ------------------------------- | ------------------------------------------------------- |
+| Development  | Build package                   | `cd valtio-yjs && bun run build`                        |
+|              | Watch mode (dev)                | `cd valtio-yjs && bun run dev`                          |
+| Testing      | Run all tests                   | `cd valtio-yjs && bun run test`                         |
+|              | Run a single test file          | `cd valtio-yjs && bun vitest --run src/path/to/test.ts` |
+|              | Run benchmarks                  | `cd valtio-yjs && bun run bench`                        |
+| Type Safety  | Run TypeScript checks           | `cd valtio-yjs && bun run typecheck`                    |
+| Linting      | Check lint issues               | `bun run lint`                                          |
+|              | Fix lint issues automatically   | `bun run lint:fix`                                      |
+| Formatting   | Auto-format files               | `bun run format`                                        |
+|              | Check formatting without fixing | `bun run format:check`                                  |
+| Code Quality | Format + lint (full check)      | `bun run check`                                         |
+
+💡 **Usage tips**
+
+- After editing files, run `bun run check` (which runs `format` + `lint:fix`) before committing.
+- Never invoke underlying tools (e.g., `vitest`, `tsc`) directly unless necessary—use the package.json scripts to respect project configuration.
+- When working in the `valtio-yjs` package, make sure to `cd valtio-yjs` first or use relative paths.
+
+---
+
+<a id="project-overview"></a>
+
+## Project Overview
+
+TypeScript monorepo using **Bun** (package manager) for a library that syncs **Valtio** state with **Yjs** CRDTs.
+
+**Key principle**: Two-way sync between Valtio proxies and Yjs CRDTs for building multi-user apps with minimal effort.
+
+### Tech Stack
+
+- **TypeScript 5.9+** - Strict mode with project references
+- **Bun 1.3.1+** - Package manager with workspace support
+- **Valtio 2.1.8+** - Reactive state management
+- **Yjs 13.6.27+** - CRDT library for collaboration
+- **Vitest 3.2+** - Testing framework
+- **tsdown** - TypeScript bundler for packages
+- **oxlint** - Fast linter
+- **Prettier** - Code formatter
+
+### Folder Structure
+
+```text
+/Users/alex/code/valtio-yjs/
+
+├── valtio-yjs/       # Main package
+│   ├── src/         # Source code
+│   ├── tests/       # Test files
+│   ├── benchmarks/  # Performance benchmarks
+│   └── dist/        # Built artifacts
+├── examples/         # Example applications
+│   ├── 01_obj/      # Object sync example
+│   ├── 02_array/    # Array sync example
+│   ├── 03_minecraft/# Minecraft clone example
+│   ├── 04_todos/    # Todo app example
+│   ├── 05_todos_simple/# Simple todos example
+│   └── 06_ytext/    # Y.Text editor example
+└── docs/            # Documentation
+```
+
+**⚠️ Caution**: Changes to the main `valtio-yjs` package affect all examples. Test thoroughly before committing.
+
+---
+
+<a id="critical-rules"></a>
+
+## Critical Rules for AI Agents
+
+1. ⚠️ **Always use `bun run` for scripts** - Use `bun run` to ensure you're using the installed versions and respecting package.json scripts
+
+2. ⚠️ **Run tests from the valtio-yjs directory** - Most test commands need to be run from `cd valtio-yjs` first
+
+3. ⚠️ **Use `--run` flag with vitest** - When running vitest directly, use `--run` flag to avoid watch mode
+
+4. ⚠️ **Always use BOTH typecheck AND lint equally** - Type checking and linting serve different purposes and are equally important:
+
+   - `cd valtio-yjs && bun run typecheck` catches **type errors** (const reassignment, type mismatches, duplicate declarations)
+   - `bun run lint` catches **code patterns** (unused vars, floating promises, style issues)
+   - Your IDE may show both, but you must run both commands to verify correctness
+
+5. ⚠️ **Use format and lint aggressively** - After editing files, run `bun run check` (which runs `format` + `lint:fix`) to ensure code quality. It's fast enough to run on entire packages or the whole repo whenever you want a clean slate.
+
+6. ⚠️ **Follow the workspace structure** - The main package is in `valtio-yjs/`, examples are in `examples/`. Respect the boundaries.
+
+7. ✅ **Test changes thoroughly** - Run tests before committing changes to ensure nothing breaks
+
+8. ✅ **Check documentation** - Review `docs/` directory for architectural decisions and limitations
+
+9. ✅ **Respect limitations** - See README.md and docs/limitations.md for what's supported and what's not
+
+10. ✅ **Use examples for reference** - Examples demonstrate real-world usage patterns
+
+---
+
+<a id="documentation"></a>
+
+## Documentation Reference
+
+Use the `docs/` directory as your deep-dive companion. Start with the topic that matches your task:
+
+| Topic        | Directory                         | Why you'd open it                        | Representative Guides                                        |
+| ------------ | --------------------------------- | ---------------------------------------- | ------------------------------------------------------------ |
+| Architecture | `docs/architecture.md`            | Understanding how valtio-yjs syncs state | High-level architecture, data flow, synchronization patterns |
+| Data Flow    | `docs/data-flow.md`               | Understanding how changes propagate      | Bidirectional sync, Yjs to Valtio, Valtio to Yjs             |
+| Limitations  | `docs/limitations.md`             | Knowing what's supported and what's not  | What works, what doesn't, edge cases                         |
+| ADRs         | `docs/architectural-decisions.md` | Understanding design decisions           | Key architectural choices and rationale                      |
+
+When unsure where to dig next, skim the relevant file or check the README.md for overview information.
+
+---
+
+<a id="quick-wins"></a>
+
+## Quick Wins
+
+### Discovery
+
+- Check `package.json` `name` field for package names
+- Look at `valtio-yjs/package.json` for main package scripts
+- Review examples in `examples/` directory for usage patterns
+
+### Package Management
+
+- Use `bun add <package>` (not `npm` or `pnpm`)
+- Workspace dependencies are managed via Bun workspaces
+- Check `package.json` files for dependencies
+
+### Testing
+
+- Tests are in `valtio-yjs/tests/` directory
+- Unit tests are co-located with source files (`src/**/*.test.ts`)
+- Integration tests: `tests/integration/**/*.spec.{ts,tsx}`
+- E2E tests: `tests/e2e/**/*.spec.{ts,tsx}`
+- Basic examples: `tests/basic/**/*.spec.ts`
+
+### Common Pitfalls
+
+- ❌ Running tests from root → ✅ `cd valtio-yjs && bun run test`
+- ❌ Tests hang in watch mode → ✅ Always use `--run` flag when running vitest directly
+- ❌ Lint errors but IDE shows clean → ✅ Run `bun run lint` to catch actual lint issues
+- ❌ IDE shows error but lint doesn't → ✅ That's a **type error**, not a linting issue. Run `cd valtio-yjs && bun run typecheck` to catch it
+- ❌ Formatting inconsistencies → ✅ Run `bun run format` to auto-fix
+- ❌ Forgetting to check both lint and typecheck → ✅ Always run both `bun run check` and `cd valtio-yjs && bun run typecheck`
+
+---
+
+<a id="need-help"></a>
+
+## Need Help?
+
+1. Check `docs/` for detailed implementation guidelines
+2. Review `README.md` for usage examples and quick start
+3. Look at `examples/` directory for real-world usage patterns
+4. Check `valtio-yjs/package.json` for available scripts
+5. Review test files for examples of how things work
+
+**Version**: 1.0.0 | **Last Updated**: January 2025

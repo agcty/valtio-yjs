@@ -1,6 +1,6 @@
 /**
  * Core type utilities for valtio-yjs
- * 
+ *
  * This file contains:
  * - Branded types for Valtio proxies
  * - Type-safe helper functions for container operations
@@ -8,7 +8,7 @@
  * - Utility types for common patterns
  */
 
-import { normalizeIndex } from '../utils/index-utils';
+import { normalizeIndex } from "../utils/index-utils";
 
 // ============================================================================
 // Branded Types for Valtio Proxies
@@ -20,7 +20,9 @@ import { normalizeIndex } from '../utils/index-utils';
  */
 declare const ValtioProxyBrand: unique symbol;
 
-export type ValtioProxy<T = unknown> = T & { readonly [ValtioProxyBrand]: true };
+export type ValtioProxy<T = unknown> = T & {
+  readonly [ValtioProxyBrand]: true;
+};
 
 export type ValtioProxyObject = ValtioProxy<Record<string, unknown>>;
 export type ValtioProxyArray = ValtioProxy<unknown[]>;
@@ -38,26 +40,26 @@ export type ValtioMapPath = [string];
 export type ValtioArrayPath = [number];
 
 export interface ValtioSetMapOp {
-  readonly type: 'set';
+  readonly type: "set";
   readonly path: ValtioMapPath;
   readonly newValue: unknown;
   readonly prevValue: unknown;
 }
 
 export interface ValtioDeleteMapOp {
-  readonly type: 'delete';
+  readonly type: "delete";
   readonly path: ValtioMapPath;
 }
 
 export interface ValtioSetArrayOp {
-  readonly type: 'set';
+  readonly type: "set";
   readonly path: ValtioArrayPath;
   readonly newValue: unknown;
   readonly prevValue: unknown;
 }
 
 export interface ValtioDeleteArrayOp {
-  readonly type: 'delete';
+  readonly type: "delete";
   readonly path: ValtioArrayPath;
 }
 
@@ -69,50 +71,70 @@ export type ValtioOperation = ValtioMapOperation | ValtioArrayOperation;
  * Raw operation format as received from Valtio's subscribe.
  * Format: [operation, path, newValue?, prevValue?]
  */
-export type RawValtioOperation = 
-  | ['set', [string | number], unknown, unknown]
-  | ['delete', [string | number]];
+export type RawValtioOperation =
+  | ["set", [string | number], unknown, unknown]
+  | ["delete", [string | number]];
 
 // ============================================================================
 // Type Guards for Valtio Operations
 // ============================================================================
 
-export function isRawSetMapOp(op: unknown): op is ['set', [string], unknown, unknown] {
+export function isRawSetMapOp(
+  op: unknown,
+): op is ["set", [string], unknown, unknown] {
   return (
     Array.isArray(op) &&
-    op[0] === 'set' &&
+    op[0] === "set" &&
     Array.isArray(op[1]) &&
     op[1].length === 1 &&
-    typeof op[1][0] === 'string'
+    typeof op[1][0] === "string"
   );
 }
 
-export function isRawDeleteMapOp(op: unknown): op is ['delete', [string]] {
+export function isRawDeleteMapOp(op: unknown): op is ["delete", [string]] {
   return (
     Array.isArray(op) &&
-    op[0] === 'delete' &&
+    op[0] === "delete" &&
     Array.isArray(op[1]) &&
     op[1].length === 1 &&
-    typeof op[1][0] === 'string'
+    typeof op[1][0] === "string"
   );
 }
 
-export function isRawSetArrayOp(op: unknown): op is ['set', [number | string], unknown, unknown] {
-  if (!Array.isArray(op) || op[0] !== 'set' || !Array.isArray(op[1]) || op[1].length !== 1) {
+export function isRawSetArrayOp(
+  op: unknown,
+): op is ["set", [number | string], unknown, unknown] {
+  if (
+    !Array.isArray(op) ||
+    op[0] !== "set" ||
+    !Array.isArray(op[1]) ||
+    op[1].length !== 1
+  ) {
     return false;
   }
   const idx = op[1][0];
   // Accept both numeric indices and string indices that represent numbers
-  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
+  return (
+    typeof idx === "number" || (typeof idx === "string" && /^\d+$/.test(idx))
+  );
 }
 
-export function isRawDeleteArrayOp(op: unknown): op is ['delete', [number | string]] {
-  if (!Array.isArray(op) || op[0] !== 'delete' || !Array.isArray(op[1]) || op[1].length !== 1) {
+export function isRawDeleteArrayOp(
+  op: unknown,
+): op is ["delete", [number | string]] {
+  if (
+    !Array.isArray(op) ||
+    op[0] !== "delete" ||
+    !Array.isArray(op[1]) ||
+    op[1].length !== 1
+  ) {
     return false;
   }
   const idx = op[1][0];
   // Accept both numeric indices and string indices that represent numbers
-  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
+  return (
+    typeof idx === "number" || (typeof idx === "string" && /^\d+$/.test(idx))
+  );
 }
 
 /**
@@ -121,7 +143,7 @@ export function isRawDeleteArrayOp(op: unknown): op is ['delete', [number | stri
 export function parseValtioMapOp(op: unknown): ValtioMapOperation | null {
   if (isRawSetMapOp(op)) {
     return {
-      type: 'set',
+      type: "set",
       path: [op[1][0]],
       newValue: op[2],
       prevValue: op[3],
@@ -129,7 +151,7 @@ export function parseValtioMapOp(op: unknown): ValtioMapOperation | null {
   }
   if (isRawDeleteMapOp(op)) {
     return {
-      type: 'delete',
+      type: "delete",
       path: [op[1][0]],
     };
   }
@@ -141,7 +163,7 @@ export function parseValtioArrayOp(op: unknown): ValtioArrayOperation | null {
     const idx = op[1][0];
     const normalizedIndex = normalizeIndex(idx);
     return {
-      type: 'set',
+      type: "set",
       path: [normalizedIndex],
       newValue: op[2],
       prevValue: op[3],
@@ -151,7 +173,7 @@ export function parseValtioArrayOp(op: unknown): ValtioArrayOperation | null {
     const idx = op[1][0];
     const normalizedIndex = normalizeIndex(idx);
     return {
-      type: 'delete',
+      type: "delete",
       path: [normalizedIndex],
     };
   }
@@ -202,7 +224,7 @@ export function getArrayValue(
   container: unknown[],
   index: number | string,
 ): unknown {
-  const idx = typeof index === 'number' ? index : Number.parseInt(index, 10);
+  const idx = typeof index === "number" ? index : Number.parseInt(index, 10);
   return container[idx];
 }
 
@@ -215,7 +237,7 @@ export function setArrayValue(
   index: number | string,
   value: unknown,
 ): void {
-  const idx = typeof index === 'number' ? index : Number.parseInt(index, 10);
+  const idx = typeof index === "number" ? index : Number.parseInt(index, 10);
   container[idx] = value;
 }
 
@@ -228,10 +250,14 @@ export function getContainerValue(
   container: Record<string, unknown> | unknown[],
   key: string | number,
 ): unknown {
-  if (Array.isArray(container) && typeof key === 'number') {
+  if (Array.isArray(container) && typeof key === "number") {
     return getArrayValue(container, key);
   }
-  if (typeof container === 'object' && container !== null && typeof key === 'string') {
+  if (
+    typeof container === "object" &&
+    container !== null &&
+    typeof key === "string"
+  ) {
     return getObjectValue(container as Record<string, unknown>, key);
   }
   return undefined;
@@ -245,9 +271,9 @@ export function setContainerValue(
   key: string | number,
   value: unknown,
 ): void {
-  if (Array.isArray(container) && typeof key === 'number') {
+  if (Array.isArray(container) && typeof key === "number") {
     setArrayValue(container, key, value);
-  } else if (typeof container === 'object' && container !== null) {
+  } else if (typeof container === "object" && container !== null) {
     setObjectValue(container as Record<string, unknown>, String(key), value);
   }
 }
@@ -275,8 +301,8 @@ export function getYItemId(target: unknown): string | undefined {
 /**
  * Type-safe helper to access Y.js doc property.
  */
-export function getYDoc(target: unknown): import('yjs').Doc | undefined {
-  return (target as { doc?: import('yjs').Doc | undefined })?.doc;
+export function getYDoc(target: unknown): import("yjs").Doc | undefined {
+  return (target as { doc?: import("yjs").Doc | undefined })?.doc;
 }
 
 /**
@@ -294,8 +320,10 @@ export function yTypeToJSON(target: unknown): unknown {
 /**
  * Check if a value is a plain object (created by object literal or with null prototype).
  */
-export function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (value === null || typeof value !== 'object') return false;
+export function isPlainObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  if (value === null || typeof value !== "object") return false;
   const proto = Object.getPrototypeOf(value);
   return proto === Object.prototype || proto === null;
 }
@@ -304,7 +332,7 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
  * Check if a value is a record-like object (has string keys).
  */
 export function isRecordLike(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -314,7 +342,7 @@ export function hasProperty<K extends string>(
   obj: unknown,
   key: K,
 ): obj is Record<K, unknown> {
-  return typeof obj === 'object' && obj !== null && key in obj;
+  return typeof obj === "object" && obj !== null && key in obj;
 }
 
 // ============================================================================
@@ -347,4 +375,3 @@ export type VoidFunction = () => void;
  * A callback function that receives a value.
  */
 export type Callback<T = unknown> = (value: T) => void;
-

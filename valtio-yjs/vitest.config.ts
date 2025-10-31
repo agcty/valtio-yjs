@@ -1,23 +1,20 @@
-import { defineConfig } from 'vitest/config';
-import react from '@vitejs/plugin-react';
+/// <reference types="vitest" />
+/// <reference types="@vitest/browser/matchers" />
+
+import { defineConfig } from "vitest/config";
+import react from "@vitejs/plugin-react";
+import { playwright } from "@vitest/browser-playwright";
 
 export default defineConfig({
   plugins: [react()],
   test: {
     browser: {
-      provider: 'playwright',
+      provider: playwright(),
       enabled: true,
       headless: true,
-      instances: [{ browser: 'chromium' }],
+      instances: [{ browser: "chromium" }],
       screenshotFailures: false,
     },
-    include: [
-      'src/**/*.test.ts', // Co-located unit tests
-      'tests/integration/**/*.spec.{ts,tsx}', // Integration tests (TS and TSX)
-      'tests/e2e/**/*.spec.{ts,tsx}', // End-to-end tests (TS and TSX)
-      'tests/investigation/**/*.spec.ts', // Investigation/analysis tests
-      'tests/basic/**/*.spec.ts', // Basic feature demonstrations (readable examples)
-    ],
-    setupFiles: ['./tests/helpers/vitest-setup.ts'],
+    include: ["src/**/*.test.ts", "tests/**/*.spec.{ts,tsx}"],
   },
 });

@@ -1,13 +1,13 @@
-import type { Logger } from '../core/context';
+import type { Logger } from "../core/logger";
 
 /**
  * A queue for callbacks that need to execute after a Yjs transaction completes.
- * 
+ *
  * These callbacks typically:
  * - Upgrade plain values to controller proxies
  * - Reconcile nested shared types
  * - Perform structural reconciliation
- * 
+ *
  * The queue ensures proper error handling and isolation - if one callback fails,
  * subsequent callbacks still execute.
  */
@@ -28,9 +28,9 @@ export class PostTransactionQueue {
 
   /**
    * Execute all queued callbacks within the provided lock function.
-   * 
+   *
    * @param withLock - Function that wraps each callback with reconciliation lock
-   * 
+   *
    * Each callback is executed independently - errors are logged but don't prevent
    * subsequent callbacks from running. This ensures that upgrade errors don't
    * break data operations.
@@ -41,7 +41,9 @@ export class PostTransactionQueue {
 
     if (tasks.length === 0) return;
 
-    this.log.debug(`[PostTransactionQueue] Flushing ${tasks.length} post-transaction callbacks`);
+    this.log.debug(
+      `[PostTransactionQueue] Flushing ${tasks.length} post-transaction callbacks`,
+    );
 
     for (const task of tasks) {
       try {
@@ -49,7 +51,10 @@ export class PostTransactionQueue {
       } catch (err) {
         // Log but don't rethrow - we want to continue processing remaining tasks
         // This is intentional: upgrade errors shouldn't break data operations
-        this.log.debug('[PostTransactionQueue] Task failed (continuing with remaining tasks):', err);
+        this.log.debug(
+          "[PostTransactionQueue] Task failed (continuing with remaining tasks):",
+          err,
+        );
       }
     }
   }

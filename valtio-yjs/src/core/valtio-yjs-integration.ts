@@ -1,16 +1,16 @@
 /**
  * Valtio-Yjs Integration Setup
- * 
+ *
  * This module customizes Valtio's internal behavior to work correctly with Y.js types.
  * It must be imported early, before any proxies are created.
- * 
+ *
  * Key customization:
  * - Prevents Valtio from deep-proxying Y.js types (AbstractType instances)
  * - This allows Y.js to maintain its internal state and generate transactions correctly
  */
 
-import * as Y from 'yjs';
-import { unstable_replaceInternalFunction } from 'valtio/vanilla';
+import * as Y from "yjs";
+import { unstable_replaceInternalFunction } from "valtio/vanilla";
 
 // Track if we've already initialized
 let initialized = false;
@@ -25,13 +25,13 @@ export function initializeValtioYjsIntegration(): void {
   }
 
   // Customize Valtio's canProxy to never deep-proxy Y.js types
-  unstable_replaceInternalFunction('canProxy', (defaultCanProxy) => {
+  unstable_replaceInternalFunction("canProxy", (defaultCanProxy) => {
     return (x: unknown): boolean => {
       // Never proxy Y.js AbstractType instances (Y.Map, Y.Array, Y.Text, Y.XmlFragment, etc.)
       if (x instanceof Y.AbstractType) {
         return false;
       }
-      
+
       // For all other values, use Valtio's default logic
       return defaultCanProxy(x);
     };
@@ -47,4 +47,3 @@ export function initializeValtioYjsIntegration(): void {
 export function __resetValtioYjsIntegration(): void {
   initialized = false;
 }
-

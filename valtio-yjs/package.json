@@ -3,7 +3,7 @@
   "description": "valtio-yjs makes yjs state easy",
   "version": "0.6.4",
   "type": "module",
-  "author": "Daishi Kato",
+  "author": "Daishi Kato, Alex Gogl",
   "repository": {
     "type": "git",
     "url": "https://github.com/valtiojs/valtio-yjs.git"
@@ -33,10 +33,9 @@
   "scripts": {
     "build": "tsdown",
     "dev": "tsdown --watch ./src",
-    "test": "pnpm vitest --run",
-    "bench": "pnpm vitest bench --config vitest.bench.config.ts",
-    "typecheck": "pnpm tsc -b --emitDeclarationOnly",
-    "lint": "pnpm eslint ."
+    "test": "bun vitest",
+    "bench": "bun vitest bench --config vitest.bench.config.ts",
+    "typecheck": "bun tsc -b --emitDeclarationOnly"
   },
   "keywords": [
     "valtio",
@@ -44,37 +43,23 @@
     "crdt"
   ],
   "license": "MIT",
-  "prettier": {
-    "singleQuote": true
-  },
   "devDependencies": {
-    "@eslint/js": "^9.32.0",
-    "@testing-library/jest-dom": "^6.6.4",
-    "@types/node": "^24.2.0",
-    "@types/react": "^19.2.0",
-    "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^5.0.4",
-    "@vitest/browser": "^3.2.4",
-    "eslint": "^9.32.0",
-    "eslint-import-resolver-typescript": "^4.4.4",
-    "eslint-plugin-import": "^2.32.0",
-    "eslint-plugin-jsx-a11y": "^6.10.2",
-    "eslint-plugin-react": "^7.37.5",
-    "eslint-plugin-react-hooks": "6.0.0-rc.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.0",
+    "@vitest/browser": "^4.0.6",
+    "@vitest/browser-playwright": "^4.0.6",
     "fast-check": "^4.3.0",
-    "happy-dom": "^18.0.1",
-    "playwright": "^1.55.0",
-    "prettier": "^3.6.2",
+    "playwright": "^1.56.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "tsdown": "^0.14.2",
-    "typescript": "^5.9.2",
-    "typescript-eslint": "^8.39.0",
+    "tsdown": "^0.15.12",
+    "typescript": "^5.9.3",
     "valtio": "^2.1.8",
-    "vite": "^7.1.9",
+    "vite": "^7.1.12",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^3.2.4",
-    "vitest-browser-react": "^1.0.1",
+    "vitest": "^4.0.6",
+    "vitest-browser-react": "^2.0.2",
     "yjs": "^13.6.27"
   },
   "peerDependencies": {

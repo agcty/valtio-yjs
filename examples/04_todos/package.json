@@ -26,6 +26,7 @@
     "vite": "latest"
   },
   "scripts": {
-    "dev": "vite"
+    "dev": "vite",
+    "typecheck": "tsc --noEmit"
   }
 }

@@ -8,30 +8,46 @@
 //   equivalent to splice(i, 1, val). We do not forbid it; we translate it
 //   deterministically per the Translator's Guide.
 
-import { SynchronizationContext } from '../core/context';
-import { normalizeIndex } from '../utils/index-utils';
+import type { ValtioYjsCoordinator } from "../core/coordinator";
+import { normalizeIndex } from "../utils/index-utils";
 
 // Type guards for array operations
 type ValtioArrayPath = [number | string];
-type ValtioSetArrayOp = ['set', ValtioArrayPath, unknown, unknown];
-type ValtioDeleteArrayOp = ['delete', ValtioArrayPath, unknown];
+type ValtioSetArrayOp = ["set", ValtioArrayPath, unknown, unknown];
+type ValtioDeleteArrayOp = ["delete", ValtioArrayPath, unknown];
 
 function isSetArrayOp(op: unknown): op is ValtioSetArrayOp {
-  if (!Array.isArray(op) || op[0] !== 'set' || !Array.isArray(op[1]) || op[1].length !== 1) return false;
+  if (
+    !Array.isArray(op) ||
+    op[0] !== "set" ||
+    !Array.isArray(op[1]) ||
+    op[1].length !== 1
+  )
+    return false;
   const idx = (op as [string, [number | string]])[1][0];
-  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
+  return (
+    typeof idx === "number" || (typeof idx === "string" && /^\d+$/.test(idx))
+  );
 }
 
 function isDeleteArrayOp(op: unknown): op is ValtioDeleteArrayOp {
-  if (!Array.isArray(op) || op[0] !== 'delete' || !Array.isArray(op[1]) || op[1].length !== 1) return false;
+  if (
+    !Array.isArray(op) ||
+    op[0] !== "delete" ||
+    !Array.isArray(op[1]) ||
+    op[1].length !== 1
+  )
+    return false;
   const idx = (op as [string, [number | string]])[1][0];
-  return typeof idx === 'number' || (typeof idx === 'string' && /^\d+$/.test(idx));
+  return (
+    typeof idx === "number" || (typeof idx === "string" && /^\d+$/.test(idx))
+  );
 }
 
 export interface ArrayOpsPlans {
-  sets: Map<number, unknown>;      // Pure inserts/pushes/unshifts
-  deletes: Set<number>;            // Pure deletions
-  replaces: Map<number, unknown>;  // Replace operations (splice replacements)
+  sets: Map<number, unknown>; // Pure inserts/pushes/unshifts
+  deletes: Set<number>; // Pure deletions
+  replaces: Map<number, unknown>; // Replace operations (splice replacements)
 }
 
 /**
@@ -40,10 +56,14 @@ export interface ArrayOpsPlans {
  *
  * @param ops - Array of Valtio subscription operations
  * @param yArrayLength - Current length of the Y.Array (for context)
- * @param context - Synchronization context for debug logging
+ * @param coordinator - Coordinator for debug logging (optional)
  * @returns Object containing categorized array operations
  */
-export function planArrayOps(ops: unknown[], yArrayLength: number, context?: SynchronizationContext): ArrayOpsPlans {
+export function planArrayOps(
+  ops: unknown[],
+  yArrayLength: number,
+  coordinator?: ValtioYjsCoordinator,
+): ArrayOpsPlans {
   // Phase 1: Collect raw array ops by index (state-agnostic)
   const setsByIndex = new Map<number, unknown>();
   const setHadPrevious = new Map<number, boolean>();
@@ -87,7 +107,9 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
   const sets = new Map<number, unknown>();
   const deletes = new Set<number>();
 
-  const remainingSetIndices = Array.from(setsByIndex.keys()).sort((a, b) => a - b);
+  const remainingSetIndices = Array.from(setsByIndex.keys()).sort(
+    (a, b) => a - b,
+  );
   const hasAnyDeletes = originalDeletes.size > 0;
 
   if (remainingSetIndices.length === 1 && !hasAnyDeletes) {
@@ -104,7 +126,9 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
   } else {
     // Multiple sets and/or any deletes present
     // Splice-sensitive rule: indices at/after first delete are treated as inserts
-    const minDeletedIndex = hasAnyDeletes ? Math.min(...Array.from(originalDeletes)) : Number.POSITIVE_INFINITY;
+    const minDeletedIndex = hasAnyDeletes
+      ? Math.min(...Array.from(originalDeletes))
+      : Number.POSITIVE_INFINITY;
     for (const idx of remainingSetIndices) {
       const val = setsByIndex.get(idx)!;
       // Splice-sensitive rule with deletes: treat indices at/after the first delete as inserts.
@@ -129,8 +153,8 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
   // Note: Move detection is handled at the scheduler level where we have full batch context
 
   // Phase 5: Trace planning result in debug sessions (controlled by debug flag)
-  if (context) {
-    context.log.debug('[planner][array] result', {
+  if (coordinator) {
+    coordinator.logger.debug("[planner][array] result", {
       yArrayLength,
       sets: Array.from(sets.keys()),
       deletes: Array.from(deletes.values()),

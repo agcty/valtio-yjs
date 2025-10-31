@@ -1,14 +1,14 @@
 /**
  * ClientView Component
- * 
+ *
  * Represents a single client's view of the shared todo list.
- * 
+ *
  * Key features demonstrated:
  * - useSnapshot() to read reactive state from valtio-yjs
  * - Direct mutations to the proxy for all write operations
  * - Drag-and-drop reordering with array manipulation
  * - Bulk operations on multiple items
- * 
+ *
  * This component shows how valtio-yjs makes collaborative state
  * feel like local state - just read from snapshot, write to proxy!
  */
@@ -48,7 +48,12 @@ interface ClientViewProps {
   clientId: 1 | 2;
 }
 
-export function ClientView({ name, stateProxy, colorScheme, clientId }: ClientViewProps) {
+export function ClientView({
+  name,
+  stateProxy,
+  colorScheme,
+  clientId,
+}: ClientViewProps) {
   /**
    * IMPORTANT: useSnapshot() gives us a reactive snapshot of the state.
    * This automatically re-renders when the underlying Yjs document changes,
@@ -92,7 +97,7 @@ export function ClientView({ name, stateProxy, colorScheme, clientId }: ClientVi
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   /**
@@ -110,7 +115,7 @@ export function ClientView({ name, stateProxy, colorScheme, clientId }: ClientVi
     };
 
     // Direct mutation - automatically syncs to all clients!
-    (stateProxy.todos).push(newTodo);
+    stateProxy.todos.push(newTodo);
     setNewTodoText("");
   }
 
@@ -235,7 +240,7 @@ export function ClientView({ name, stateProxy, colorScheme, clientId }: ClientVi
   const completedTodos = countCompletedTodos(snap.todos);
 
   const activeTodo = activeId
-    ? (snap.todos).find((t) => t.id === activeId)
+    ? snap.todos.find((t) => t.id === activeId)
     : null;
 
   return (
@@ -246,7 +251,9 @@ export function ClientView({ name, stateProxy, colorScheme, clientId }: ClientVi
       <div className={`${color.header} px-6 py-5 border-b-2 ${color.border}`}>
         <div className="flex items-center justify-between">
           <div>
-            <h2 className={`text-lg font-semibold ${color.text} tracking-tight`}>
+            <h2
+              className={`text-lg font-semibold ${color.text} tracking-tight`}
+            >
               {name}
             </h2>
             <p className="text-sm text-slate-600 mt-1">
@@ -339,11 +346,11 @@ export function ClientView({ name, stateProxy, colorScheme, clientId }: ClientVi
             onDragEnd={handleDragEnd}
           >
             <SortableContext
-              items={(snap.todos).map((t) => t.id)}
+              items={snap.todos.map((t) => t.id)}
               strategy={verticalListSortingStrategy}
             >
               <div className="space-y-0.5">
-                {(snap.todos).map((todo, index) => (
+                {snap.todos.map((todo, index) => (
                   <TodoItem
                     key={todo.id}
                     item={todo}

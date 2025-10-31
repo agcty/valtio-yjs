@@ -6,11 +6,12 @@
     "incremental": true,
     "noEmit": true,
     "outDir": ".tsbuild/test",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "paths": {
       "src/*": ["./src/*"],
       "test/*": ["./test/*"]
     },
-    "types": ["node", "react"],
+    "types": ["node", "react", "@vitest/browser/matchers"],
     "jsx": "react-jsx"
   },
   "include": [

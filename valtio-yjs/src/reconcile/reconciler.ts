@@ -1,11 +1,22 @@
-import * as Y from 'yjs';
-import { getOrCreateValtioProxy, getValtioProxyForYType } from '../bridge/valtio-bridge';
-import { SynchronizationContext } from '../core/context';
-
-import { isYSharedContainer, isYArray, isYMap, isYLeafType } from '../core/guards';
-import { yTypeToJSON } from '../core/types';
-import { setupLeafNodeAsComputed, setupLeafNodeAsComputedInArray, getUnderlyingLeaf } from '../bridge/leaf-computed';
-import type { YLeafType } from 'src/core/yjs-types';
+import * as Y from "yjs";
+import {
+  getOrCreateValtioProxy,
+  getValtioProxyForYType,
+} from "../bridge/valtio-bridge";
+import type { ValtioYjsCoordinator } from "../core/coordinator";
+import {
+  isYSharedContainer,
+  isYArray,
+  isYMap,
+  isYLeafType,
+} from "../core/guards";
+import { yTypeToJSON } from "../core/types";
+import {
+  setupLeafNodeAsComputed,
+  setupLeafNodeAsComputedInArray,
+  getUnderlyingLeaf,
+} from "../bridge/leaf-computed";
+import type { YLeafType } from "src/core/yjs-types";
 
 // Reconciler layer
 //
@@ -19,17 +30,29 @@ import type { YLeafType } from 'src/core/yjs-types';
 /**
  * Reconciles the structure of a Valtio proxy to match its underlying Y.Map.
  * It creates/deletes properties on the proxy to ensure the "scaffolding" is correct.
+ *
+ * @param coordinator - Coordinator instance containing state and logger
+ * @param yMap - The Y.Map to reconcile
+ * @param doc - The Y.Doc containing the map
+ * @param withReconcilingLock - Function to execute code while holding the reconciling lock
  */
-export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<unknown>, doc: Y.Doc): void {
-  const valtioProxy = getValtioProxyForYType(context, yMap) as Record<string, unknown> | undefined;
+export function reconcileValtioMap(
+  coordinator: ValtioYjsCoordinator,
+  yMap: Y.Map<unknown>,
+  doc: Y.Doc,
+  withReconcilingLock: (fn: () => void) => void = (fn) => fn(),
+): void {
+  const valtioProxy = getValtioProxyForYType(coordinator, yMap) as
+    | Record<string, unknown>
+    | undefined;
   if (!valtioProxy) {
     // This map hasn't been materialized yet, so there's nothing to reconcile.
-    context.log.debug('reconcileValtioMap skipped (no proxy)');
+    coordinator.logger.debug("reconcileValtioMap skipped (no proxy)");
     return;
   }
 
-  context.withReconcilingLock(() => {
-    context.log.debug('reconcileValtioMap start', {
+  withReconcilingLock(() => {
+    coordinator.logger.debug("reconcileValtioMap start", {
       yKeys: Array.from(yMap.keys()),
       valtioKeys: Object.keys(valtioProxy),
       yJson: yTypeToJSON(yMap),
@@ -38,7 +61,11 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
     // EXCLUDE internal valtio-yjs properties from reconciliation
     // These properties (like __valtio_yjs_version, __valtio_yjs_leaf_*) are used for reactivity
     // and should NOT be synced with Y.Map or deleted during reconciliation
-    const valtioKeys = new Set(Object.keys(valtioProxy).filter(key => !key.startsWith('__valtio_yjs_')));
+    const valtioKeys = new Set(
+      Object.keys(valtioProxy).filter(
+        (key) => !key.startsWith("__valtio_yjs_"),
+      ),
+    );
     const allKeys = new Set<string>([...yKeys, ...valtioKeys]);
 
     for (const key of allKeys) {
@@ -50,27 +77,37 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
         // Check leaf types first (before container check) since some leaf types extend containers
         // (e.g., Y.XmlHook extends Y.Map)
         if (isYLeafType(yValue)) {
-          context.log.debug('[ADD] set leaf node (computed)', key);
-          setupLeafNodeAsComputed(context, valtioProxy, key, yValue);
+          coordinator.logger.debug("[ADD] set leaf node (computed)", key);
+          setupLeafNodeAsComputed(coordinator, valtioProxy, key, yValue);
         } else if (isYSharedContainer(yValue)) {
-          context.log.debug('[ADD] create controller', key);
-          valtioProxy[key] = getOrCreateValtioProxy(context, yValue, doc);
+          coordinator.logger.debug("[ADD] create controller", key);
+          valtioProxy[key] = getOrCreateValtioProxy(coordinator, yValue, doc);
           if (isYMap(yValue)) {
-            context.log.debug('[RECONCILE-CHILD] map', key);
-            reconcileValtioMap(context, yValue as Y.Map<unknown>, doc);
+            coordinator.logger.debug("[RECONCILE-CHILD] map", key);
+            reconcileValtioMap(
+              coordinator,
+              yValue as Y.Map<unknown>,
+              doc,
+              withReconcilingLock,
+            );
           } else if (isYArray(yValue)) {
-            context.log.debug('[RECONCILE-CHILD] array', key);
-            reconcileValtioArray(context, yValue as Y.Array<unknown>, doc);
+            coordinator.logger.debug("[RECONCILE-CHILD] array", key);
+            reconcileValtioArray(
+              coordinator,
+              yValue as Y.Array<unknown>,
+              doc,
+              withReconcilingLock,
+            );
           }
         } else {
-          context.log.debug('[ADD] set primitive', key);
+          coordinator.logger.debug("[ADD] set primitive", key);
           valtioProxy[key] = yValue;
         }
         continue;
       }
 
       if (!inY && inValtio) {
-        context.log.debug('[DELETE] remove key', key);
+        coordinator.logger.debug("[DELETE] remove key", key);
         delete valtioProxy[key];
         continue;
       }
@@ -81,53 +118,66 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
         // Check leaf types first (before container check) since some leaf types extend containers
         // (e.g., Y.XmlHook extends Y.Map)
         if (isYLeafType(yValue)) {
-          context.log.debug('[RECONCILE] leaf node detected', key, {
+          coordinator.logger.debug("[RECONCILE] leaf node detected", key, {
             currentType: current?.constructor?.name,
             yValueType: yValue?.constructor?.name,
             same: current === yValue,
           });
-          
+
           // Get the underlying Y.js leaf node from the computed property
           const underlyingCurrent = getUnderlyingLeaf(valtioProxy, key);
-          
-          context.log.debug('[RECONCILE] underlying current', {
+
+          coordinator.logger.debug("[RECONCILE] underlying current", {
             key,
             underlyingCurrent,
             yValue,
             same: underlyingCurrent === yValue,
           });
-          
+
           // Only replace if the underlying Y.js instance has changed
           if (underlyingCurrent !== yValue) {
-            context.log.debug('[RECONCILE] setting up leaf node', key);
+            coordinator.logger.debug("[RECONCILE] setting up leaf node", key);
             // Setup new computed property with reactivity
-            setupLeafNodeAsComputed(context, valtioProxy, key, yValue);
+            setupLeafNodeAsComputed(coordinator, valtioProxy, key, yValue);
           } else {
             // Same Y.js instance - computed property is already correct
-            context.log.debug('[RECONCILE] leaf node unchanged, skipping setup', key);
+            coordinator.logger.debug(
+              "[RECONCILE] leaf node unchanged, skipping setup",
+              key,
+            );
           }
         } else if (isYSharedContainer(yValue)) {
-          const desired = getOrCreateValtioProxy(context, yValue, doc);
+          const desired = getOrCreateValtioProxy(coordinator, yValue, doc);
           if (current !== desired) {
-            context.log.debug('[REPLACE] replace controller', key);
+            coordinator.logger.debug("[REPLACE] replace controller", key);
             valtioProxy[key] = desired;
           }
           if (isYMap(yValue)) {
-            context.log.debug('[RECONCILE-CHILD] map', key);
-            reconcileValtioMap(context, yValue as Y.Map<unknown>, doc);
+            coordinator.logger.debug("[RECONCILE-CHILD] map", key);
+            reconcileValtioMap(
+              coordinator,
+              yValue as Y.Map<unknown>,
+              doc,
+              withReconcilingLock,
+            );
           } else if (isYArray(yValue)) {
-            context.log.debug('[RECONCILE-CHILD] array', key);
-            reconcileValtioArray(context, yValue as Y.Array<unknown>, doc);
+            coordinator.logger.debug("[RECONCILE-CHILD] array", key);
+            reconcileValtioArray(
+              coordinator,
+              yValue as Y.Array<unknown>,
+              doc,
+              withReconcilingLock,
+            );
           }
         } else {
           if (current !== yValue) {
-            context.log.debug('[UPDATE] primitive', key);
+            coordinator.logger.debug("[UPDATE] primitive", key);
             valtioProxy[key] = yValue;
           }
         }
       }
     }
-    context.log.debug('reconcileValtioMap end', {
+    coordinator.logger.debug("reconcileValtioMap end", {
       valtioKeys: Object.keys(valtioProxy),
     });
   });
@@ -135,20 +185,30 @@ export function reconcileValtioMap(context: SynchronizationContext, yMap: Y.Map<
 
 // TODO: Implement granular delta-based reconciliation for arrays.
 // For now, perform a coarse structural sync using splice.
-export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.Array<unknown>, doc: Y.Doc): void {
-  const valtioProxy = getValtioProxyForYType(context, yArray) as unknown[] | undefined;
+export function reconcileValtioArray(
+  coordinator: ValtioYjsCoordinator,
+  yArray: Y.Array<unknown>,
+  doc: Y.Doc,
+  withReconcilingLock: (fn: () => void) => void = (fn) => fn(),
+): void {
+  const valtioProxy = getValtioProxyForYType(coordinator, yArray) as
+    | unknown[]
+    | undefined;
   if (!valtioProxy) return;
 
-  context.withReconcilingLock(() => {
+  withReconcilingLock(() => {
     // Skip structural reconcile if this array has a delta in the current sync pass
-    if (context.shouldSkipArrayStructuralReconcile(yArray)) {
-      context.log.debug('reconcileValtioArray skipped due to pending delta', {
-        yLength: yArray.length,
-        valtioLength: valtioProxy.length,
-      });
+    if (coordinator.state.shouldSkipArrayStructuralReconcile(yArray)) {
+      coordinator.logger.debug(
+        "reconcileValtioArray skipped due to pending delta",
+        {
+          yLength: yArray.length,
+          valtioLength: valtioProxy.length,
+        },
+      );
       return;
     }
-    context.log.debug('reconcileValtioArray start', {
+    coordinator.logger.debug("reconcileValtioArray start", {
       yLength: yArray.length,
       valtioLength: valtioProxy.length,
       yJson: yTypeToJSON(yArray),
@@ -162,23 +222,28 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
         // For array items, we'll set up computed properties after the splice
         return null;
       } else if (isYSharedContainer(item)) {
-        return getOrCreateValtioProxy(context, item, doc);
+        return getOrCreateValtioProxy(coordinator, item, doc);
       } else {
         return item;
       }
     });
-    context.log.debug('reconcile array splice', newContent.length);
+    coordinator.logger.debug("reconcile array splice", newContent.length);
     valtioProxy.splice(0, valtioProxy.length, ...newContent);
-    
+
     // Setup computed properties for leaf nodes after splice
     yArray.toArray().forEach((item, index) => {
       if (isYLeafType(item)) {
         // Type assertion is safe here because isYLeafType guard confirmed the type
         const leafNode = item as YLeafType;
-        setupLeafNodeAsComputedInArray(context, valtioProxy, index, leafNode);
+        setupLeafNodeAsComputedInArray(
+          coordinator,
+          valtioProxy,
+          index,
+          leafNode,
+        );
       }
     });
-    context.log.debug('reconcileValtioArray end', {
+    coordinator.logger.debug("reconcileValtioArray end", {
       valtioLength: valtioProxy.length,
     });
 
@@ -187,9 +252,19 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
       const item = yArray.get(i) as unknown;
       if (item && isYSharedContainer(item)) {
         if (isYMap(item)) {
-          reconcileValtioMap(context, item as Y.Map<unknown>, doc);
+          reconcileValtioMap(
+            coordinator,
+            item as Y.Map<unknown>,
+            doc,
+            withReconcilingLock,
+          );
         } else if (isYArray(item)) {
-          reconcileValtioArray(context, item as Y.Array<unknown>, doc);
+          reconcileValtioArray(
+            coordinator,
+            item as Y.Array<unknown>,
+            doc,
+            withReconcilingLock,
+          );
         }
       }
     }
@@ -199,19 +274,22 @@ export function reconcileValtioArray(context: SynchronizationContext, yArray: Y.
 /**
  * Applies a granular Yjs delta to the Valtio array proxy, avoiding full re-splices.
  * The delta format follows Yjs ArrayEvent.changes.delta: an array of ops
- * where each op is one of { retain: number } | { delete: number } | { insert: any[] }.
+ * where each op is one of { retain: number } | { delete: number } | { insert: unknown[] }.
  */
 export function reconcileValtioArrayWithDelta(
-  context: SynchronizationContext,
+  coordinator: ValtioYjsCoordinator,
   yArray: Y.Array<unknown>,
   doc: Y.Doc,
   delta: Array<{ retain?: number; delete?: number; insert?: unknown[] }>,
+  withReconcilingLock: (fn: () => void) => void = (fn) => fn(),
 ): void {
-  const valtioProxy = getValtioProxyForYType(context, yArray) as unknown[] | undefined;
+  const valtioProxy = getValtioProxyForYType(coordinator, yArray) as
+    | unknown[]
+    | undefined;
   if (!valtioProxy) return;
 
-  context.withReconcilingLock(() => {
-    context.log.debug('reconcileValtioArrayWithDelta start', {
+  withReconcilingLock(() => {
+    coordinator.logger.debug("reconcileValtioArrayWithDelta start", {
       delta,
       valtioLength: valtioProxy.length,
     });
@@ -219,7 +297,7 @@ export function reconcileValtioArrayWithDelta(
     let position = 0;
     let step = 0;
     for (const d of delta) {
-      context.log.debug('delta.step', { step: step++, d, position });
+      coordinator.logger.debug("delta.step", { step: step++, d, position });
       if (d.retain && d.retain > 0) {
         position += d.retain;
         continue;
@@ -238,42 +316,56 @@ export function reconcileValtioArrayWithDelta(
             // For array items, we'll set up computed properties after the insert
             return null;
           } else if (isYSharedContainer(item)) {
-            return getOrCreateValtioProxy(context, item, doc);
+            return getOrCreateValtioProxy(coordinator, item, doc);
           } else {
             return item;
           }
         });
         // Idempotency guard: if the exact converted items already exist at this position
         // (e.g., due to a prior structural reconcile in the same sync pass), skip inserting.
-        const existingSlice = valtioProxy.slice(position, position + converted.length);
-        const alreadyPresent = converted.length > 0 && converted.every((v, i) => existingSlice[i] === v);
+        const existingSlice = valtioProxy.slice(
+          position,
+          position + converted.length,
+        );
+        const alreadyPresent =
+          converted.length > 0 &&
+          converted.every((v, i) => existingSlice[i] === v);
         if (alreadyPresent) {
-          context.log.debug('delta.insert (skipped: already present)', { at: position, count: converted.length });
+          coordinator.logger.debug("delta.insert (skipped: already present)", {
+            at: position,
+            count: converted.length,
+          });
           position += converted.length;
           continue;
         }
-        context.log.debug('delta.insert', { at: position, count: converted.length });
+        coordinator.logger.debug("delta.insert", {
+          at: position,
+          count: converted.length,
+        });
         valtioProxy.splice(position, 0, ...converted);
-        
+
         // Setup computed properties for inserted leaf nodes
         d.insert.forEach((item, offset) => {
           if (isYLeafType(item)) {
             // Type assertion is safe here because isYLeafType guard confirmed the type
             const leafNode = item as YLeafType;
-            setupLeafNodeAsComputedInArray(context, valtioProxy, position + offset, leafNode);
+            setupLeafNodeAsComputedInArray(
+              coordinator,
+              valtioProxy,
+              position + offset,
+              leafNode,
+            );
           }
         });
-        
+
         position += converted.length;
         continue;
       }
       // Unknown or empty op: skip
     }
 
-    context.log.debug('reconcileValtioArrayWithDelta end', {
+    coordinator.logger.debug("reconcileValtioArrayWithDelta end", {
       valtioLength: valtioProxy.length,
     });
   });
 }
-
-

@@ -25,7 +25,7 @@ describe("E2E: Y.Xml Types", () => {
 
       // B should see the fragment
       expect(proxyB.fragment).toBeInstanceOf(Y.XmlFragment);
-      expect(proxyB.fragment.length).toBe(1);
+      expect(proxyB.fragment).toHaveLength(1);
       expect(proxyB.fragment.get(0)).toBeInstanceOf(Y.XmlElement);
     });
 
@@ -45,7 +45,7 @@ describe("E2E: Y.Xml Types", () => {
       await waitMicrotask();
 
       // B sees the insertion
-      expect(proxyB.fragment.length).toBe(1);
+      expect(proxyB.fragment).toHaveLength(1);
       expect(proxyB.fragment.get(0)).toBeInstanceOf(Y.XmlElement);
       expect(proxyB.fragment.get(0).nodeName).toBe("p");
     });
@@ -65,14 +65,14 @@ describe("E2E: Y.Xml Types", () => {
       bootstrapA({});
       await waitMicrotask();
 
-      expect(proxyB.fragment.length).toBe(3);
+      expect(proxyB.fragment).toHaveLength(3);
 
       // A deletes the middle element
       proxyA.fragment.delete(1, 1);
       await waitMicrotask();
 
       // B sees the deletion
-      expect(proxyB.fragment.length).toBe(2);
+      expect(proxyB.fragment).toHaveLength(2);
       expect(proxyB.fragment.get(0).nodeName).toBe("div");
       expect(proxyB.fragment.get(1).nodeName).toBe("p");
     });
@@ -89,7 +89,7 @@ describe("E2E: Y.Xml Types", () => {
 
       // B should see empty fragment
       expect(proxyB.fragment).toBeInstanceOf(Y.XmlFragment);
-      expect(proxyB.fragment.length).toBe(0);
+      expect(proxyB.fragment).toHaveLength(0);
     });
   });
 
@@ -149,7 +149,7 @@ describe("E2E: Y.Xml Types", () => {
       await waitMicrotask();
 
       // B sees the child
-      expect(proxyB.element.length).toBe(1);
+      expect(proxyB.element).toHaveLength(1);
       expect(proxyB.element.get(0)).toBeInstanceOf(Y.XmlElement);
       expect(proxyB.element.get(0).nodeName).toBe("span");
     });
@@ -168,7 +168,7 @@ describe("E2E: Y.Xml Types", () => {
       await waitMicrotask();
 
       // B sees the text
-      expect(proxyB.element.length).toBe(1);
+      expect(proxyB.element).toHaveLength(1);
       expect(proxyB.element.get(0)).toBeInstanceOf(Y.XmlText);
       expect(proxyB.element.get(0).toString()).toBe("Hello World");
 
@@ -219,14 +219,14 @@ describe("E2E: Y.Xml Types", () => {
       bootstrapA({});
       await waitMicrotask();
 
-      expect(proxyB.element.length).toBe(2);
+      expect(proxyB.element).toHaveLength(2);
 
       // A removes first child
       proxyA.element.delete(0, 1);
       await waitMicrotask();
 
       // B sees the removal
-      expect(proxyB.element.length).toBe(1);
+      expect(proxyB.element).toHaveLength(1);
       expect(proxyB.element.get(0).nodeName).toBe("p");
     });
 
@@ -245,7 +245,7 @@ describe("E2E: Y.Xml Types", () => {
       // B should see empty element
       expect(proxyB.element).toBeInstanceOf(Y.XmlElement);
       expect(proxyB.element.nodeName).toBe("div");
-      expect(proxyB.element.length).toBe(0);
+      expect(proxyB.element).toHaveLength(0);
     });
 
     it("handles deeply nested Y.XmlElement structures", async () => {
@@ -274,7 +274,9 @@ describe("E2E: Y.Xml Types", () => {
       expect(proxyB.root.get(0).nodeName).toBe("section");
       expect(proxyB.root.get(0).get(0).nodeName).toBe("article");
       expect(proxyB.root.get(0).get(0).get(0).nodeName).toBe("p");
-      expect(proxyB.root.get(0).get(0).get(0).get(0).toString()).toBe("Deep content");
+      expect(proxyB.root.get(0).get(0).get(0).get(0).toString()).toBe(
+        "Deep content",
+      );
     });
   });
 
@@ -398,7 +400,7 @@ describe("E2E: Y.Xml Types", () => {
       expect(proxyB.article).toBeInstanceOf(Y.XmlElement);
       expect(proxyB.article.nodeName).toBe("article");
       expect(proxyB.article.getAttribute("lang")).toBe("en");
-      expect(proxyB.article.length).toBe(2);
+      expect(proxyB.article).toHaveLength(2);
 
       const h1 = proxyB.article.get(0);
       expect(h1.nodeName).toBe("h1");
@@ -450,7 +452,7 @@ describe("E2E: Y.Xml Types", () => {
       await waitMicrotask();
 
       // B sees the XML elements in array
-      expect(proxyB.length).toBe(2);
+      expect(proxyB).toHaveLength(2);
       expect(proxyB[0]).toBeInstanceOf(Y.XmlElement);
       expect(proxyB[0].nodeName).toBe("div");
       expect(proxyB[0].getAttribute("class")).toBe("item1");
@@ -492,7 +494,7 @@ describe("E2E: Y.Xml Types", () => {
       await waitMicrotask();
 
       // B sees the hooks in array
-      expect(proxyB.length).toBe(2);
+      expect(proxyB).toHaveLength(2);
       expect(proxyB[0]).toBeInstanceOf(Y.XmlHook);
       expect(proxyB[0].get("name")).toBe("first");
       expect(proxyB[1]).toBeInstanceOf(Y.XmlHook);
@@ -513,11 +515,10 @@ describe("E2E: Y.Xml Types", () => {
       await waitMicrotask();
 
       // B sees the fragment in array
-      expect(proxyB.length).toBe(1);
+      expect(proxyB).toHaveLength(1);
       expect(proxyB[0]).toBeInstanceOf(Y.XmlFragment);
-      expect(proxyB[0].length).toBe(1);
+      expect(proxyB[0]).toHaveLength(1);
       expect(proxyB[0].get(0).nodeName).toBe("div");
     });
   });
 });
-

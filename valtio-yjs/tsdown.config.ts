@@ -1,4 +1,4 @@
-import { defineConfig } from "tsdown"
+import { defineConfig } from "tsdown";
 
 export default [
   defineConfig({
@@ -11,9 +11,9 @@ export default [
     },
     outDir: "dist",
     clean: true,
-    tsconfig: false,
+    tsconfig: "tsconfig.src.json",
     platform: "neutral",
     treeshake: true,
     minify: false,
   }),
-]
+];

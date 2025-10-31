@@ -1,10 +1,10 @@
 // Map operations planner
-// 
+//
 // Responsibility:
 // - Analyze Valtio subscription ops and categorize map operations
 // - Separate planning (what to do) from scheduling (when to do it)
 
-import { isRawSetMapOp, isRawDeleteMapOp } from '../core/types';
+import { isRawSetMapOp, isRawDeleteMapOp } from "../core/types";
 
 export interface MapOpsPlans {
   sets: Map<string, unknown>;
@@ -14,7 +14,7 @@ export interface MapOpsPlans {
 /**
  * Analyzes Valtio subscription ops and categorizes map operations.
  * Only processes top-level map operations (path length === 1).
- * 
+ *
  * @param ops - Array of Valtio subscription operations
  * @returns Object containing categorized sets and deletes
  */
