@@ -17,9 +17,6 @@
       "dependsOn": ["^build"],
       "outputs": [".tsbuild/**"]
     },
-    "format": {
-      "cache": false
-    },
     "format:check": {}
   }
 }

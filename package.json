@@ -7,15 +7,19 @@
     "examples/*"
   ],
   "scripts": {
+    "prepare": "simple-git-hooks",
     "build": "turbo run build",
     "dev": "turbo run dev",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
     "lint": "oxlint --type-aware .",
     "lint:fix": "oxlint --type-aware --fix .",
-    "format": "turbo run format",
+    "format": "bun oxfmt .",
     "format:check": "turbo run format:check",
     "check": "bun run format && bun run lint:fix"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "bun oxfmt ."
   },
   "private": true,
   "keywords": [],
@@ -27,6 +31,7 @@
     "oxfmt": "^0.9.0",
     "oxlint": "^1.25.0",
     "oxlint-tsgolint": "^0.4.0",
+    "simple-git-hooks": "^2.13.1",
     "turbo": "^2.6.0"
   }
 }
