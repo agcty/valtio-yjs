@@ -1,7 +1,7 @@
 import * as Y from 'yjs';
 import { WriteScheduler } from '../scheduling/write-scheduler';
-import { applyMapDeletes, applyMapSets } from '../scheduling/map-apply';
-import { applyArrayOperations } from '../scheduling/array-apply';
+import type { PendingMapEntry, PendingArrayEntry } from '../scheduling/batch-types';
+import type { PostTransactionQueue } from '../scheduling/post-transaction-queue';
 import { LOG_PREFIX } from './constants';
 import type { YSharedContainer } from './yjs-types';
 
@@ -64,13 +64,22 @@ export class SynchronizationContext {
       },
     };
 
-    // Initialize write scheduler with apply functions
+    // Initialize write scheduler (apply functions will be set externally to avoid circular dependencies)
     this.writeScheduler = new WriteScheduler(this.log, this.traceMode);
+  }
+
+  // Expose the write scheduler's setApplyFunctions for external initialization
+  setApplyFunctions(
+    applyMapDeletes: (mapDeletes: Map<Y.Map<unknown>, Set<string>>) => void,
+    applyMapSets: (mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>, postQueue: PostTransactionQueue) => void,
+    applyArrayOperations: (arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, postQueue: PostTransactionQueue) => void,
+    withReconcilingLock: (fn: () => void) => void,
+  ): void {
     this.writeScheduler.setApplyFunctions(
-      (mapDeletes) => applyMapDeletes(mapDeletes, this.log),
-      (mapSets, postQueue) => applyMapSets(mapSets, postQueue, this.log, this),
-      (arraySets, arrayDeletes, arrayReplaces, postQueue) => applyArrayOperations(this, arraySets, arrayDeletes, arrayReplaces, postQueue),
-      (fn) => this.withReconcilingLock(fn),
+      applyMapDeletes,
+      applyMapSets,
+      applyArrayOperations,
+      withReconcilingLock,
     );
   }
 

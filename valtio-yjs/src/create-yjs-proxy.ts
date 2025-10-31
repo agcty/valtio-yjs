@@ -3,7 +3,7 @@ import { getOrCreateValtioProxy } from './bridge/valtio-bridge';
 import { setupSyncListener } from './synchronizer';
 import { plainObjectToYType, validateDeepForSharedState } from './core/converter';
 import { VALTIO_YJS_ORIGIN } from './core/constants';
-import { SynchronizationContext } from './core/context';
+import { createSynchronizationContext } from './core/context-factory';
 import { isYArray, isYMap } from './core/guards';
 import { reconcileValtioArray, reconcileValtioMap } from './reconcile/reconciler';
 import { initializeValtioYjsIntegration } from './core/valtio-yjs-integration';
@@ -38,7 +38,7 @@ export function createYjsProxy<T extends object>(
   const yRoot = getRoot(doc);
 
   // 1. Create the root controller proxy (returns a real Valtio proxy).
-  const context = new SynchronizationContext(options.debug);
+  const context = createSynchronizationContext(options.debug);
   context.bindDoc(doc);
   const stateProxy = getOrCreateValtioProxy(context, yRoot, doc);
 
