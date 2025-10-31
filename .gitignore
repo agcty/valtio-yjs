@@ -5,3 +5,4 @@ node_modules
 **/repomix-output.xml
 *.tsbuild
 .DS_Store
+.turbo

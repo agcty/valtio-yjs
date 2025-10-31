@@ -7,12 +7,15 @@
     "examples/*"
   ],
   "scripts": {
-    "lint": "oxlint --type-aware .",
-    "lint:fix": "oxlint --type-aware --fix .",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "check": "bun run format && bun run lint:fix",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "lint:fix": "turbo run lint:fix",
+    "format": "turbo run format",
+    "format:check": "turbo run format:check",
+    "check": "bun run format && bun run lint:fix"
   },
   "private": true,
   "keywords": [],
@@ -23,6 +26,7 @@
     "@types/node": "^24.9.2",
     "oxfmt": "^0.9.0",
     "oxlint": "^1.25.0",
-    "oxlint-tsgolint": "^0.4.0"
+    "oxlint-tsgolint": "^0.4.0",
+    "turbo": "^2.6.0"
   }
 }
