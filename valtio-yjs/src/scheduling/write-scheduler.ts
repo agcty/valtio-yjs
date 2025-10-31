@@ -1,8 +1,29 @@
 import * as Y from 'yjs';
 import type { PendingMapEntry, PendingArrayEntry } from './batch-types';
-import type { Logger } from '../core/context';
+import type { Logger } from '../core/logger';
 import { VALTIO_YJS_ORIGIN } from '../core/constants';
 import { PostTransactionQueue } from './post-transaction-queue';
+
+/**
+ * Apply functions that WriteScheduler delegates to.
+ * Injected at construction via dependency injection - no setter injection needed.
+ */
+export interface ApplyFunctions {
+  applyMapDeletes: (mapDeletes: Map<Y.Map<unknown>, Set<string>>) => void;
+  applyMapSets: (
+    mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>,
+    postQueue: PostTransactionQueue,
+    withReconcilingLock: (fn: () => void) => void
+  ) => void;
+  applyArrayOperations: (
+    arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
+    arrayDeletes: Map<Y.Array<unknown>, Set<number>>,
+    arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
+    postQueue: PostTransactionQueue,
+    withReconcilingLock: (fn: () => void) => void
+  ) => void;
+  withReconcilingLock: (fn: () => void) => void;
+}
 
 /**
  * Recursively collects all Y.Map and Y.Array shared types in a subtree.
@@ -27,13 +48,14 @@ function collectYSubtree(root: unknown): { maps: Set<Y.Map<unknown>>; arrays: Se
 }
 
 export class WriteScheduler {
+  private readonly doc: Y.Doc;
   private readonly log: Logger;
   private readonly traceMode: boolean;
-  
+  private readonly applyFunctions: ApplyFunctions;
+
   // Write scheduler state
-  private boundDoc: Y.Doc | null = null;
   private flushScheduled = false;
-  
+
   // Pending ops, deduped per target and key/index
   private pendingMapSets = new Map<Y.Map<unknown>, Map<string, PendingMapEntry>>();
   private pendingMapDeletes = new Map<Y.Map<unknown>, Set<string>>();
@@ -41,32 +63,25 @@ export class WriteScheduler {
   private pendingArrayDeletes = new Map<Y.Array<unknown>, Set<number>>();
   private pendingArrayReplaces = new Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>();
 
-  // Callback functions for applying operations
-  private applyMapDeletesFn: ((mapDeletes: Map<Y.Map<unknown>, Set<string>>) => void) | null = null;
-  private applyMapSetsFn: ((mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>, postQueue: PostTransactionQueue) => void) | null = null;
-  private applyArrayOperationsFn: ((arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, postQueue: PostTransactionQueue) => void) | null = null;
-  private withReconcilingLockFn: ((fn: () => void) => void) | null = null;
-
-  constructor(log: Logger, traceMode: boolean = false) {
+  /**
+   * Constructor injection - all dependencies provided upfront.
+   * No incomplete initialization possible - WriteScheduler is ready to use immediately.
+   *
+   * @param doc - Y.Doc instance for transactions
+   * @param log - Logger instance for debug/trace output
+   * @param applyFunctions - Callbacks for applying batched operations
+   * @param traceMode - Enable detailed trace logging (default: false)
+   */
+  constructor(
+    doc: Y.Doc,
+    log: Logger,
+    applyFunctions: ApplyFunctions,
+    traceMode: boolean = false
+  ) {
+    this.doc = doc;
     this.log = log;
+    this.applyFunctions = applyFunctions;
     this.traceMode = traceMode;
-  }
-
-  bindDoc(doc: Y.Doc): void {
-    this.boundDoc = doc;
-  }
-
-  // Set callback functions for applying operations
-  setApplyFunctions(
-    applyMapDeletes: (mapDeletes: Map<Y.Map<unknown>, Set<string>>) => void,
-    applyMapSets: (mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>, postQueue: PostTransactionQueue) => void,
-    applyArrayOperations: (arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, arrayDeletes: Map<Y.Array<unknown>, Set<number>>, arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>, postQueue: PostTransactionQueue) => void,
-    withReconcilingLock: (fn: () => void) => void,
-  ): void {
-    this.applyMapDeletesFn = applyMapDeletes;
-    this.applyMapSetsFn = applyMapSets;
-    this.applyArrayOperationsFn = applyArrayOperations;
-    this.withReconcilingLockFn = withReconcilingLock;
   }
 
   // Enqueue operations
@@ -152,8 +167,7 @@ export class WriteScheduler {
 
   private flush(): void {
     this.flushScheduled = false;
-    if (!this.boundDoc) return;
-    const doc = this.boundDoc;
+    const doc = this.doc;
     this.log.debug('[scheduler] flush start');
     // Snapshot pending and clear before running to avoid re-entrancy issues
     const mapSets = this.pendingMapSets;
@@ -385,22 +399,12 @@ export class WriteScheduler {
     const postQueue = new PostTransactionQueue(this.log);
 
     doc.transact(() => {
-      if (this.applyMapDeletesFn) {
-        this.applyMapDeletesFn(mapDeletes);
-      }
-      if (this.applyMapSetsFn) {
-        this.applyMapSetsFn(mapSets, postQueue);
-      }
-      if (this.applyArrayOperationsFn) {
-        this.applyArrayOperationsFn(arraySets, arrayDeletes, arrayReplaces, postQueue);
-      }
+      this.applyFunctions.applyMapDeletes(mapDeletes);
+      this.applyFunctions.applyMapSets(mapSets, postQueue, this.applyFunctions.withReconcilingLock);
+      this.applyFunctions.applyArrayOperations(arraySets, arrayDeletes, arrayReplaces, postQueue, this.applyFunctions.withReconcilingLock);
     }, VALTIO_YJS_ORIGIN);
 
     // Flush post-transaction callbacks with reconciling lock
-    if (this.withReconcilingLockFn) {
-      postQueue.flush(this.withReconcilingLockFn);
-    } else {
-      postQueue.flush((fn) => fn());
-    }
+    postQueue.flush(this.applyFunctions.withReconcilingLock);
   }
 }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PostTransactionQueue } from './post-transaction-queue';
-import type { Logger } from '../core/context';
+import type { Logger } from '../core/logger';
 
 describe('PostTransactionQueue', () => {
   let mockLogger: Logger;

@@ -8,7 +8,7 @@
 //   equivalent to splice(i, 1, val). We do not forbid it; we translate it
 //   deterministically per the Translator's Guide.
 
-import { SynchronizationContext } from '../core/context';
+import type { ValtioYjsCoordinator } from '../core/coordinator';
 import { normalizeIndex } from '../utils/index-utils';
 
 // Type guards for array operations
@@ -40,10 +40,10 @@ export interface ArrayOpsPlans {
  *
  * @param ops - Array of Valtio subscription operations
  * @param yArrayLength - Current length of the Y.Array (for context)
- * @param context - Synchronization context for debug logging
+ * @param coordinator - Coordinator for debug logging (optional)
  * @returns Object containing categorized array operations
  */
-export function planArrayOps(ops: unknown[], yArrayLength: number, context?: SynchronizationContext): ArrayOpsPlans {
+export function planArrayOps(ops: unknown[], yArrayLength: number, coordinator?: ValtioYjsCoordinator): ArrayOpsPlans {
   // Phase 1: Collect raw array ops by index (state-agnostic)
   const setsByIndex = new Map<number, unknown>();
   const setHadPrevious = new Map<number, boolean>();
@@ -129,8 +129,8 @@ export function planArrayOps(ops: unknown[], yArrayLength: number, context?: Syn
   // Note: Move detection is handled at the scheduler level where we have full batch context
 
   // Phase 5: Trace planning result in debug sessions (controlled by debug flag)
-  if (context) {
-    context.log.debug('[planner][array] result', {
+  if (coordinator) {
+    coordinator.logger.debug('[planner][array] result', {
       yArrayLength,
       sets: Array.from(sets.keys()),
       deletes: Array.from(deletes.values()),

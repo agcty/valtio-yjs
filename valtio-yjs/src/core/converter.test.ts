@@ -3,30 +3,33 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { plainObjectToYType, yTypeToPlainObject, validateDeepForSharedState } from './converter';
-import { SynchronizationContext } from './context';
+import { SynchronizationState } from './synchronization-state';
+import { createLogger } from './logger';
 
 describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
   it('plainObjectToYType handles primitives, undefined, null', () => {
-    const context = new SynchronizationContext();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
     // Test valid primitives
     const validVals = [0, 1, 's', true, null];
-    const converted = validVals.map((v) => plainObjectToYType(v, context));
+    const converted = validVals.map((v) => plainObjectToYType(v, state, logger));
     expect(converted).toEqual([0, 1, 's', true, null]);
     
     // Test that undefined throws an error per new architecture
-    expect(() => plainObjectToYType(undefined, context)).toThrowError(
+    expect(() => plainObjectToYType(undefined, state, logger)).toThrowError(
       '[valtio-yjs] undefined is not allowed in shared state'
     );
   });
 
   it('plainObjectToYType converts nested structures', () => {
-    const context = new SynchronizationContext();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
     // Test with valid nested structure (no undefined)
     const input = {
       a: 1,
       b: { c: 2, d: [3, { e: 4 }] },
     } as const;
-    const yVal = plainObjectToYType(input, context) as Y.Map<unknown>;
+    const yVal = plainObjectToYType(input, state, logger) as Y.Map<unknown>;
     expect(yVal instanceof Y.Map).toBe(true);
     // Integrate into a document before reading
     const doc = new Y.Doc();
@@ -39,45 +42,50 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
     const inputWithUndefined = { a: 1, f: undefined };
     expect(() => {
       validateDeepForSharedState(inputWithUndefined);
-      plainObjectToYType(inputWithUndefined, context);
+      plainObjectToYType(inputWithUndefined, state, logger);
     }).toThrowError(
       '[valtio-yjs] undefined is not allowed in objects for shared state'
     );
   });
 
   it('plainObjectToYType rejects Date (must be explicitly converted)', () => {
-    const context = new SynchronizationContext();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
     const d = new Date('2020-01-01T00:00:00.000Z');
-    expect(() => plainObjectToYType(d, context)).toThrow(
+    expect(() => plainObjectToYType(d, state, logger)).toThrow(
       /Unable to convert non-plain object of type "Date"/
     );
   });
 
   it('plainObjectToYType rejects RegExp (must be explicitly converted)', () => {
-    const context = new SynchronizationContext();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
     const r = /abc/gi;
-    expect(() => plainObjectToYType(r, context)).toThrow(
+    expect(() => plainObjectToYType(r, state, logger)).toThrow(
       /Unable to convert non-plain object of type "RegExp"/
     );
   });
 
   it('plainObjectToYType throws on unknown non-plain objects', () => {
-    const context = new SynchronizationContext();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
     class Foo { constructor(public x: number) {} }
     const foo = new Foo(42);
-    expect(() => plainObjectToYType(foo, context)).toThrowError();
+    expect(() => plainObjectToYType(foo, state, logger)).toThrowError();
   });
 
   it('plainObjectToYType rejects URL (must be explicitly converted)', () => {
-    const context = new SynchronizationContext();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
     const u = new URL('https://example.com/path?q=1');
-    expect(() => plainObjectToYType(u, context)).toThrow(
+    expect(() => plainObjectToYType(u, state, logger)).toThrow(
       /Unable to convert non-plain object of type "URL"/
     );
   });
 
   it('roundtrip: plain → Y → plain for supported shapes (normalized)', () => {
-    const context = new SynchronizationContext();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
     // Use only supported values - no undefined, explicitly convert Date/RegExp/URL
     const input = {
       a: 1,
@@ -90,7 +98,7 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
       re: /ab+/i.toString(),
       url: new URL('https://example.com/x?y=1').href,
     } as const;
-    const yVal = plainObjectToYType(input, context) as Y.Map<unknown>;
+    const yVal = plainObjectToYType(input, state, logger) as Y.Map<unknown>;
     const doc = new Y.Doc();
     const root = doc.getMap('root');
     root.set('val', yVal);
@@ -109,13 +117,14 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
   });
 
   it('arrays of explicitly converted special objects convert to string arrays', () => {
-    const context = new SynchronizationContext();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
     const arr = [
       new Date('2021-01-01T00:00:00.000Z').toISOString(),
       /x/gi.toString(),
       new URL('https://x.test/').href
     ];
-    const y = plainObjectToYType(arr, context) as Y.Array<unknown>;
+    const y = plainObjectToYType(arr, state, logger) as Y.Array<unknown>;
     const doc = new Y.Doc();
     const root = doc.getArray('arr');
     root.insert(0, [y]);
@@ -148,51 +157,55 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
   });
 
   it('throws for unsupported primitives and values', () => {
-    const context = new SynchronizationContext();
-    expect(() => plainObjectToYType(BigInt(1), context)).toThrowError();
-    expect(() => plainObjectToYType(Symbol('x'), context)).toThrowError();
-    expect(() => plainObjectToYType(() => {}, context)).toThrowError();
-    expect(() => plainObjectToYType(NaN, context)).toThrowError();
-    expect(() => plainObjectToYType(Infinity, context)).toThrowError();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
+    expect(() => plainObjectToYType(BigInt(1), state, logger)).toThrowError();
+    expect(() => plainObjectToYType(Symbol('x'), state, logger)).toThrowError();
+    expect(() => plainObjectToYType(() => {}, state, logger)).toThrowError();
+    expect(() => plainObjectToYType(NaN, state, logger)).toThrowError();
+    expect(() => plainObjectToYType(Infinity, state, logger)).toThrowError();
   });
 
   it('throws for unsupported object types', () => {
-    const context = new SynchronizationContext();
-    expect(() => plainObjectToYType(new Promise(() => {}), context)).toThrowError();
-    expect(() => plainObjectToYType(new Error('x'), context)).toThrowError();
-    expect(() => plainObjectToYType(new WeakMap(), context)).toThrowError();
-    expect(() => plainObjectToYType(new WeakSet(), context)).toThrowError();
-    expect(() => plainObjectToYType(new Map([['a', 1]]), context)).toThrowError();
-    expect(() => plainObjectToYType(new Set([1, 2, 3]), context)).toThrowError();
-    expect(() => plainObjectToYType(new Uint8Array([1, 2]), context)).toThrowError();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
+    expect(() => plainObjectToYType(new Promise(() => {}), state, logger)).toThrowError();
+    expect(() => plainObjectToYType(new Error('x'), state, logger)).toThrowError();
+    expect(() => plainObjectToYType(new WeakMap(), state, logger)).toThrowError();
+    expect(() => plainObjectToYType(new WeakSet(), state, logger)).toThrowError();
+    expect(() => plainObjectToYType(new Map([['a', 1]]), state, logger)).toThrowError();
+    expect(() => plainObjectToYType(new Set([1, 2, 3]), state, logger)).toThrowError();
+    expect(() => plainObjectToYType(new Uint8Array([1, 2]), state, logger)).toThrowError();
     // DOM nodes are not available in happy-dom minimal by default; simulate by custom class
     class NodeLike {}
-    expect(() => plainObjectToYType(new NodeLike(), context)).toThrowError();
+    expect(() => plainObjectToYType(new NodeLike(), state, logger)).toThrowError();
   });
 
   it('throws for unsupported nested values in objects and arrays', () => {
-    const context = new SynchronizationContext();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
     const obj = { ok: 1, bad: new Map([['a', 1]]) } as const;
-    expect(() => plainObjectToYType(obj, context)).toThrowError();
+    expect(() => plainObjectToYType(obj, state, logger)).toThrowError();
 
     const arr = [1, new Set([1])] as const;
-    expect(() => plainObjectToYType(arr, context)).toThrowError();
+    expect(() => plainObjectToYType(arr, state, logger)).toThrowError();
   });
 
   it('rejects nested Date/RegExp/URL inside containers (must be explicitly converted)', () => {
-    const context = new SynchronizationContext();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
     const d = new Date('2020-01-01T00:00:00.000Z');
     const r = /abc/gi;
     const u = new URL('https://example.com');
     
     // Test that raw Date/RegExp/URL are rejected in objects
-    expect(() => plainObjectToYType({ d }, context)).toThrow(
+    expect(() => plainObjectToYType({ d }, state, logger)).toThrow(
       /Unable to convert non-plain object of type "Date"/
     );
-    expect(() => plainObjectToYType({ r }, context)).toThrow(
+    expect(() => plainObjectToYType({ r }, state, logger)).toThrow(
       /Unable to convert non-plain object of type "RegExp"/
     );
-    expect(() => plainObjectToYType({ u }, context)).toThrow(
+    expect(() => plainObjectToYType({ u }, state, logger)).toThrow(
       /Unable to convert non-plain object of type "URL"/
     );
     
@@ -203,7 +216,7 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
       u: u.href,
       list: [d.toISOString(), r.toString(), u.href]
     };
-    const yVal = plainObjectToYType(input, context) as Y.Map<unknown>;
+    const yVal = plainObjectToYType(input, state, logger) as Y.Map<unknown>;
     expect(yVal instanceof Y.Map).toBe(true);
     const doc = new Y.Doc();
     const root = doc.getMap('root');
@@ -218,14 +231,15 @@ describe('Converters: plainObjectToYType and yTypeToPlainObject', () => {
   });
 
   it('plainObjectToYType leaves AbstractType and controller proxies as-is', () => {
-    const context = new SynchronizationContext();
+    const state = new SynchronizationState();
+    const logger = createLogger(false);
     const yMap = new Y.Map();
     // Simulate controller proxy mapping
     const controller = {};
-    context.valtioProxyToYType.set(controller, yMap);
+    state.valtioProxyToYType.set(controller, yMap);
 
-    expect(plainObjectToYType(yMap, context)).toBe(yMap);
-    expect(plainObjectToYType(controller, context)).toBe(yMap);
+    expect(plainObjectToYType(yMap, state, logger)).toBe(yMap);
+    expect(plainObjectToYType(controller, state, logger)).toBe(yMap);
   });
 
   it('yTypeToPlainObject converts Y types to plain structures', () => {

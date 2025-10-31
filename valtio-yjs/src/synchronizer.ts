@@ -9,7 +9,7 @@ import * as Y from 'yjs';
 import { VALTIO_YJS_ORIGIN } from './core/constants';
 import { reconcileValtioMap, reconcileValtioArray, reconcileValtioArrayWithDelta } from './reconcile/reconciler';
 import type { YSharedContainer, YArrayDelta } from './core/yjs-types';
-import { SynchronizationContext } from './core/context';
+import type { ValtioYjsCoordinator } from './core/coordinator';
 import { getValtioProxyForYType } from './bridge/valtio-bridge';
 import { isYArrayEvent } from './core/yjs-events';
 import { isYArray, isYMap, isYSharedContainer } from './core/guards';
@@ -25,7 +25,7 @@ import { isYArray, isYMap, isYSharedContainer } from './core/guards';
  * @returns A dispose function to clean up the listener.
  */
 export function setupSyncListener(
-  context: SynchronizationContext,
+  coordinator: ValtioYjsCoordinator,
   doc: Y.Doc,
   yRoot: Y.Map<unknown> | Y.Array<unknown>,
 ): () => void {
@@ -33,7 +33,7 @@ export function setupSyncListener(
     if (transaction.origin === VALTIO_YJS_ORIGIN) {
       return;
     }
-    context.log.debug('[sync] deep', {
+    coordinator.logger.debug('[sync] deep', {
       events: events.map((e) => ({
         target: e.target.constructor.name,
         path: (e.path ?? []).slice(),
@@ -51,7 +51,7 @@ export function setupSyncListener(
     for (const event of events) {
       const targetContainer = isYSharedContainer(event.target) ? (event.target as YSharedContainer) : null;
       let boundary: YSharedContainer | null = targetContainer;
-      while (boundary && !getValtioProxyForYType(context, boundary)) {
+      while (boundary && !getValtioProxyForYType(coordinator, boundary)) {
         const parent = boundary.parent as Y.AbstractType<unknown> | Y.Doc | null;
         boundary = parent && isYSharedContainer(parent) ? (parent as YSharedContainer) : null;
       }
@@ -70,14 +70,14 @@ export function setupSyncListener(
     // Phase 1: boundaries first (parents before children)
     const arraysWithDelta = new Set(arrayTargetToDelta.keys());
     // Inform context to skip structural reconcile for arrays that have deltas in this sync pass
-    context.setArraysWithDeltaDuringSync(arraysWithDelta);
+    coordinator.setArraysWithDeltaDuringSync(arraysWithDelta);
     try {
       for (const container of boundaries) {
         if (isYMap(container)) {
-          reconcileValtioMap(context, container, doc);
+          reconcileValtioMap(coordinator, container, doc, (fn) => coordinator.withReconcilingLock(fn));
         } else if (isYArray(container)) {
           // Structural reconcile will internally check context.shouldSkipArrayStructuralReconcile
-          reconcileValtioArray(context, container, doc);
+          reconcileValtioArray(coordinator, container, doc, (fn) => coordinator.withReconcilingLock(fn));
           // Ensure that direct array targets with deltas still get a boundary reconcile after deltas too
           // by scheduling a post-task via the context (apply layer already posts reconciles; this is extra safety).
         }
@@ -87,12 +87,12 @@ export function setupSyncListener(
       // Phase 2: apply granular array deltas to direct targets
       for (const [arr, delta] of arrayTargetToDelta) {
         if (delta && delta.length > 0) {
-          reconcileValtioArrayWithDelta(context, arr, doc, delta);
+          reconcileValtioArrayWithDelta(coordinator, arr, doc, delta, (fn) => coordinator.withReconcilingLock(fn));
         }
       }
     } finally {
       // Clear skip set for next sync pass (guaranteed cleanup even on error)
-      context.clearArraysWithDeltaDuringSync();
+      coordinator.clearArraysWithDeltaDuringSync();
     }
   };
 

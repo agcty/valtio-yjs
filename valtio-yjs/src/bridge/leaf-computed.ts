@@ -8,7 +8,7 @@
 // This works because Valtio tracks computed property accesses in snapshots.
 
 import type { YLeafType } from '../core/yjs-types';
-import type { SynchronizationContext } from '../core/context';
+import type { ValtioYjsCoordinator } from '../core/coordinator';
 import { ref } from 'valtio/vanilla';
 
 /**
@@ -63,7 +63,7 @@ function createReactiveLeafWrapper(
  * @param leafNode - The Y.js leaf type (Y.Text, Y.XmlText, etc.)
  */
 export function setupLeafNodeAsComputed(
-  context: SynchronizationContext,
+  coordinator: ValtioYjsCoordinator,
   objProxy: Record<string | symbol, unknown>,
   key: string,
   leafNode: YLeafType,
@@ -102,11 +102,11 @@ export function setupLeafNodeAsComputed(
   leafNode.observe(handler);
   
   // Register cleanup
-  context.registerDisposable(() => {
+  coordinator.registerDisposable(() => {
     leafNode.unobserve(handler);
   });
   
-  context.log.debug('[leaf-computed] setup complete (with reactive wrapper)', {
+  coordinator.logger.debug('[leaf-computed] setup complete (with reactive wrapper)', {
     key,
     type: leafNode.constructor.name,
   });
@@ -116,7 +116,7 @@ export function setupLeafNodeAsComputed(
  * Array version of setupLeafNodeAsComputed
  */
 export function setupLeafNodeAsComputedInArray(
-  context: SynchronizationContext,
+  coordinator: ValtioYjsCoordinator,
   arrProxy: unknown[],
   index: number,
   leafNode: YLeafType,
@@ -141,11 +141,11 @@ export function setupLeafNodeAsComputedInArray(
   
   leafNode.observe(handler);
   
-  context.registerDisposable(() => {
+  coordinator.registerDisposable(() => {
     leafNode.unobserve(handler);
   });
   
-  context.log.debug('[leaf-computed] setup complete (array)', {
+  coordinator.logger.debug('[leaf-computed] setup complete (array)', {
     index,
     type: leafNode.constructor.name,
   });

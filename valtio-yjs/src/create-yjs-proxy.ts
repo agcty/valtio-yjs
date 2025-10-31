@@ -3,7 +3,7 @@ import { getOrCreateValtioProxy } from './bridge/valtio-bridge';
 import { setupSyncListener } from './synchronizer';
 import { plainObjectToYType, validateDeepForSharedState } from './core/converter';
 import { VALTIO_YJS_ORIGIN } from './core/constants';
-import { createSynchronizationContext } from './core/context-factory';
+import { ValtioYjsCoordinator } from './core/coordinator';
 import { isYArray, isYMap } from './core/guards';
 import { reconcileValtioArray, reconcileValtioMap } from './reconcile/reconciler';
 import { initializeValtioYjsIntegration } from './core/valtio-yjs-integration';
@@ -37,10 +37,9 @@ export function createYjsProxy<T extends object>(
   const { getRoot } = options;
   const yRoot = getRoot(doc);
 
-  // 1. Create the root controller proxy (returns a real Valtio proxy).
-  const context = createSynchronizationContext(options.debug);
-  context.bindDoc(doc);
-  const stateProxy = getOrCreateValtioProxy(context, yRoot, doc);
+  // 1. Create the coordinator (fully initialized via constructor injection)
+  const coordinator = new ValtioYjsCoordinator(doc, options.debug);
+  const stateProxy = getOrCreateValtioProxy(coordinator, yRoot, doc);
 
   // 2. Provide developer-driven bootstrap for initial data.
   const bootstrap = (data?: T) => {
@@ -49,7 +48,7 @@ export function createYjsProxy<T extends object>(
       return;
     }
     if ((isYMap(yRoot) && yRoot.size > 0) || (isYArray(yRoot) && yRoot.length > 0)) {
-      context.log.warn('bootstrap called on a non-empty document. Aborting to prevent data loss.');
+      coordinator.logger.warn('bootstrap called on a non-empty document. Aborting to prevent data loss.');
       return;
     }
     // Pre-convert to ensure deterministic behavior: either all converts or none
@@ -60,7 +59,7 @@ export function createYjsProxy<T extends object>(
         const value = record[key];
         // Validate before conversion (throws on undefined, functions, etc.)
         validateDeepForSharedState(value);
-        const converted = plainObjectToYType(value, context);
+        const converted = plainObjectToYType(value, coordinator.state, coordinator.logger);
         convertedEntries.push([key, converted]);
       }
       doc.transact(() => {
@@ -71,7 +70,7 @@ export function createYjsProxy<T extends object>(
     } else if (isYArray(yRoot)) {
       const items = (data as unknown as unknown[]).map((v) => {
         validateDeepForSharedState(v);
-        return plainObjectToYType(v, context);
+        return plainObjectToYType(v, coordinator.state, coordinator.logger);
       });
       doc.transact(() => {
         if (items.length > 0) yRoot.insert(0, items);
@@ -81,29 +80,29 @@ export function createYjsProxy<T extends object>(
     // Our listener ignores our origin to avoid loops, so we must explicitly
     // reconcile locally to materialize the proxy after bootstrap.
     if (isYMap(yRoot)) {
-      reconcileValtioMap(context, yRoot, doc);
+      reconcileValtioMap(coordinator, yRoot, doc, (fn) => coordinator.withReconcilingLock(fn));
     } else if (isYArray(yRoot)) {
-      reconcileValtioArray(context, yRoot, doc);
+      reconcileValtioArray(coordinator, yRoot, doc, (fn) => coordinator.withReconcilingLock(fn));
     }
   };
 
   // 3. Set up the reconciler-backed listener for remote changes.
-  const disposeSync = setupSyncListener(context, doc, yRoot);
+  const disposeSync = setupSyncListener(coordinator, doc, yRoot);
 
   // 3.5. If the document already has data, do an initial reconciliation
   // This handles the case where data exists before the proxy is created
   if ((isYMap(yRoot) && yRoot.size > 0) || (isYArray(yRoot) && yRoot.length > 0)) {
     if (isYMap(yRoot)) {
-      reconcileValtioMap(context, yRoot, doc);
+      reconcileValtioMap(coordinator, yRoot, doc, (fn) => coordinator.withReconcilingLock(fn));
     } else if (isYArray(yRoot)) {
-      reconcileValtioArray(context, yRoot, doc);
+      reconcileValtioArray(coordinator, yRoot, doc, (fn) => coordinator.withReconcilingLock(fn));
     }
   }
 
   // 4. Return the proxy, dispose, and bootstrap function.
   const dispose = () => {
     disposeSync();
-    context.disposeAll();
+    coordinator.disposeAll();
   };
 
   return { proxy: stateProxy as T, dispose, bootstrap };

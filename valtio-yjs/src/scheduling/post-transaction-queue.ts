@@ -1,4 +1,4 @@
-import type { Logger } from '../core/context';
+import type { Logger } from '../core/logger';
 
 /**
  * A queue for callbacks that need to execute after a Yjs transaction completes.

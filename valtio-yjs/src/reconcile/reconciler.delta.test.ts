@@ -2,16 +2,16 @@
 
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
-import { SynchronizationContext } from '../core/context';
+import { ValtioYjsCoordinator } from '../core/coordinator';
 import { getOrCreateValtioProxy } from '../bridge/valtio-bridge';
 import { reconcileValtioArrayWithDelta } from './reconciler';
 
 describe('Reconciler: delta insert materializes fields immediately', () => {
   it('delta.insert of Y.Map makes fields available on proxy right away', () => {
     const doc = new Y.Doc();
-    const context = new SynchronizationContext(true);
+    const coordinator = new ValtioYjsCoordinator(doc, true);
     const yArr = new Y.Array<any>();
-    const proxy = getOrCreateValtioProxy(context, yArr, doc) as any[];
+    const proxy = getOrCreateValtioProxy(coordinator, yArr, doc) as any[];
 
     // Prepare inserted map and integrate it under the same doc first
     const inserted = new Y.Map<any>();
@@ -25,7 +25,7 @@ describe('Reconciler: delta insert materializes fields immediately', () => {
 
     const delta = [{ insert: [inserted] }, { delete: 0 }];
 
-    reconcileValtioArrayWithDelta(context, yArr, doc, delta as any);
+    reconcileValtioArrayWithDelta(coordinator, yArr, doc, delta as any, (fn) => coordinator.withReconcilingLock(fn));
     expect(Array.isArray(proxy)).toBe(true);
     expect(proxy.length).toBe(1);
     expect(proxy[0].text).toBe('Replaced Alpha');

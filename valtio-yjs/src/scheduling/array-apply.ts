@@ -1,10 +1,11 @@
 import * as Y from 'yjs';
 import type { PendingArrayEntry } from './batch-types';
-import type { SynchronizationContext } from '../core/context';
+import type { ValtioYjsCoordinator } from '../core/coordinator';
 import { plainObjectToYType } from '../core/converter';
 import { reconcileValtioArray } from '../reconcile/reconciler';
 import type { PostTransactionQueue } from './post-transaction-queue';
 import { getYItemId, getYDoc, yTypeToJSON, hasProperty } from '../core/types';
+import type { Logger } from '../core/logger';
 
 /**
  * Execute array operations with cleaner multi-stage approach based on explicit intents.
@@ -12,13 +13,17 @@ import { getYItemId, getYDoc, yTypeToJSON, hasProperty } from '../core/types';
  * 1. Replaces (splice replace operations: delete + insert at same index)
  * 2. Pure deletes (pop, shift, splice deletions)
  * 3. Pure sets (push, unshift, splice insertions)
+ *
+ * @param coordinator - Coordinator instance containing state and logger
+ * @param withReconcilingLock - Function to execute code while holding the reconciling lock
  */
 export function applyArrayOperations(
-  context: SynchronizationContext,
+  coordinator: ValtioYjsCoordinator,
   arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
   arrayDeletes: Map<Y.Array<unknown>, Set<number>>,
   arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
   postQueue: PostTransactionQueue,
+  withReconcilingLock: (fn: () => void) => void,
 ): void {
   const allArrays = new Set<Y.Array<unknown>>();
   for (const a of arraySets.keys()) allArrays.add(a);
@@ -32,7 +37,7 @@ export function applyArrayOperations(
     const replacesForArray = arrayReplaces.get(yArray) ?? new Map<number, PendingArrayEntry>();
 
     // DEBUG-TRACE: per-array batch snapshot
-    context.log.debug('Applying ops for Y.Array:', {
+    coordinator.logger.debug('Applying ops for Y.Array:', {
       targetId: getYItemId(yArray),
       replaces: Array.from(replacesForArray.keys()).sort((a, b) => a - b),
       deletes: Array.from(deletesForArray.values()).sort((a, b) => a - b),
@@ -41,23 +46,23 @@ export function applyArrayOperations(
     });
 
     // 1) Handle Replaces first (canonical delete-then-insert at same index)
-    handleReplaces(context, yArray, replacesForArray, postQueue);
-    context.log.debug('after replaces', {
+    handleReplaces(coordinator, yArray, replacesForArray, postQueue);
+    coordinator.logger.debug('after replaces', {
       len: yArray.length,
       json: toJSONSafe(yArray),
     });
 
     // 2) Handle Pure Deletes next (descending order to avoid index shifts)
-    handleDeletes(context, yArray, deletesForArray);
-    context.log.debug('after deletes', {
+    handleDeletes(coordinator.logger, yArray, deletesForArray);
+    coordinator.logger.debug('after deletes', {
       len: yArray.length,
       json: toJSONSafe(yArray),
     });
 
     // 3) Finally, handle Pure Inserts (sets)
     if (setsForArray.size > 0) {
-      handleSets(context, yArray, setsForArray, deletesForArray, lengthAtStart, postQueue);
-      context.log.debug('after sets', {
+      handleSets(coordinator, yArray, setsForArray, deletesForArray, lengthAtStart, postQueue);
+      coordinator.logger.debug('after sets', {
         len: yArray.length,
         json: toJSONSafe(yArray),
       });
@@ -67,10 +72,10 @@ export function applyArrayOperations(
     // to materialize any deep children created during inserts/replaces.
     const arrayDocNow = getYDoc(yArray);
     if (arrayDocNow) {
-      context.log.debug('scheduling finalize reconcile for array', {
+      coordinator.logger.debug('scheduling finalize reconcile for array', {
         len: yArray.length,
       });
-      postQueue.enqueue(() => reconcileValtioArray(context, yArray, arrayDocNow));
+      postQueue.enqueue(() => reconcileValtioArray(coordinator, yArray, arrayDocNow, withReconcilingLock));
     }
   }
 }
@@ -79,23 +84,23 @@ export function applyArrayOperations(
  * Handle replace operations: delete + insert at same index (splice replace)
  */
 function handleReplaces(
-  context: SynchronizationContext,
+  coordinator: ValtioYjsCoordinator,
   yArray: Y.Array<unknown>,
   replaces: Map<number, PendingArrayEntry>,
   postQueue: PostTransactionQueue,
 ): void {
   if (replaces.size === 0) return;
 
-  context.log.debug('[arrayApply] handling replaces', { count: replaces.size });
-  
+  coordinator.logger.debug('[arrayApply] handling replaces', { count: replaces.size });
+
   // Sort indices in descending order to avoid index shifting during deletions
   const sortedIndices = Array.from(replaces.keys()).sort((a, b) => b - a);
-  
+
   for (const index of sortedIndices) {
     const entry = replaces.get(index)!;
-    const yValue = plainObjectToYType(entry.value, context);
-    
-    context.log.debug('[arrayApply] replace', { index });
+    const yValue = plainObjectToYType(entry.value, coordinator.state, coordinator.logger);
+
+    coordinator.logger.debug('[arrayApply] replace', { index });
     
     // Canonical replace: delete then insert, with defensive clamping for safety under rapid mixed ops
     const inBounds = index >= 0 && index < yArray.length;
@@ -122,19 +127,19 @@ function handleReplaces(
  * Handle pure delete operations
  */
 function handleDeletes(
-  context: SynchronizationContext,
+  logger: Logger,
   yArray: Y.Array<unknown>,
   deletes: Set<number>,
 ): void {
   if (deletes.size === 0) return;
 
-  context.log.debug('[arrayApply] handling deletes', { count: deletes.size });
+  logger.debug('[arrayApply] handling deletes', { count: deletes.size });
   
   // Sort indices in descending order to avoid index shifting issues
   const sortedDeletes = Array.from(deletes).sort((a, b) => b - a);
   
   for (const index of sortedDeletes) {
-    context.log.debug('[arrayApply] delete', { index, length: yArray.length });
+    logger.debug('[arrayApply] delete', { index, length: yArray.length });
     if (index >= 0 && index < yArray.length) {
       yArray.delete(index, 1);
     }
@@ -146,7 +151,7 @@ function handleDeletes(
  * Includes optimization for contiguous head/tail inserts
  */
 function handleSets(
-  context: SynchronizationContext,
+  coordinator: ValtioYjsCoordinator,
   yArray: Y.Array<unknown>,
   sets: Map<number, PendingArrayEntry>,
   deletes: Set<number>,
@@ -155,15 +160,15 @@ function handleSets(
 ): void {
   if (sets.size === 0) return;
 
-  context.log.debug('[arrayApply] handling sets', { count: sets.size });
+  coordinator.logger.debug('[arrayApply] handling sets', { count: sets.size });
 
   // Try bulk optimization ONLY for pure inserts (no deletes in batch)
   // This is safe because:
   // 1. No deletes means no index shifting complexity
   // 2. tryOptimizedInserts checks for contiguous indices
   // 3. Only optimizes head (unshift) or tail (push) patterns
-  if (deletes.size === 0 && tryOptimizedInserts(context, yArray, sets, postQueue)) {
-    context.log.debug('[arrayApply] bulk optimization applied', {
+  if (deletes.size === 0 && tryOptimizedInserts(coordinator, yArray, sets, postQueue)) {
+    coordinator.logger.debug('[arrayApply] bulk optimization applied', {
       count: sets.size,
       pattern: Array.from(sets.keys())[0] === 0 ? 'head-insert' : 'tail-insert',
     });
@@ -184,8 +189,8 @@ function handleSets(
 
   for (const index of sortedSetIndices) {
     const entry = sets.get(index)!;
-    const yValue = plainObjectToYType(entry.value, context);
-    context.log.debug('apply.set.prepare', {
+    const yValue = plainObjectToYType(entry.value, coordinator.state, coordinator.logger);
+    coordinator.logger.debug('apply.set.prepare', {
       index,
       hasId: hasProperty(entry.value, 'id'),
       id: hasProperty(entry.value, 'id') ? entry.value.id : undefined,
@@ -194,7 +199,7 @@ function handleSets(
     const shouldAppend = index >= lengthAtStart || index >= firstDeleteIndex || index >= yArray.length;
     const targetIndex = shouldAppend ? tailCursor : Math.min(Math.max(index, 0), yArray.length);
 
-    context.log.debug('[arrayApply] insert (tail-cursor strategy)', {
+    coordinator.logger.debug('[arrayApply] insert (tail-cursor strategy)', {
       requestedIndex: index,
       targetIndex,
       tailCursor,
@@ -204,10 +209,10 @@ function handleSets(
     });
 
     yArray.insert(targetIndex, [yValue]);
-    const yValueId = typeof yValue === 'object' && yValue !== null && 'get' in yValue && typeof yValue.get === 'function' 
-      ? (yValue.get as (key: string) => unknown)('id') 
+    const yValueId = typeof yValue === 'object' && yValue !== null && 'get' in yValue && typeof yValue.get === 'function'
+      ? (yValue.get as (key: string) => unknown)('id')
       : undefined;
-    context.log.debug('apply.set.inserted', {
+    coordinator.logger.debug('apply.set.inserted', {
       targetIndex,
       hasYId: yValueId !== undefined,
       id: yValueId,
@@ -227,21 +232,21 @@ function handleSets(
 
 /**
  * Try to optimize contiguous head/tail inserts into single operations.
- * 
+ *
  * This optimization batches multiple individual Y.Array inserts into a single
  * bulk insert operation, significantly improving performance for:
  * - Bulk push operations (tail inserts): proxy.push(...items)
  * - Bulk unshift operations (head inserts): proxy.unshift(...items)
- * 
+ *
  * Only applies when:
  * - No deletes are present (deletes.size === 0)
  * - Indices are contiguous (no gaps)
  * - Pattern matches head (0..m-1) or tail (len..len+k-1)
- * 
+ *
  * @returns true if optimization was applied, false if fallback is needed
  */
 function tryOptimizedInserts(
-  context: SynchronizationContext,
+  coordinator: ValtioYjsCoordinator,
   yArray: Y.Array<unknown>,
   sets: Map<number, PendingArrayEntry>,
   postQueue: PostTransactionQueue,
@@ -266,10 +271,10 @@ function tryOptimizedInserts(
       for (let i = 0; i < m; i++) {
         const entry = sets.get(i)!;
         entries.push(entry);
-        items.push(plainObjectToYType(entry.value, context));
+        items.push(plainObjectToYType(entry.value, coordinator.state, coordinator.logger));
       }
-      
-      context.log.debug('[arrayApply] unshift.coalesce', { insertCount: items.length });
+
+      coordinator.logger.debug('[arrayApply] unshift.coalesce', { insertCount: items.length });
       yArray.insert(0, items);
       
       // Handle post-integration callbacks
@@ -293,10 +298,10 @@ function tryOptimizedInserts(
         const idx = yLenAtStart + i;
         const entry = sets.get(idx)!;
         entries.push(entry);
-        items.push(plainObjectToYType(entry.value, context));
+        items.push(plainObjectToYType(entry.value, coordinator.state, coordinator.logger));
       }
-      
-      context.log.debug('[arrayApply] push.coalesce', { insertCount: items.length });
+
+      coordinator.logger.debug('[arrayApply] push.coalesce', { insertCount: items.length });
       yArray.insert(yArray.length, items);
       
       // Handle post-integration callbacks

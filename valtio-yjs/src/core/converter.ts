@@ -1,5 +1,6 @@
 import * as Y from 'yjs';
-import { SynchronizationContext } from './context';
+import type { SynchronizationState } from './synchronization-state';
+import type { Logger } from './logger';
 import { isYArray, isYMap, isYAbstractType } from './guards';
 import { isPlainObject } from './types';
 
@@ -130,12 +131,16 @@ export function validateDeepForSharedState(jsValue: unknown): void {
 /**
  * Recursively converts a plain JavaScript object/array (or primitive) into Yjs shared types.
  * Enforces re-parenting restrictions for collaborative objects.
- * 
+ *
  * IMPORTANT: This function assumes input is pre-validated at trust boundaries.
  * Callers MUST call validateDeepForSharedState() before calling this function.
  * Defensive checks remain for fundamentally invalid types as a fail-safe.
+ *
+ * @param jsValue - The JavaScript value to convert
+ * @param state - Synchronization state for proxy-to-Y-type mapping
+ * @param _logger - Logger instance (currently unused, reserved for future debugging)
  */
-export function plainObjectToYType(jsValue: unknown, context: SynchronizationContext): unknown {
+export function plainObjectToYType(jsValue: unknown, state: SynchronizationState, _logger: Logger): unknown {
   // Already a Yjs value: check for forbidden re-parenting
   if (isYAbstractType(jsValue)) {
     throwIfReparenting(jsValue);
@@ -167,15 +172,15 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
 
   // If this is one of our controller proxies, return the underlying Y type if it has no parent,
   // otherwise clone it to prevent re-parenting
-  if (context && typeof jsValue === 'object' && context.valtioProxyToYType.has(jsValue)) {
-    const underlyingYType = context.valtioProxyToYType.get(jsValue)!;
+  if (typeof jsValue === 'object' && state.valtioProxyToYType.has(jsValue)) {
+    const underlyingYType = state.valtioProxyToYType.get(jsValue)!;
     // Check if the Y type is already attached to a document
     if (isYAbstractType(underlyingYType)) {
       const yType = underlyingYType as Y.AbstractType<unknown>;
       if (yType.parent !== null) {
         // Y type is already in a document - clone it to prevent re-parenting
-        const plainFromProxy = deepPlainFromValtioProxy(jsValue as object, context);
-        return plainObjectToYType(plainFromProxy, context);
+        const plainFromProxy = deepPlainFromValtioProxy(jsValue as object, state);
+        return plainObjectToYType(plainFromProxy, state, _logger);
       }
       // Y type has no parent - safe to return as-is
       return underlyingYType;
@@ -185,7 +190,7 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
 
   if (Array.isArray(jsValue)) {
     const yArray = new Y.Array();
-    yArray.insert(0, jsValue.map((v) => plainObjectToYType(v, context)));
+    yArray.insert(0, jsValue.map((v) => plainObjectToYType(v, state, _logger)));
     return yArray;
   }
 
@@ -193,7 +198,7 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
   if (isPlainObject(jsValue)) {
     const yMap = new Y.Map();
     for (const [key, value] of Object.entries(jsValue)) {
-      yMap.set(key, plainObjectToYType(value, context));
+      yMap.set(key, plainObjectToYType(value, state, _logger));
     }
     return yMap;
   }
@@ -205,19 +210,19 @@ export function plainObjectToYType(jsValue: unknown, context: SynchronizationCon
 }
 
 // Build a deep plain JS value from a Valtio controller proxy, without touching its underlying Y types.
-function deepPlainFromValtioProxy(value: unknown, context: SynchronizationContext): unknown {
+function deepPlainFromValtioProxy(value: unknown, state: SynchronizationState): unknown {
   if (value === null || typeof value !== 'object') return value;
   if (Array.isArray(value)) {
-    return value.map((v) => deepPlainFromValtioProxy(v, context));
+    return value.map((v) => deepPlainFromValtioProxy(v, state));
   }
   // Plain object or Valtio proxy object
   const result: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     // If nested value is a controller proxy too, recurse similarly
-    if (v && typeof v === 'object' && context.valtioProxyToYType.has(v as object)) {
-      result[k] = deepPlainFromValtioProxy(v, context);
+    if (v && typeof v === 'object' && state.valtioProxyToYType.has(v as object)) {
+      result[k] = deepPlainFromValtioProxy(v, state);
     } else {
-      result[k] = deepPlainFromValtioProxy(v, context);
+      result[k] = deepPlainFromValtioProxy(v, state);
     }
   }
   return result;
