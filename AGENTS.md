@@ -10,18 +10,15 @@
 
 ## 🧭 Quick Start Cheat Sheet
 
-| If you need to…               | Run this command                     |
-| ----------------------------- | ------------------------------------ |
-| Lint code                     | `bun run lint`                       |
-| Fix lint issues automatically | `bun run lint:fix`                   |
-| Format code                   | `bun run format`                     |
-| Check formatting              | `bun run format:check`               |
-| Format + lint (full check)    | `bun run check`                      |
-| Run tests                     | `cd valtio-y && bun run test`      |
-| Build package                 | `cd valtio-y && bun run build`     |
-| Type check                    | `cd valtio-y && bun run typecheck` |
-| Watch mode (dev)              | `cd valtio-y && bun run dev`       |
-| Run benchmarks                | `cd valtio-y && bun run bench`     |
+| If you need to…               | Run this command (from root)     |
+| ----------------------------- | -------------------------------- |
+| Lint code                     | `bun run lint`                   |
+| Fix lint issues automatically | `bun run lint:fix`               |
+| Format code                   | `bun run format`                 |
+| Build all packages            | `bun run build` (uses turbo)     |
+| Test all packages             | `bun run test` (uses turbo)      |
+| Type check all packages       | `bun run typecheck` (uses turbo) |
+| Dev mode all packages         | `bun run dev` (uses turbo)       |
 
 Keep these commands nearby—most tasks you perform will be a combination of them.
 
@@ -102,19 +99,19 @@ Each example directory has its own setup. Navigate to the example directory and 
 
 Below is a categorized command index. Skim the left column to find the action you need, then run the command in the right column.
 
-| Area         | Situation                       | Command                                                 |
-| ------------ | ------------------------------- | ------------------------------------------------------- |
+| Area         | Situation                       | Command                                               |
+| ------------ | ------------------------------- | ----------------------------------------------------- |
 | Development  | Build package                   | `cd valtio-y && bun run build`                        |
 |              | Watch mode (dev)                | `cd valtio-y && bun run dev`                          |
 | Testing      | Run all tests                   | `cd valtio-y && bun run test`                         |
 |              | Run a single test file          | `cd valtio-y && bun vitest --run src/path/to/test.ts` |
 |              | Run benchmarks                  | `cd valtio-y && bun run bench`                        |
 | Type Safety  | Run TypeScript checks           | `cd valtio-y && bun run typecheck`                    |
-| Linting      | Check lint issues               | `bun run lint`                                          |
-|              | Fix lint issues automatically   | `bun run lint:fix`                                      |
-| Formatting   | Auto-format files               | `bun run format`                                        |
-|              | Check formatting without fixing | `bun run format:check`                                  |
-| Code Quality | Format + lint (full check)      | `bun run check`                                         |
+| Linting      | Check lint issues               | `bun run lint`                                        |
+|              | Fix lint issues automatically   | `bun run lint:fix`                                    |
+| Formatting   | Auto-format files               | `bun run format`                                      |
+|              | Check formatting without fixing | `bun run format:check`                                |
+| Code Quality | Format + lint (full check)      | `bun run check`                                       |
 
 💡 **Usage tips**
 
@@ -208,12 +205,12 @@ TypeScript monorepo using **Bun** (package manager) for a library that syncs **V
 
 Use the `docs/architecture/` directory as your deep-dive companion. Start with the topic that matches your task:
 
-| Topic        | File                                          | Why you'd open it                            | Representative Guides                                        |
-| ------------ | --------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------ |
-| Architecture | `docs/architecture/architecture.md`           | Understanding how valtio-y syncs state       | High-level architecture, data flow, synchronization patterns |
-| Data Flow    | `docs/architecture/data-flow.md`              | Understanding how changes propagate          | Bidirectional sync, Yjs to Valtio, Valtio to Yjs             |
-| Limitations  | `docs/architecture/limitations.md`            | Knowing what's supported and what's not      | What works, what doesn't, edge cases                         |
-| ADRs         | `docs/architecture/architectural-decisions.md`| Understanding design decisions               | Key architectural choices and rationale                      |
+| Topic        | File                                           | Why you'd open it                       | Representative Guides                                        |
+| ------------ | ---------------------------------------------- | --------------------------------------- | ------------------------------------------------------------ |
+| Architecture | `docs/architecture/architecture.md`            | Understanding how valtio-y syncs state  | High-level architecture, data flow, synchronization patterns |
+| Data Flow    | `docs/architecture/data-flow.md`               | Understanding how changes propagate     | Bidirectional sync, Yjs to Valtio, Valtio to Yjs             |
+| Limitations  | `docs/architecture/limitations.md`             | Knowing what's supported and what's not | What works, what doesn't, edge cases                         |
+| ADRs         | `docs/architecture/architectural-decisions.md` | Understanding design decisions          | Key architectural choices and rationale                      |
 
 When unsure where to dig next, skim the relevant file or check the README.md for overview information.
 
