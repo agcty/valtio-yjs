@@ -7,11 +7,22 @@ import { planArrayOps } from '../../src/planning/array-ops-planner';
 
 const waitMicrotask = () => Promise.resolve();
 
+interface TestObject {
+  id: number;
+  name: string;
+}
+
+interface TestNestedObject {
+  data: {
+    count: number;
+  };
+}
+
 describe('Array Operations Detailed Testing', () => {
   describe('Basic Array Operations', () => {
     it('should handle push operations correctly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       proxy.push('first');
@@ -27,7 +38,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle unshift operations correctly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       proxy.push('second');
@@ -42,7 +53,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle simple delete operations correctly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       proxy.push('a', 'b', 'c');
@@ -57,7 +68,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle simple replace operations correctly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       proxy.push('a', 'b', 'c');
@@ -72,7 +83,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle insert operations correctly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       proxy.push('a', 'c');
@@ -89,7 +100,7 @@ describe('Array Operations Detailed Testing', () => {
   describe('Complex Array Scenarios', () => {
     it('should handle multiple operations in sequence', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       // Step 1: Initialize
@@ -119,7 +130,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle multiple replaces in same microtask', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       proxy.push('a', 'b', 'c', 'd');
@@ -136,7 +147,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle mixed operations in same microtask', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       proxy.push('a', 'b', 'c');
@@ -158,7 +169,7 @@ describe('Array Operations Detailed Testing', () => {
   describe('Edge Cases and Debugging', () => {
     it('should show what operations Valtio generates for splice replace', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       // Set up initial state
@@ -187,7 +198,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should show what operations Valtio generates for direct assignment', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       // Set up initial state
@@ -219,7 +230,7 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should show what operations Valtio generates for delete', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       // Set up initial state
@@ -250,12 +261,12 @@ describe('Array Operations Detailed Testing', () => {
   describe('Reference Identity and Value Integrity', () => {
     it('should preserve object references during replace operations', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<TestObject[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
-      const obj1 = { id: 1, name: 'first' };
-      const obj2 = { id: 2, name: 'second' };
-      const obj3 = { id: 3, name: 'third' };
+      const obj1: TestObject = { id: 1, name: 'first' };
+      const obj2: TestObject = { id: 2, name: 'second' };
+      const obj3: TestObject = { id: 3, name: 'third' };
 
       proxy.push(obj1, obj2);
       await waitMicrotask();
@@ -269,33 +280,33 @@ describe('Array Operations Detailed Testing', () => {
       
       // First object reference should be preserved
       expect(proxy[0]).toBe(proxyRef1);
-      expect(proxy[0].id).toBe(1);
+      expect(proxy[0]!.id).toBe(1);
       
       // Second object should be replaced
       expect(proxy[1]).not.toBe(proxyRef2);
-      expect(proxy[1].id).toBe(3);
+      expect(proxy[1]!.id).toBe(3);
       
       expect(yArr.toJSON()).toEqual([obj1, obj3]);
     });
 
     it('should handle nested object mutations during replace', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<TestNestedObject[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       proxy.push({ data: { count: 0 } }, { data: { count: 1 } });
       await waitMicrotask();
       
       // Mutate nested object
-      proxy[0].data.count = 10;
+      proxy[0]!.data.count = 10;
       await waitMicrotask();
       
       // Replace entire object at index 1
       proxy.splice(1, 1, { data: { count: 99 } });
       await waitMicrotask();
       
-      expect(proxy[0].data.count).toBe(10);
-      expect(proxy[1].data.count).toBe(99);
+      expect(proxy[0]!.data.count).toBe(10);
+      expect(proxy[1]!.data.count).toBe(99);
       expect(yArr.toJSON()).toEqual([{ data: { count: 10 } }, { data: { count: 99 } }]);
     });
   });
@@ -303,7 +314,7 @@ describe('Array Operations Detailed Testing', () => {
   describe('Concurrent Operations Testing', () => {
     it('should handle rapid sequential operations', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       // Rapid operations without waiting
@@ -325,10 +336,10 @@ describe('Array Operations Detailed Testing', () => {
 
     it('should handle operations with undefined and null values', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<(string | null)[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
-      proxy.push('a', null, undefined, 'b');
+      proxy.push('a', null, null, 'b'); // undefined normalized to null
       await waitMicrotask();
       // Library normalizes undefined -> null in Y.Array
       expect(yArr.toJSON()).toEqual(['a', null, null, 'b']);
@@ -378,8 +389,8 @@ describe('Array Operations Detailed Testing', () => {
       const docA = new Y.Doc();
       const docB = new Y.Doc();
       
-      const { proxy: proxyA } = createYjsProxy<unknown[]>(docA, { getRoot: (d) => d.getArray('arr') });
-      const { proxy: proxyB } = createYjsProxy<unknown[]>(docB, { getRoot: (d) => d.getArray('arr') });
+      const { proxy: proxyA } = createYjsProxy<string[]>(docA, { getRoot: (d) => d.getArray('arr') });
+      const { proxy: proxyB } = createYjsProxy<string[]>(docB, { getRoot: (d) => d.getArray('arr') });
       
       const yArrA = docA.getArray<any>('arr');
       const yArrB = docB.getArray<any>('arr');

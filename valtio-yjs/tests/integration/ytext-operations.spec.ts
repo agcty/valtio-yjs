@@ -4,12 +4,13 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy, syncedText } from '../../src/index';
 import { createRelayedProxiesMapRoot, waitMicrotask } from '../helpers/test-helpers';
+import type { LooseRecord } from '../helpers/test-helpers';
 
 describe('Integration: Y.Text Operations', () => {
   describe('Single Client Y.Text Operations', () => {
     it('can insert Y.Text into a Y.Map via proxy', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       const text = syncedText('Hello World');
@@ -23,8 +24,8 @@ describe('Integration: Y.Text Operations', () => {
 
     it('can insert Y.Text into a Y.Array via proxy', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
-      const yArr = doc.getArray<unknown>('arr');
+      const { proxy } = createYjsProxy<Y.Text[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const yArr = doc.getArray<Y.Text>('arr');
 
       const text = syncedText('Array text');
       proxy.push(text);
@@ -37,7 +38,7 @@ describe('Integration: Y.Text Operations', () => {
 
     it('Y.Text reference is accessible through proxy after assignment', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       const text = syncedText('Initial');
       proxy.text = text;
@@ -50,7 +51,7 @@ describe('Integration: Y.Text Operations', () => {
 
     it('can modify Y.Text content directly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       const text = syncedText('Hello');
@@ -68,7 +69,7 @@ describe('Integration: Y.Text Operations', () => {
 
     it('can delete from Y.Text', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       const text = syncedText('Hello World');
       proxy.text = text;
@@ -82,7 +83,7 @@ describe('Integration: Y.Text Operations', () => {
 
     it('can insert at specific positions in Y.Text', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       const text = syncedText('Hello World');
       proxy.text = text;
@@ -96,7 +97,7 @@ describe('Integration: Y.Text Operations', () => {
 
     it('can handle empty Y.Text', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       const text = syncedText();
@@ -110,7 +111,7 @@ describe('Integration: Y.Text Operations', () => {
 
     it('can handle Y.Text with unicode characters', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       const text = syncedText('Hello 👋 World 🌍');
       proxy.text = text;
@@ -121,7 +122,7 @@ describe('Integration: Y.Text Operations', () => {
 
     it('can handle Y.Text with multiline content', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       const content = 'Line 1\nLine 2\nLine 3';
       const text = syncedText(content);
@@ -141,7 +142,7 @@ describe('Integration: Y.Text Operations', () => {
       const yText = new Y.Text('Existing content');
       yRoot.set('description', yText);
 
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       expect(proxy.description).toBeInstanceOf(Y.Text);
       expect(proxy.description.toString()).toBe('Existing content');
@@ -156,7 +157,7 @@ describe('Integration: Y.Text Operations', () => {
       yNested.set('text', yText);
       yRoot.set('nested', yNested);
 
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       expect(proxy.nested.text).toBeInstanceOf(Y.Text);
       expect(proxy.nested.text.toString()).toBe('Nested text');
@@ -164,15 +165,15 @@ describe('Integration: Y.Text Operations', () => {
 
     it('bootstrap handles Y.Text in arrays', () => {
       const doc = new Y.Doc();
-      const yArr = doc.getArray<unknown>('arr');
+      const yArr = doc.getArray<Y.Text>('arr');
       
       const yText = new Y.Text('Item text');
       yArr.push([yText]);
 
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<Y.Text[]>(doc, { getRoot: (d) => d.getArray('arr') });
 
       expect(proxy[0]).toBeInstanceOf(Y.Text);
-      expect(proxy[0].toString()).toBe('Item text');
+      expect(proxy[0]!.toString()).toBe('Item text');
     });
 
     it('bootstrap with multiple Y.Text instances', () => {
@@ -184,7 +185,7 @@ describe('Integration: Y.Text Operations', () => {
       yRoot.set('text1', yText1);
       yRoot.set('text2', yText2);
 
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       expect(proxy.text1.toString()).toBe('First');
       expect(proxy.text2.toString()).toBe('Second');
@@ -196,7 +197,7 @@ describe('Integration: Y.Text Operations', () => {
     it('syncs Y.Text changes to proxy', () => {
       const doc = new Y.Doc();
       const yRoot = doc.getMap<unknown>('root');
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       // Add Y.Text via Yjs directly (simulating remote change)
       const yText = new Y.Text('Remote text');
@@ -212,7 +213,7 @@ describe('Integration: Y.Text Operations', () => {
       const yText = new Y.Text('Initial');
       yRoot.set('text', yText);
 
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       // Modify Y.Text directly (simulating remote change)
       yText.insert(7, ' content');
@@ -226,7 +227,7 @@ describe('Integration: Y.Text Operations', () => {
       const yText = new Y.Text('Delete me');
       yRoot.set('text', yText);
 
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       // Delete from Y.Text (simulating remote change)
       yText.delete(0, 7);
@@ -238,7 +239,7 @@ describe('Integration: Y.Text Operations', () => {
   describe('Y.Text in Nested Structures', () => {
     it('handles Y.Text in deeply nested maps', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       proxy.level1 = { level2: { level3: {} } };
       await waitMicrotask();
@@ -253,7 +254,7 @@ describe('Integration: Y.Text Operations', () => {
 
     it('handles Y.Text in nested arrays', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       proxy.items = [[]];
       await waitMicrotask();
@@ -268,7 +269,7 @@ describe('Integration: Y.Text Operations', () => {
 
     it('handles mixed structures with Y.Text', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       proxy.document = {
         title: 'My Document',
@@ -291,7 +292,7 @@ describe('Integration: Y.Text Operations', () => {
   describe('Y.Text Edge Cases', () => {
     it('handles replacing Y.Text with another Y.Text', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       const text1 = syncedText('First');
@@ -309,7 +310,7 @@ describe('Integration: Y.Text Operations', () => {
 
     it('handles deleting Y.Text from map', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       const text = syncedText('To be deleted');
@@ -325,8 +326,8 @@ describe('Integration: Y.Text Operations', () => {
 
     it('handles removing Y.Text from array', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
-      const yArr = doc.getArray<unknown>('arr');
+      const { proxy } = createYjsProxy<Y.Text[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const yArr = doc.getArray<Y.Text>('arr');
 
       const text = syncedText('Array item');
       proxy.push(text);
@@ -361,7 +362,7 @@ describe('Integration: Y.Text Operations', () => {
 
     it('Y.Text persists and works correctly after modifications', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       const text = syncedText('Hello');
       proxy.text = text;

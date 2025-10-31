@@ -3,6 +3,31 @@
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from '../../src/index';
+import type { LooseRecord } from '../helpers/test-helpers';
+
+interface Item {
+  id: number;
+  data: {
+    value: string;
+  };
+}
+
+interface Container {
+  items: Array<{
+    id: number;
+    children: Array<{ text: string }>;
+  }>;
+}
+
+interface DeepNested {
+  level1: {
+    level2: {
+      level3: {
+        items: string[];
+      };
+    };
+  };
+}
 
 const waitMicrotask = () => Promise.resolve();
 
@@ -10,28 +35,28 @@ describe('Comprehensive Edge Cases', () => {
   describe('Reference Reuse Across Mutations', () => {
     it('should preserve object identity when possible', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<{ items: Item[] }>(doc, { getRoot: (d) => d.getMap('root') });
 
       // Create nested structure
       proxy.items = [{ id: 1, data: { value: 'a' } }];
       await waitMicrotask();
       
       const itemRef = proxy.items[0];
-      const dataRef = proxy.items[0].data;
+      const dataRef = proxy.items[0]!.data;
       
       // Mutate nested data
-      proxy.items[0].data.value = 'modified';
+      proxy.items[0]!.data.value = 'modified';
       await waitMicrotask();
       
       // References should be preserved
       expect(proxy.items[0]).toBe(itemRef);
-      expect(proxy.items[0].data).toBe(dataRef);
-      expect(proxy.items[0].data.value).toBe('modified');
+      expect(proxy.items[0]!.data).toBe(dataRef);
+      expect(proxy.items[0]!.data.value).toBe('modified');
     });
 
     it('should handle object replacement with nested references', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<{ container?: Container }>(doc, { getRoot: (d) => d.getMap('root') });
 
       proxy.container = { 
         items: [
@@ -52,16 +77,16 @@ describe('Comprehensive Edge Cases', () => {
       
       // Container should be replaced, but internal structure should be consistent
       expect(proxy.container).not.toBe(containerRef);
-      expect(Array.isArray(proxy.container.items)).toBe(true);
-      expect(Array.isArray(proxy.container.items[0].children)).toBe(true);
-      expect(proxy.container.items[0].children).toHaveLength(2);
+      expect(Array.isArray(proxy.container?.items)).toBe(true);
+      expect(Array.isArray(proxy.container?.items[0]?.children)).toBe(true);
+      expect(proxy.container?.items[0]?.children).toHaveLength(2);
     });
   });
 
   describe('Deep Nesting Scenarios', () => {
     it('should handle deeply nested array modifications', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<DeepNested>(doc, { getRoot: (d) => d.getMap('root') });
 
       proxy.level1 = {
         level2: {
@@ -87,13 +112,13 @@ describe('Comprehensive Edge Cases', () => {
 
     it('should handle nested arrays with complex operations', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<number[][]>(doc, { getRoot: (d) => d.getArray('arr') });
 
       proxy.push([1, 2], [3, 4], [5, 6]);
       await waitMicrotask();
       
       // Modify inner array
-      proxy[1].splice(1, 1, 40);
+      proxy[1]!.splice(1, 1, 40);
       await waitMicrotask();
       expect(proxy[1]).toEqual([3, 40]);
       
@@ -109,7 +134,7 @@ describe('Comprehensive Edge Cases', () => {
   describe('Timing and Race Conditions', () => {
     it('should handle rapid mutations without microtask waits', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       // Rapid sequence without awaiting
@@ -135,8 +160,8 @@ describe('Comprehensive Edge Cases', () => {
       const docA = new Y.Doc();
       const docB = new Y.Doc();
       
-      const { proxy: proxyA } = createYjsProxy<unknown[]>(docA, { getRoot: (d) => d.getArray('arr') });
-      createYjsProxy<unknown[]>(docB, { getRoot: (d) => d.getArray('arr') });
+      const { proxy: proxyA } = createYjsProxy<string[]>(docA, { getRoot: (d) => d.getArray('arr') });
+      createYjsProxy<string[]>(docB, { getRoot: (d) => d.getArray('arr') });
       
       // Set up relay with delay to simulate network
       docA.on('update', async (update: Uint8Array) => {
@@ -166,7 +191,7 @@ describe('Comprehensive Edge Cases', () => {
   describe('Stress Testing Scenarios', () => {
     it('should handle large arrays with many operations', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       // Create large initial array
@@ -194,7 +219,7 @@ describe('Comprehensive Edge Cases', () => {
 
     it('should handle high-frequency updates', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       // Initialize
@@ -242,7 +267,7 @@ describe('Comprehensive Edge Cases', () => {
   describe('Value Integrity Testing', () => {
     it('should maintain consistent state between proxy and Y.Array', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+      const { proxy } = createYjsProxy<string[]>(doc, { getRoot: (d) => d.getArray('arr') });
       const yArr = doc.getArray<unknown>('arr');
 
       const operations = [

@@ -38,8 +38,8 @@ describe('Reconciler: map/array/delta', () => {
 
   it('array reconciliation: pushes in Y reflect in proxy after reconcile', async () => {
     const doc = new Y.Doc();
-    const yArr = doc.getArray('arr');
-    const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+    const yArr = doc.getArray<unknown>('arr');
+    const { proxy } = createYjsProxy<number[]>(doc, { getRoot: (d) => d.getArray('arr') });
 
     const coordinator = new ValtioYjsCoordinator(doc, true);
     coordinator.state.yTypeToValtioProxy.set(yArr, proxy);
@@ -53,9 +53,9 @@ describe('Reconciler: map/array/delta', () => {
 
   it('delta reconciliation: splice via delta applies to proxy', async () => {
     const doc = new Y.Doc();
-    const yArr = doc.getArray('arr');
+    const yArr = doc.getArray<unknown>('arr');
     yArr.insert(0, [1, 2, 3, 4]);
-    const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+    const { proxy } = createYjsProxy<number[]>(doc, { getRoot: (d) => d.getArray('arr') });
 
     const coordinator = new ValtioYjsCoordinator(doc, true);
     coordinator.state.yTypeToValtioProxy.set(yArr, proxy);
@@ -123,9 +123,9 @@ describe('Reconciler: map/array/delta', () => {
 
   it('array delta with multiple retains/inserts/deletes reconciles correctly', async () => {
     const doc = new Y.Doc();
-    const yArr = doc.getArray('arr');
+    const yArr = doc.getArray<unknown>('arr');
     yArr.insert(0, [1, 2, 3, 4]);
-    const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+    const { proxy } = createYjsProxy<number[]>(doc, { getRoot: (d) => d.getArray('arr') });
 
     const coordinator = new ValtioYjsCoordinator(doc, true);
     coordinator.state.yTypeToValtioProxy.set(yArr, proxy);

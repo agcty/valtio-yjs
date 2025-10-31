@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import * as fc from 'fast-check';
 import { createDocWithProxy, waitMicrotask, createRelayedProxiesMapRoot } from '../helpers/test-helpers';
+import type { LooseRecord } from '../helpers/test-helpers';
 
 describe('Integration: Deep Nesting (Property-Based)', () => {
   describe('Arbitrary Deep Structures', () => {
@@ -27,7 +28,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
             ]
           }),
           async (structure) => {
-            const { proxy, doc } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+            const { proxy, doc } = createDocWithProxy<LooseRecord>((d) => d.getMap('root'));
             const yRoot = doc.getMap<unknown>('root');
 
             // Set the random structure
@@ -58,7 +59,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
             fc.oneof(fc.string(), fc.integer(), fc.boolean(), fc.constant(null))
           ),
           async ([structure, path, newValue]) => {
-            const { proxy, doc } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+            const { proxy, doc } = createDocWithProxy<LooseRecord>((d) => d.getMap('root'));
             const yRoot = doc.getMap<unknown>('root');
 
             // Initialize with structure
@@ -73,7 +74,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
             for (let i = 0; i < path.length - 1; i++) {
               const key = path[i];
               if (key !== undefined && current && typeof current === 'object' && !Array.isArray(current)) {
-                current = current[key];
+                current = (current as LooseRecord)[key];
               } else {
                 isValidPath = false;
                 break;
@@ -84,7 +85,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
             if (isValidPath && current && typeof current === 'object' && !Array.isArray(current)) {
               const lastKey = path[path.length - 1];
               if (lastKey !== undefined) {
-                current[lastKey] = newValue;
+                (current as LooseRecord)[lastKey] = newValue;
                 await waitMicrotask();
 
                 // Invariant: Mutation should be reflected in Y.js
@@ -95,12 +96,14 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
                 for (let i = 0; i < path.length - 1; i++) {
                   const key = path[i];
                   if (key !== undefined) {
-                    expected = expected?.[key];
+                    expected = expected && typeof expected === 'object' && !Array.isArray(expected) 
+                      ? (expected as LooseRecord)[key] 
+                      : undefined;
                   }
                 }
                 
-                if (expected && typeof expected === 'object') {
-                  expect(expected[lastKey]).toEqual(newValue);
+                if (expected && typeof expected === 'object' && !Array.isArray(expected)) {
+                  expect((expected as LooseRecord)[lastKey]).toEqual(newValue);
                 }
               }
             }
@@ -131,7 +134,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
             { minLength: 1, maxLength: 10 }
           ),
           async (initialArray, operations) => {
-            const { proxy, doc } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+            const { proxy, doc } = createDocWithProxy<LooseRecord>((d) => d.getMap('root'));
             const yRoot = doc.getMap<unknown>('root');
 
             // Initialize
@@ -186,7 +189,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
             { minKeys: 10, maxKeys: 200 }
           ),
           async (wideObject) => {
-            const { proxy, doc } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+            const { proxy, doc } = createDocWithProxy<LooseRecord>((d) => d.getMap('root'));
             const yRoot = doc.getMap<unknown>('root');
 
             proxy.data = wideObject;
@@ -220,7 +223,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
           ),
           fc.array(fc.tuple(fc.string().filter(s => !['__proto__', 'constructor', 'prototype'].includes(s)), fc.integer()), { minLength: 5, maxLength: 20 }),
           async (wideObject, mutations) => {
-            const { proxy, doc } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+            const { proxy, doc } = createDocWithProxy<LooseRecord>((d) => d.getMap('root'));
             const yRoot = doc.getMap<unknown>('root');
 
             proxy.data = wideObject;
@@ -380,7 +383,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
         fc.asyncProperty(
           fc.integer({ min: 5, max: 15 }),
           async (depth) => {
-            const { proxy } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+            const { proxy } = createDocWithProxy<LooseRecord>((d) => d.getMap('root'));
 
             // Build structure programmatically - levels from depth-1 down to 0
             let structure: unknown = { value: 'leaf' };
@@ -415,10 +418,10 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
         fc.asyncProperty(
           fc.integer({ min: 50, max: 500 }),
           async (numKeys) => {
-            const { proxy } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+            const { proxy } = createDocWithProxy<LooseRecord>((d) => d.getMap('root'));
 
             // Create wide object
-            const wideObj: unknown = {};
+            const wideObj: LooseRecord = {};
             for (let i = 0; i < numKeys; i++) {
               wideObj[`key${i}`] = i;
             }
@@ -444,7 +447,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
   // Concrete edge cases from original deep-nesting.spec.ts
   describe('Concrete Deep Structure Edge Cases', () => {
     it('should handle tree structure with 1000 nodes', async () => {
-      const { proxy } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+      const { proxy } = createDocWithProxy<LooseRecord>((d) => d.getMap('root'));
       
       // Create tree with breadth and depth
       const createTree = (id: number, depth: number, breadth: number): unknown => {
@@ -485,7 +488,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
     });
 
     it('should handle deletion in deep structure', async () => {
-      const { proxy } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+      const { proxy } = createDocWithProxy<LooseRecord>((d) => d.getMap('root'));
       
       proxy.data = { l1: { l2: { l3: { l4: { l5: { value: 'deep', toDelete: 'remove me' } } } } } };
       await waitMicrotask();
@@ -498,7 +501,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
     });
 
     it('should handle replacing entire subtree in deep structure', async () => {
-      const { proxy } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+      const { proxy } = createDocWithProxy<LooseRecord>((d) => d.getMap('root'));
       
       proxy.data = { l1: { l2: { l3: { old: 'value' } } } };
       await waitMicrotask();
@@ -513,7 +516,7 @@ describe('Integration: Deep Nesting (Property-Based)', () => {
     });
 
     it('should handle deep structure with mixed array and object nesting', async () => {
-      const { proxy } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+      const { proxy } = createDocWithProxy<LooseRecord>((d) => d.getMap('root'));
       
       proxy.complex = {
         a: [

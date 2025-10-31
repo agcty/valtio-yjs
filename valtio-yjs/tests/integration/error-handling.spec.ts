@@ -4,12 +4,13 @@ import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import { createYjsProxy } from "../../src/index";
 import { waitMicrotask } from "../helpers/test-helpers";
+import type { LooseRecord } from '../helpers/test-helpers';
 
 describe("Integration: Error Handling", () => {
   describe("Invalid Value Types", () => {
     it("normalizes undefined to null (not an error)", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -22,7 +23,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects function values synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -33,7 +34,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects symbol values synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -44,7 +45,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects BigInt values synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -55,7 +56,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects Infinity synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -66,7 +67,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects NaN synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -77,7 +78,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects -Infinity synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -90,7 +91,7 @@ describe("Integration: Error Handling", () => {
   describe("Invalid Object Types", () => {
     it("rejects custom class instances synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -105,7 +106,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects Map instances synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -116,7 +117,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects Set instances synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -127,7 +128,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects WeakMap instances synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -138,7 +139,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects Date objects (must be explicitly converted)", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -149,7 +150,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects RegExp objects (must be explicitly converted)", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -160,7 +161,7 @@ describe("Integration: Error Handling", () => {
 
     it("allows explicitly converted Date as string", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -174,7 +175,7 @@ describe("Integration: Error Handling", () => {
 
     it("allows explicitly converted RegExp as string", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -190,7 +191,7 @@ describe("Integration: Error Handling", () => {
   describe("Nested Invalid Values", () => {
     it("rejects undefined in nested objects", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -201,7 +202,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects functions in nested objects", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -212,7 +213,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects invalid values in arrays", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -223,7 +224,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects invalid values deep in structure", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -244,7 +245,7 @@ describe("Integration: Error Handling", () => {
   describe("Y.js Type Re-parenting", () => {
     it("rejects re-assigning Y type that is already in document", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -262,7 +263,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects re-assigning Y.Array that is already in document", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -280,7 +281,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects re-assigning Y.Text that is already in document", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -298,7 +299,7 @@ describe("Integration: Error Handling", () => {
 
     it("allows assigning Y type that has no parent", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -316,7 +317,7 @@ describe("Integration: Error Handling", () => {
   describe("Recovery from Errors", () => {
     it("proxy remains functional after validation error", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -335,7 +336,7 @@ describe("Integration: Error Handling", () => {
 
     it("can correct invalid value after error", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -353,7 +354,7 @@ describe("Integration: Error Handling", () => {
 
     it("rollsback proxy state after error", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -423,7 +424,7 @@ describe("Integration: Error Handling", () => {
   describe("Edge Case Error Scenarios", () => {
     it("handles null correctly (not an error)", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -436,7 +437,7 @@ describe("Integration: Error Handling", () => {
 
     it("handles empty objects correctly", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -451,7 +452,7 @@ describe("Integration: Error Handling", () => {
 
     it("handles empty arrays correctly", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -466,7 +467,7 @@ describe("Integration: Error Handling", () => {
 
     it("handles zero correctly", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -479,7 +480,7 @@ describe("Integration: Error Handling", () => {
 
     it("handles empty string correctly", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -492,7 +493,7 @@ describe("Integration: Error Handling", () => {
 
     it("handles false boolean correctly", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<unknown>(doc, {
+      const { proxy } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
       const yRoot = doc.getMap<unknown>("root");
@@ -507,7 +508,7 @@ describe("Integration: Error Handling", () => {
   describe('Map Validation and Rollback', () => {
     it('should rollback map changes on validation error (nested undefined)', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<Record<string, unknown>>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('root'),
       });
       
@@ -519,7 +520,7 @@ describe("Integration: Error Handling", () => {
       
       // Try to assign an object with nested undefined (should fail validation)
       expect(() => {
-        (proxy as Record<string, unknown>).user = { name: 'Bob', invalid: undefined };
+        proxy.user = { name: 'Bob', invalid: undefined };
       }).toThrow('[valtio-yjs] undefined is not allowed');
       
       // Should rollback to original state in proxy
@@ -534,7 +535,7 @@ describe("Integration: Error Handling", () => {
 
     it('should rollback individual key change on validation error', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<Record<string, unknown>>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('root'),
       });
       
@@ -544,17 +545,17 @@ describe("Integration: Error Handling", () => {
       const yRoot = doc.getMap('root');
       
       // Valid changes should succeed
-      (proxy as Record<string, unknown>).a = 10;
+      proxy.a = 10;
       await waitMicrotask();
       expect(yRoot.get('a')).toBe(10);
       
       // Invalid change should fail and rollback only that key
       expect(() => {
-        (proxy as Record<string, unknown>).invalid = { nested: undefined };
+        proxy.invalid = { nested: undefined };
       }).toThrow('[valtio-yjs] undefined is not allowed');
       
       // The invalid key should not be set in proxy (rolled back)
-      expect((proxy as Record<string, unknown>).invalid).toBeUndefined();
+      expect(proxy.invalid).toBeUndefined();
       
       // Yjs should not have the invalid key
       expect(yRoot.has('invalid')).toBe(false);
@@ -567,7 +568,7 @@ describe("Integration: Error Handling", () => {
 
     it('should rollback on function assignment', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<Record<string, unknown>>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('root'),
       });
       
@@ -579,7 +580,7 @@ describe("Integration: Error Handling", () => {
       
       // Try to assign a function (not allowed)
       expect(() => {
-        (proxy as Record<string, unknown>).data = { callback: () => {} };
+        proxy.data = { callback: () => {} };
       }).toThrow('Unable to convert function');
       
       // Should rollback to original state
@@ -592,7 +593,7 @@ describe("Integration: Error Handling", () => {
 
     it('should rollback on non-plain object assignment', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<Record<string, unknown>>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('root'),
       });
       
@@ -608,7 +609,7 @@ describe("Integration: Error Handling", () => {
       
       // Try to assign a non-plain object
       expect(() => {
-        (proxy as Record<string, unknown>).settings = { custom: new CustomClass(42) };
+        proxy.settings = { custom: new CustomClass(42) };
       }).toThrow('Unable to convert non-plain object');
       
       // Should rollback to original state
@@ -621,7 +622,7 @@ describe("Integration: Error Handling", () => {
 
     it('should handle delete operations without rollback issues', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<Record<string, unknown>>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('root'),
       });
       
@@ -631,7 +632,7 @@ describe("Integration: Error Handling", () => {
       const yRoot = doc.getMap('root');
       
       // Delete operations should work normally
-      delete (proxy as Record<string, unknown>).a;
+      delete proxy.a;
       await waitMicrotask();
       
       expect(proxy.a).toBeUndefined();
@@ -647,7 +648,7 @@ describe("Integration: Error Handling", () => {
         getRoot: (d) => d.getArray('data'),
       });
       
-      const { proxy: mapProxy, bootstrap: bootstrapMap } = createYjsProxy<Record<string, unknown>>(docMap, {
+      const { proxy: mapProxy, bootstrap: bootstrapMap } = createYjsProxy<LooseRecord>(docMap, {
         getRoot: (d) => d.getMap('data'),
       });
       
@@ -667,7 +668,7 @@ describe("Integration: Error Handling", () => {
       }
       
       try {
-        (mapProxy as Record<string, unknown>).item = { id: 2, nested: { invalid: undefined } };
+        (mapProxy as LooseRecord).item = { id: 2, nested: { invalid: undefined } };
       } catch (err) {
         mapError = err as Error;
       }
@@ -679,8 +680,8 @@ describe("Integration: Error Handling", () => {
       expect(mapError?.message).toContain('undefined is not allowed');
       
       // Both should maintain original state
-      expect((arrayProxy[0] as Record<string, unknown>).id).toBe(1);
-      expect(((mapProxy as Record<string, unknown>).item as Record<string, unknown>).id).toBe(1);
+      expect((arrayProxy[0] as LooseRecord).id).toBe(1);
+      expect(((mapProxy as LooseRecord).item as LooseRecord).id).toBe(1);
       
       // Both Yjs docs should have original state
       expect(docArray.getArray('data').toJSON()).toEqual([{ id: 1, value: 'a' }]);

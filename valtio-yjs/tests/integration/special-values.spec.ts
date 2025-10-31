@@ -4,12 +4,13 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from '../../src/index';
 import { waitMicrotask } from '../helpers/test-helpers';
+import type { LooseRecord } from '../helpers/test-helpers';
 
 describe('Integration: Special Values', () => {
   describe('Null and Falsy Values', () => {
     it('handles null correctly', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = null;
@@ -21,7 +22,7 @@ describe('Integration: Special Values', () => {
 
     it('handles empty string', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = '';
@@ -33,7 +34,7 @@ describe('Integration: Special Values', () => {
 
     it('handles zero', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = 0;
@@ -45,7 +46,7 @@ describe('Integration: Special Values', () => {
 
     it('handles false', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = false;
@@ -57,7 +58,7 @@ describe('Integration: Special Values', () => {
 
     it('handles -0 (negative zero)', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = -0;
@@ -71,7 +72,7 @@ describe('Integration: Special Values', () => {
   describe('Number Edge Cases', () => {
     it('handles very small numbers', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = Number.EPSILON;
@@ -82,7 +83,7 @@ describe('Integration: Special Values', () => {
 
     it('handles very large numbers', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = Number.MAX_VALUE;
@@ -93,7 +94,7 @@ describe('Integration: Special Values', () => {
 
     it('handles MIN_VALUE (smallest positive number)', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = Number.MIN_VALUE;
@@ -104,7 +105,7 @@ describe('Integration: Special Values', () => {
 
     it('handles MAX_SAFE_INTEGER', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = Number.MAX_SAFE_INTEGER;
@@ -115,7 +116,7 @@ describe('Integration: Special Values', () => {
 
     it('handles MIN_SAFE_INTEGER', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = Number.MIN_SAFE_INTEGER;
@@ -126,7 +127,7 @@ describe('Integration: Special Values', () => {
 
     it('handles negative numbers', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = -42.5;
@@ -137,7 +138,7 @@ describe('Integration: Special Values', () => {
 
     it('handles floating point numbers', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = 3.14159265359;
@@ -150,7 +151,7 @@ describe('Integration: Special Values', () => {
   describe('String Edge Cases', () => {
     it('handles unicode characters', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = '你好世界 🌍';
@@ -161,7 +162,7 @@ describe('Integration: Special Values', () => {
 
     it('handles emoji', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = '😀😃😄😁';
@@ -172,7 +173,7 @@ describe('Integration: Special Values', () => {
 
     it('handles newlines and tabs', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = 'line1\nline2\tindented';
@@ -183,7 +184,7 @@ describe('Integration: Special Values', () => {
 
     it('handles special characters', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = '!@#$%^&*()_+-=[]{}|;:\'",.<>?/\\';
@@ -194,7 +195,7 @@ describe('Integration: Special Values', () => {
 
     it('handles very long strings', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       const longString = 'a'.repeat(10000);
@@ -206,7 +207,7 @@ describe('Integration: Special Values', () => {
 
     it('handles strings with null bytes', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.value = 'before\x00after';
@@ -219,7 +220,7 @@ describe('Integration: Special Values', () => {
   describe('Empty Collections', () => {
     it('handles empty objects', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.obj = {};
@@ -232,7 +233,7 @@ describe('Integration: Special Values', () => {
 
     it('handles empty arrays', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.arr = [];
@@ -245,7 +246,7 @@ describe('Integration: Special Values', () => {
 
     it('handles nested empty structures', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       proxy.nested = {
         emptyObj: {},
@@ -300,7 +301,7 @@ describe('Integration: Special Values', () => {
   describe('Nested Special Values', () => {
     it('handles objects with all null values', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       proxy.obj = {
         a: null,
@@ -316,7 +317,7 @@ describe('Integration: Special Values', () => {
 
     it('handles deeply nested falsy values', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       proxy.deep = {
         level1: {
@@ -342,7 +343,7 @@ describe('Integration: Special Values', () => {
   describe('Key Names with Special Characters', () => {
     it('handles keys with spaces', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy['key with spaces'] = 'value';
@@ -354,7 +355,7 @@ describe('Integration: Special Values', () => {
 
     it('handles keys with special characters', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy['key-with-dashes'] = 'value1';
@@ -369,7 +370,7 @@ describe('Integration: Special Values', () => {
 
     it('handles keys with unicode', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy['键名'] = 'chinese key';
@@ -382,7 +383,7 @@ describe('Integration: Special Values', () => {
 
     it('handles empty string as key', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy[''] = 'empty key';
@@ -396,7 +397,7 @@ describe('Integration: Special Values', () => {
   describe('Boolean Edge Cases', () => {
     it('handles explicit true and false', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
       const yRoot = doc.getMap<unknown>('root');
 
       proxy.t = true;
@@ -422,7 +423,7 @@ describe('Integration: Special Values', () => {
   describe('Mixed Type Collections', () => {
     it('handles objects with mixed primitive types', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       proxy.mixed = {
         str: 'hello',
@@ -471,7 +472,7 @@ describe('Integration: Special Values', () => {
 
     it('handles same object reference in multiple keys', async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       const sharedData = { value: 42 };
       proxy.ref1 = sharedData;

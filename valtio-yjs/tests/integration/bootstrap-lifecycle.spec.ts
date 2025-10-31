@@ -3,12 +3,28 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from '../../src/index';
+import type { LooseRecord } from '../helpers/test-helpers';
+
+interface TreeItemChild {
+  k: string;
+}
+
+interface TreeItem {
+  id: number;
+  children: TreeItemChild[];
+}
+
+interface BootstrapArrayItem {
+  id?: number;
+  children?: TreeItemChild[];
+  [key: string]: unknown;
+}
 
 describe('Bootstrap & Lifecycle', () => {
   describe('createYjsProxy', () => {
     it('returns a valid proxy (map root)', async () => {
       const doc = new Y.Doc();
-      const { proxy, dispose } = createYjsProxy<Record<string, unknown>>(doc, {
+      const { proxy, dispose } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('root'),
       });
 
@@ -19,19 +35,19 @@ describe('Bootstrap & Lifecycle', () => {
 
     it('works with array root', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<unknown[]>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<TreeItem[]>(doc, {
         getRoot: (d) => d.getArray('arr'),
       });
 
       expect(Array.isArray(proxy)).toBe(true);
 
-      const initial = [
+      const initial: TreeItem[] = [
         { id: 1, children: [{ k: 'a' }, { k: 'b' }] },
         { id: 2, children: [] },
       ];
       bootstrap(initial);
 
-      const yArr = doc.getArray('arr');
+      const yArr = doc.getArray<TreeItem>('arr');
       expect(yArr.toJSON()).toEqual(initial);
     });
   });
@@ -40,7 +56,7 @@ describe('Bootstrap & Lifecycle', () => {
     it('converts deep plain object to Y types (map)', async () => {
       const doc = new Y.Doc();
       const yRoot = doc.getMap('root');
-      const { bootstrap } = createYjsProxy<unknown>(doc, {
+      const { bootstrap } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('root'),
       });
 
@@ -69,7 +85,7 @@ describe('Bootstrap & Lifecycle', () => {
       expect(yRoot.has('meta')).toBe(true);
       
       // Test that bootstrap rejects undefined per new architecture  
-      const { bootstrap: bootstrap2 } = createYjsProxy<unknown>(new Y.Doc(), { 
+      const { bootstrap: bootstrap2 } = createYjsProxy<LooseRecord>(new Y.Doc(), { 
         getRoot: (d) => d.getMap('root') 
       });
       const dataWithUndefined = { field: undefined };
@@ -80,28 +96,28 @@ describe('Bootstrap & Lifecycle', () => {
 
     it('fills Y.Array with bootstrap', async () => {
       const doc = new Y.Doc();
-      const { bootstrap } = createYjsProxy<unknown[]>(doc, {
+      const { bootstrap } = createYjsProxy<TreeItem[]>(doc, {
         getRoot: (d) => d.getArray('arr'),
       });
 
-      const initial = [
+      const initial: TreeItem[] = [
         { id: 1, children: [{ k: 'a' }, { k: 'b' }] },
         { id: 2, children: [] },
       ];
       bootstrap(initial);
 
-      const yArr = doc.getArray('arr');
+      const yArr = doc.getArray<TreeItem>('arr');
       expect(yArr.toJSON()).toEqual(initial);
     });
 
     it('materializes live proxies allowing immediate same-tick nested edits', async () => {
       const doc = new Y.Doc();
       const yRoot = doc.getMap<unknown>('root');
-      const { proxy, bootstrap } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { proxy, bootstrap } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       bootstrap({ item: { title: 'A', tags: [] } });
       // same tick nested edit via proxy
-      ((proxy as unknown)).item.title = 'B';
+      proxy.item.title = 'B';
       await Promise.resolve();
 
       const yItem = yRoot.get('item') as Y.Map<unknown>;
@@ -112,7 +128,7 @@ describe('Bootstrap & Lifecycle', () => {
     it('rejects Date (must be explicitly converted)', async () => {
       const doc = new Y.Doc();
       const yRoot = doc.getMap<unknown>('root');
-      const { bootstrap } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { bootstrap } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       const d = new Date('2020-01-01T00:00:00.000Z');
       expect(() => bootstrap({ myDate: d })).toThrow(
@@ -127,7 +143,7 @@ describe('Bootstrap & Lifecycle', () => {
     it('rejects RegExp (must be explicitly converted)', async () => {
       const doc = new Y.Doc();
       const yRoot = doc.getMap<unknown>('root');
-      const { bootstrap } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { bootstrap } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       const r = /abc/gi;
       expect(() => bootstrap({ myRegex: r })).toThrow(
@@ -142,7 +158,7 @@ describe('Bootstrap & Lifecycle', () => {
     it('throws on unknown non-plain object types', async () => {
       const doc = new Y.Doc();
       const yRoot = doc.getMap<unknown>('root');
-      const { bootstrap } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { bootstrap } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       class Foo { constructor(public x: number) {} }
       const foo = new Foo(42);
@@ -155,7 +171,7 @@ describe('Bootstrap & Lifecycle', () => {
     it('throws when nested unsupported types are present', async () => {
       const doc = new Y.Doc();
       const yRoot = doc.getMap<unknown>('root');
-      const { bootstrap } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { bootstrap } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       const input = { ok: { a: 1 }, bad: new Map([['a', 1]]) };
       expect(() => bootstrap(input)).toThrowError();
@@ -168,7 +184,7 @@ describe('Bootstrap & Lifecycle', () => {
       yRoot.set('preexisting', 1);
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const { bootstrap } = createYjsProxy<Record<string, unknown>>(doc, {
+      const { bootstrap } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('root'),
       });
 
@@ -180,11 +196,11 @@ describe('Bootstrap & Lifecycle', () => {
 
     it('aborts on non-empty ydoc (array)', async () => {
       const doc = new Y.Doc();
-      const yArr = doc.getArray('arr');
+      const yArr = doc.getArray<unknown>('arr');
       yArr.insert(0, [1]);
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-      const { bootstrap } = createYjsProxy<unknown[]>(doc, {
+      const { bootstrap } = createYjsProxy<BootstrapArrayItem[]>(doc, {
         getRoot: (d) => d.getArray('arr'),
       });
 
@@ -198,7 +214,7 @@ describe('Bootstrap & Lifecycle', () => {
       const doc = new Y.Doc();
       const yRoot = doc.getMap<unknown>('root');
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-      const { bootstrap } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+      const { bootstrap } = createYjsProxy<LooseRecord>(doc, { getRoot: (d) => d.getMap('root') });
 
       bootstrap({ a: 1 });
       await Promise.resolve();
@@ -216,13 +232,13 @@ describe('Bootstrap & Lifecycle', () => {
   describe('dispose', () => {
     it('stops propagation (Y→V and V→Y) and is idempotent', async () => {
       const doc = new Y.Doc();
-      const { proxy, dispose } = createYjsProxy<Record<string, unknown>>(doc, {
+      const { proxy, dispose } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('root'),
       });
       const yRoot = doc.getMap<unknown>('root');
 
       // Baseline: write through proxy reflects in Y
-      ((proxy as unknown)).a = 1;
+      proxy.a = 1;
       await Promise.resolve();
       expect(yRoot.get('a')).toBe(1);
 
@@ -232,10 +248,10 @@ describe('Bootstrap & Lifecycle', () => {
       // After dispose: Y change should not reflect into proxy
       yRoot.set('b', 2);
       await Promise.resolve();
-      expect(((proxy as unknown)).b).toBeUndefined();
+      expect(proxy.b).toBeUndefined();
 
       // After dispose: proxy change should not reflect into Y
-      ((proxy as unknown)).c = 3;
+      proxy.c = 3;
       await Promise.resolve();
       expect(yRoot.has('c')).toBe(false);
 

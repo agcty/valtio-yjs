@@ -3,6 +3,177 @@
 import { describe, it, expect } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from '../../src/index';
+import type { LooseRecord } from '../helpers/test-helpers';
+
+interface ItemMetadata {
+  tags: string[];
+  stats: { views: number; likes: number };
+  nested: {
+    deep: {
+      value: string;
+      list: number[];
+    };
+  };
+}
+
+interface Item {
+  id: string;
+  title: string;
+  metadata: ItemMetadata;
+}
+
+interface ContainerItem {
+  id: number;
+  value: string;
+}
+
+interface Container {
+  name: string;
+  items: ContainerItem[];
+}
+
+interface Subtask {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+
+interface TaskMetadata {
+  priority: string;
+  labels: string[];
+  assignee: {
+    name: string;
+    team: string;
+  };
+}
+
+interface Task {
+  id: string;
+  title: string;
+  subtasks: Subtask[];
+  metadata: TaskMetadata;
+}
+
+interface ComponentNode {
+  type: string;
+  props?: Record<string, unknown>;
+  children?: ComponentNode[];
+  content?: string;
+  href?: string;
+  name?: string;
+  items?: string[];
+  structure?: {
+    level1: Array<{ level2: string[] }>;
+  };
+}
+
+interface TeamMember {
+  name: string;
+  role: string;
+  skills: string[];
+}
+
+interface RepositoryInfo {
+  url: string;
+  branch: string;
+}
+
+interface WorkspaceTeam {
+  name: string;
+  members: TeamMember[];
+  repositories: Record<string, RepositoryInfo>;
+}
+
+interface WorkspaceProject {
+  name: string;
+  teams: WorkspaceTeam[];
+}
+
+interface RapidItemRelations {
+  parent: string | null;
+  children: string[];
+}
+
+interface RapidItemMetadata {
+  created: string;
+  tags: string[];
+  relations: RapidItemRelations;
+}
+
+interface RapidItemData {
+  content: string;
+  metadata: RapidItemMetadata;
+}
+
+interface RapidItem {
+  id: string;
+  data: RapidItemData;
+}
+
+interface DeepLeaf {
+  value: string;
+  timestamp: number;
+}
+
+interface DeepNodeMetadataProperty {
+  key: string;
+  value: number;
+}
+
+interface DeepNodeMetadata {
+  depth: number;
+  created: string;
+  properties: DeepNodeMetadataProperty[];
+}
+
+interface DeepNode {
+  level: number;
+  children: [DeepStructure, DeepStructure];
+  metadata: DeepNodeMetadata;
+}
+
+interface DeepSimple {
+  simple: string;
+}
+
+type DeepStructure = DeepNode | DeepLeaf | DeepSimple;
+
+function assertDeepNode(value: DeepStructure): asserts value is DeepNode {
+  if (!('children' in value)) {
+    throw new TypeError('Expected DeepNode');
+  }
+}
+
+function assertDeepLeaf(value: DeepStructure): asserts value is DeepLeaf {
+  if (!('value' in value)) {
+    throw new TypeError('Expected DeepLeaf');
+  }
+}
+
+function assertDeepSimple(value: DeepStructure): asserts value is DeepSimple {
+  if (!('simple' in value)) {
+    throw new TypeError('Expected DeepSimple');
+  }
+}
+
+interface GenericComponent {
+  type: string;
+  data: unknown;
+}
+
+interface ContentMetadata {
+  created: string;
+  tags?: string[];
+  [key: string]: unknown;
+}
+
+interface ContentItem {
+  id: string;
+  content: {
+    text: string;
+    metadata: ContentMetadata;
+  };
+}
 
 async function waitMicrotask() {
   await Promise.resolve();
@@ -14,11 +185,11 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc1 = new Y.Doc();
       const doc2 = new Y.Doc();
       
-      const { proxy: proxy1, bootstrap } = createYjsProxy<unknown[]>(doc1, {
+      const { proxy: proxy1, bootstrap } = createYjsProxy<Item[]>(doc1, {
         getRoot: (d) => d.getArray('items'),
         debug: false
       });
-      const { proxy: proxy2 } = createYjsProxy<unknown[]>(doc2, {
+      const { proxy: proxy2 } = createYjsProxy<Item[]>(doc2, {
         getRoot: (d) => d.getArray('items'),
         debug: false
       });
@@ -26,7 +197,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       // Initialize with nested structure
       bootstrap([
         {
-          id: 'item1',
+          id: 'item1', 
           title: 'First Item',
           metadata: {
             tags: ['urgent', 'important'],
@@ -79,10 +250,10 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       // Verify initial sync
       expect(proxy1).toHaveLength(3);
       expect(proxy2).toHaveLength(3);
-      expect(proxy1[1].id).toBe('item2');
-      expect(proxy2[1].id).toBe('item2');
-      expect(proxy1[1].metadata.nested.deep.value).toBe('deep-value-2');
-      expect(proxy2[1].metadata.nested.deep.value).toBe('deep-value-2');
+      expect(proxy1[1]!.id).toBe('item2');
+      expect(proxy2[1]!.id).toBe('item2');
+      expect(proxy1[1]!.metadata.nested.deep.value).toBe('deep-value-2');
+      expect(proxy2[1]!.metadata.nested.deep.value).toBe('deep-value-2');
       
       // Delete the middle element (with complex nested children)
       proxy1.splice(1, 1); // Remove 'item2'
@@ -96,21 +267,21 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       // Verify deletion worked correctly
       expect(proxy1).toHaveLength(2);
       expect(proxy2).toHaveLength(2);
-      expect(proxy1[0].id).toBe('item1');
-      expect(proxy1[1].id).toBe('item3');
-      expect(proxy2[0].id).toBe('item1');
-      expect(proxy2[1].id).toBe('item3');
+      expect(proxy1[0]!.id).toBe('item1');
+      expect(proxy1[1]!.id).toBe('item3');
+      expect(proxy2[0]!.id).toBe('item1');
+      expect(proxy2[1]!.id).toBe('item3');
       
       // Verify nested structures remain intact on remaining elements
-      expect(proxy1[0].metadata.nested.deep.list).toEqual([1, 2, 3]);
-      expect(proxy1[1].metadata.nested.deep.list).toEqual([7, 8, 9]);
-      expect(proxy2[0].metadata.nested.deep.list).toEqual([1, 2, 3]);
-      expect(proxy2[1].metadata.nested.deep.list).toEqual([7, 8, 9]);
+      expect(proxy1[0]!.metadata.nested.deep.list).toEqual([1, 2, 3]);
+      expect(proxy1[1]!.metadata.nested.deep.list).toEqual([7, 8, 9]);
+      expect(proxy2[0]!.metadata.nested.deep.list).toEqual([1, 2, 3]);
+      expect(proxy2[1]!.metadata.nested.deep.list).toEqual([7, 8, 9]);
     });
 
     it('should handle deletion of element with nested arrays containing objects', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<unknown[]>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<Container[]>(doc, {
         getRoot: (d) => d.getArray('data'),
         debug: false
       });
@@ -137,8 +308,8 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       // Verify initial structure
       expect(proxy).toHaveLength(2);
-      expect(proxy[0].items).toHaveLength(3);
-      expect(proxy[1].items).toHaveLength(2);
+      expect(proxy[0]!.items).toHaveLength(3);
+      expect(proxy[1]!.items).toHaveLength(2);
       
       // Delete container with nested array of objects
       proxy.splice(0, 1);
@@ -146,8 +317,8 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       // Verify deletion
       expect(proxy).toHaveLength(1);
-      expect(proxy[0].name).toBe('Container B');
-      expect(proxy[0].items).toEqual([
+      expect(proxy[0]!.name).toBe('Container B');
+      expect(proxy[0]!.items).toEqual([
         { id: 4, value: 'b1' },
         { id: 5, value: 'b2' }
       ]);
@@ -159,11 +330,11 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc1 = new Y.Doc();
       const doc2 = new Y.Doc();
       
-      const { proxy: proxy1, bootstrap } = createYjsProxy<unknown[]>(doc1, {
+      const { proxy: proxy1, bootstrap } = createYjsProxy<Task[]>(doc1, {
         getRoot: (d) => d.getArray('tasks'),
         debug: false
       });
-      const { proxy: proxy2 } = createYjsProxy<unknown[]>(doc2, {
+      const { proxy: proxy2 } = createYjsProxy<Task[]>(doc2, {
         getRoot: (d) => d.getArray('tasks'),
         debug: false
       });
@@ -193,10 +364,10 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       await waitMicrotask();
       
       // Verify initial sync
-      expect(proxy1[0].subtasks).toHaveLength(2);
-      expect(proxy2[0].subtasks).toHaveLength(2);
-      expect(proxy1[0].metadata.assignee.name).toBe('Alice');
-      expect(proxy2[0].metadata.assignee.name).toBe('Alice');
+      expect(proxy1[0]!.subtasks).toHaveLength(2);
+      expect(proxy2[0]!.subtasks).toHaveLength(2);
+      expect(proxy1[0]!.metadata.assignee.name).toBe('Alice');
+      expect(proxy2[0]!.metadata.assignee.name).toBe('Alice');
       
       // Replace entire task with new nested structure
       const newTask = {
@@ -223,26 +394,26 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       await waitMicrotask();
       
       // Verify replacement worked correctly
-      expect(proxy1[0].id).toBe('task1-updated');
-      expect(proxy1[0].title).toBe('Completely New Task');
-      expect(proxy1[0].subtasks).toHaveLength(3);
-      expect(proxy1[0].metadata.assignee.name).toBe('Bob');
+      expect(proxy1[0]!.id).toBe('task1-updated');
+      expect(proxy1[0]!.title).toBe('Completely New Task');
+      expect(proxy1[0]!.subtasks).toHaveLength(3);
+      expect(proxy1[0]!.metadata.assignee.name).toBe('Bob');
       
-      expect(proxy2[0].id).toBe('task1-updated');
-      expect(proxy2[0].title).toBe('Completely New Task');
-      expect(proxy2[0].subtasks).toHaveLength(3);
-      expect(proxy2[0].metadata.assignee.name).toBe('Bob');
+      expect(proxy2[0]!.id).toBe('task1-updated');
+      expect(proxy2[0]!.title).toBe('Completely New Task');
+      expect(proxy2[0]!.subtasks).toHaveLength(3);
+      expect(proxy2[0]!.metadata.assignee.name).toBe('Bob');
       
       // Verify nested structures are fully replaced, not merged
-      expect(proxy1[0].subtasks.map((s: any) => s.id)).toEqual(['newsub1', 'newsub2', 'newsub3']);
-      expect(proxy2[0].subtasks.map((s: any) => s.id)).toEqual(['newsub1', 'newsub2', 'newsub3']);
-      expect(proxy1[0].metadata.labels).toEqual(['research', 'planning']);
-      expect(proxy2[0].metadata.labels).toEqual(['research', 'planning']);
+      expect(proxy1[0]!.subtasks.map((s) => s.id)).toEqual(['newsub1', 'newsub2', 'newsub3']);
+      expect(proxy2[0]!.subtasks.map((s) => s.id)).toEqual(['newsub1', 'newsub2', 'newsub3']);
+      expect(proxy1[0]!.metadata.labels).toEqual(['research', 'planning']);
+      expect(proxy2[0]!.metadata.labels).toEqual(['research', 'planning']);
     });
 
     it('should handle splice replacement of complex nested element', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<unknown[]>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<ComponentNode[]>(doc, {
         getRoot: (d) => d.getArray('components'),
         debug: false
       });
@@ -292,12 +463,12 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       // Verify replacement
       expect(proxy).toHaveLength(2);
-      expect(proxy[0].type).toBe('header');
-      expect(proxy[1].type).toBe('sidebar');
-      expect(proxy[1].props.position).toBe('right');
-      expect(proxy[1].children).toHaveLength(3);
-      expect(proxy[1].children[2].structure.level1).toHaveLength(2);
-      expect(proxy[1].children[2].structure.level1[0].level2).toEqual(['a', 'b']);
+      expect(proxy[0]!.type).toBe('header');
+      expect(proxy[1]!.type).toBe('sidebar');
+      expect(proxy[1]!.props?.position).toBe('right');
+      expect(proxy[1]!.children).toHaveLength(3);
+      expect(proxy[1]!.children?.[2]?.structure?.level1).toHaveLength(2);
+      expect(proxy[1]!.children?.[2]?.structure?.level1?.[0]?.level2).toEqual(['a', 'b']);
     });
   });
 
@@ -306,11 +477,11 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc1 = new Y.Doc();
       const doc2 = new Y.Doc();
       
-      const { proxy: proxy1, bootstrap } = createYjsProxy<Record<string, unknown>>(doc1, {
+      const { proxy: proxy1, bootstrap } = createYjsProxy<LooseRecord>(doc1, {
         getRoot: (d) => d.getMap('state'),
         debug: false
       });
-      const { proxy: proxy2 } = createYjsProxy<Record<string, unknown>>(doc2, {
+      const { proxy: proxy2 } = createYjsProxy<LooseRecord>(doc2, {
         getRoot: (d) => d.getMap('state'),
         debug: false
       });
@@ -357,8 +528,8 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       // Verify initial state
       expect(proxy1.users.user1.projects.proj1.name).toBe('Project Alpha');
       expect(proxy2.users.user1.projects.proj1.name).toBe('Project Alpha');
-      expect(Object.keys(proxy1.users)).toEqual(['user1', 'user2']);
-      expect(Object.keys(proxy2.users)).toEqual(['user1', 'user2']);
+      expect(Object.keys(proxy1.users as any)).toEqual(['user1', 'user2']);
+      expect(Object.keys(proxy2.users as any)).toEqual(['user1', 'user2']);
       
       // Delete user with all nested data
       delete proxy1.users.user1;
@@ -370,8 +541,8 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       await waitMicrotask();
       
       // Verify deletion
-      expect(Object.keys(proxy1.users)).toEqual(['user2']);
-      expect(Object.keys(proxy2.users)).toEqual(['user2']);
+      expect(Object.keys(proxy1.users as any)).toEqual(['user2']);
+      expect(Object.keys(proxy2.users as any)).toEqual(['user2']);
       expect(proxy1.users.user1).toBeUndefined();
       expect(proxy2.users.user1).toBeUndefined();
       
@@ -384,7 +555,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
 
     it('should replace map value containing deeply nested structures', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<unknown>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('app'),
         debug: false
       });
@@ -418,7 +589,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       expect(proxy.config.cache.redis.clusters).toHaveLength(3);
       
       // Replace entire config with new nested structure
-      proxy.config = {
+      (proxy as LooseRecord).config = {
         api: {
           endpoints: [
             { path: '/api/v1/users', methods: ['GET', 'POST'] },
@@ -453,15 +624,15 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc2 = new Y.Doc();
       const doc3 = new Y.Doc();
       
-      const { proxy: proxy1, bootstrap } = createYjsProxy<unknown[]>(doc1, {
+      const { proxy: proxy1, bootstrap } = createYjsProxy<WorkspaceProject[]>(doc1, {
         getRoot: (d) => d.getArray('workspace'),
         debug: false
       });
-      const { proxy: proxy2 } = createYjsProxy<unknown[]>(doc2, {
+      const { proxy: proxy2 } = createYjsProxy<WorkspaceProject[]>(doc2, {
         getRoot: (d) => d.getArray('workspace'),
         debug: false
       });
-      const { proxy: proxy3 } = createYjsProxy<unknown[]>(doc3, {
+      const { proxy: proxy3 } = createYjsProxy<WorkspaceProject[]>(doc3, {
         getRoot: (d) => d.getArray('workspace'),
         debug: false
       });
@@ -505,12 +676,12 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       await waitMicrotask();
       
       // Verify initial sync across all clients
-      expect(proxy1[0].teams).toHaveLength(2);
-      expect(proxy2[0].teams).toHaveLength(2);
-      expect(proxy3[0].teams).toHaveLength(2);
+      expect(proxy1[0]!.teams).toHaveLength(2);
+      expect(proxy2[0]!.teams).toHaveLength(2);
+      expect(proxy3[0]!.teams).toHaveLength(2);
       
       // Client 1: Delete backend team (with all nested data)
-      proxy1[0].teams.splice(0, 1);
+      proxy1[0]!.teams.splice(0, 1);
       await waitMicrotask();
       
       // Sync deletion to other clients
@@ -520,16 +691,16 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       await waitMicrotask();
       
       // Verify deletion propagated
-      expect(proxy1[0].teams).toHaveLength(1);
-      expect(proxy2[0].teams).toHaveLength(1);
-      expect(proxy3[0].teams).toHaveLength(1);
+      expect(proxy1[0]!.teams).toHaveLength(1);
+      expect(proxy2[0]!.teams).toHaveLength(1);
+      expect(proxy3[0]!.teams).toHaveLength(1);
       
-      expect(proxy1[0].teams[0].name).toBe('Frontend Team');
-      expect(proxy2[0].teams[0].name).toBe('Frontend Team');
-      expect(proxy3[0].teams[0].name).toBe('Frontend Team');
+      expect(proxy1[0]!.teams[0]!.name).toBe('Frontend Team');
+      expect(proxy2[0]!.teams[0]!.name).toBe('Frontend Team');
+      expect(proxy3[0]!.teams[0]!.name).toBe('Frontend Team');
       
       // Client 2: Modify remaining team's nested structure
-      proxy2[0].teams[0].members.push({
+      proxy2[0]!.teams[0]!.members.push({
         name: 'Eve',
         role: 'developer',
         skills: ['vue', 'node']
@@ -543,13 +714,13 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       await waitMicrotask();
       
       // Verify addition propagated
-      expect(proxy1[0].teams[0].members).toHaveLength(3);
-      expect(proxy2[0].teams[0].members).toHaveLength(3);
-      expect(proxy3[0].teams[0].members).toHaveLength(3);
+      expect(proxy1[0]!.teams[0]!.members).toHaveLength(3);
+      expect(proxy2[0]!.teams[0]!.members).toHaveLength(3);
+      expect(proxy3[0]!.teams[0]!.members).toHaveLength(3);
       
-      expect(proxy1[0].teams[0].members[2].name).toBe('Eve');
-      expect(proxy2[0].teams[0].members[2].name).toBe('Eve');
-      expect(proxy3[0].teams[0].members[2].name).toBe('Eve');
+      expect(proxy1[0]!.teams[0]!.members[2]!.name).toBe('Eve');
+      expect(proxy2[0]!.teams[0]!.members[2]!.name).toBe('Eve');
+      expect(proxy3[0]!.teams[0]!.members[2]!.name).toBe('Eve');
     });
   });
 
@@ -558,11 +729,11 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc1 = new Y.Doc();
       const doc2 = new Y.Doc();
       
-      const { proxy: proxy1, bootstrap } = createYjsProxy<Record<string, unknown>>(doc1, {
+      const { proxy: proxy1, bootstrap } = createYjsProxy<LooseRecord>(doc1, {
         getRoot: (d) => d.getMap('document'),
         debug: false
       });
-      const { proxy: proxy2 } = createYjsProxy<Record<string, unknown>>(doc2, {
+      const { proxy: proxy2 } = createYjsProxy<LooseRecord>(doc2, {
         getRoot: (d) => d.getMap('document'),
         debug: false
       });
@@ -646,17 +817,17 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc1 = new Y.Doc();
       const doc2 = new Y.Doc();
       
-      const { proxy: proxy1, bootstrap } = createYjsProxy<unknown[]>(doc1, {
+      const { proxy: proxy1, bootstrap } = createYjsProxy<RapidItem[]>(doc1, {
         getRoot: (d) => d.getArray('items'),
         debug: false
       });
-      const { proxy: proxy2 } = createYjsProxy<unknown[]>(doc2, {
+      const { proxy: proxy2 } = createYjsProxy<RapidItem[]>(doc2, {
         getRoot: (d) => d.getArray('items'),
         debug: false
       });
       
       // Initialize with items containing nested data
-      const createItem = (id: number) => ({
+      const createItem = (id: number): RapidItem => ({
         id: `item${id}`,
         data: {
           content: `Content ${id}`,
@@ -696,28 +867,28 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       expect(proxy1).toHaveLength(5); // item10, item20, item21, item3, item4
       expect(proxy2).toHaveLength(5);
       
-      expect(proxy1[0].id).toBe('item10');
-      expect(proxy1[1].id).toBe('item20');
-      expect(proxy1[2].id).toBe('item21');
-      expect(proxy1[3].id).toBe('item3');
-      expect(proxy1[4].id).toBe('item4');
+      expect(proxy1[0]!.id).toBe('item10');
+      expect(proxy1[1]!.id).toBe('item20');
+      expect(proxy1[2]!.id).toBe('item21');
+      expect(proxy1[3]!.id).toBe('item3');
+      expect(proxy1[4]!.id).toBe('item4');
       
-      expect(proxy2[0].id).toBe('item10');
-      expect(proxy2[1].id).toBe('item20');
-      expect(proxy2[2].id).toBe('item21');
-      expect(proxy2[3].id).toBe('item3');
-      expect(proxy2[4].id).toBe('item4');
+      expect(proxy2[0]!.id).toBe('item10');
+      expect(proxy2[1]!.id).toBe('item20');
+      expect(proxy2[2]!.id).toBe('item21');
+      expect(proxy2[3]!.id).toBe('item3');
+      expect(proxy2[4]!.id).toBe('item4');
       
       // Verify nested structures are intact
-      expect(proxy1[0].data.metadata.relations.children).toEqual([]);
-      expect(proxy2[0].data.metadata.relations.children).toEqual([]);
-      expect(proxy1[3].data.metadata.tags).toEqual(['tag3', 'category0']);
-      expect(proxy2[3].data.metadata.tags).toEqual(['tag3', 'category0']);
+      expect(proxy1[0]!.data.metadata.relations.children).toEqual([]);
+      expect(proxy2[0]!.data.metadata.relations.children).toEqual([]);
+      expect(proxy1[3]!.data.metadata.tags).toEqual(['tag3', 'category0']);
+      expect(proxy2[3]!.data.metadata.tags).toEqual(['tag3', 'category0']);
     });
 
     it('should handle deletion of nested array elements containing maps', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<unknown>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('game'),
         debug: false
       });
@@ -798,13 +969,13 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
   describe('Stress Testing: Large Nested Structures', () => {
     it('should handle deletion of elements with very deep nesting', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<unknown[]>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<DeepStructure[]>(doc, {
         getRoot: (d) => d.getArray('deep'),
         debug: false
       });
       
       // Create deeply nested structure
-      const createDeepStructure = (depth: number): any => {
+      const createDeepStructure = (depth: number): DeepStructure => {
         if (depth === 0) {
           return { value: 'leaf', timestamp: Date.now() };
         }
@@ -832,9 +1003,19 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       // Verify deep structure exists
       expect(proxy).toHaveLength(3);
-      expect(proxy[0].level).toBe(5);
-      expect(proxy[0].children[0].children[0].children[0].children[0].children[0].value).toBe('leaf');
-      expect(proxy[2].level).toBe(4);
+      const first = proxy[0]!;
+      assertDeepNode(first);
+      expect(first.level).toBe(5);
+      let current: DeepStructure = first;
+      for (let i = 0; i < 5; i++) {
+        assertDeepNode(current);
+        current = current.children[0];
+      }
+      assertDeepLeaf(current);
+      expect(current.value).toBe('leaf');
+      const third = proxy[2]!;
+      assertDeepNode(third);
+      expect(third.level).toBe(4);
       
       // Delete deeply nested element
       proxy.splice(0, 1);
@@ -842,16 +1023,26 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       
       // Verify deletion
       expect(proxy).toHaveLength(2);
-      expect(proxy[0].simple).toBe('element');
-      expect(proxy[1].level).toBe(4);
+      const firstAfter = proxy[0]!;
+      assertDeepSimple(firstAfter);
+      expect(firstAfter.simple).toBe('element');
+      const secondAfter = proxy[1]!;
+      assertDeepNode(secondAfter);
+      expect(secondAfter.level).toBe(4);
       
       // Verify remaining deep structure is intact
-      expect(proxy[1].children[0].children[0].children[0].children[0].value).toBe('leaf');
+      let remaining: DeepStructure = secondAfter;
+      for (let i = 0; i < 4; i++) {
+        assertDeepNode(remaining);
+        remaining = remaining.children[0];
+      }
+      assertDeepLeaf(remaining);
+      expect(remaining.value).toBe('leaf');
     });
 
     it('should handle replacement with different nested structure complexity', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<unknown[]>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<GenericComponent[]>(doc, {
         getRoot: (d) => d.getArray('components'),
         debug: false
       });
@@ -907,19 +1098,29 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       await waitMicrotask();
       
       // Verify replacements
-      expect(proxy[0].type).toBe('mega-complex');
-      expect(proxy[0].data.matrix[0][0].cell).toEqual([1, 2]);
-      expect(proxy[0].data.tree.root.left.children).toHaveLength(2);
+      expect(proxy[0]!.type).toBe('mega-complex');
+      const megaData = proxy[0]!.data as {
+        matrix: Array<Array<{ cell: number[] }>>;
+        tree: {
+          root: {
+            value: string;
+            left: { value: string; children: Array<{ value: string }> };
+            right: { value: string; children: Array<{ value: string }> };
+          };
+        };
+      };
+      expect(megaData.matrix[0]![0]!.cell).toEqual([1, 2]);
+      expect(megaData.tree.root.left.children).toHaveLength(2);
       
-      expect(proxy[1].type).toBe('ultra-simple');
-      expect(proxy[1].data).toBe(42);
+      expect(proxy[1]!.type).toBe('ultra-simple');
+      expect(proxy[1]!.data).toBe(42);
     });
   });
 
   describe('Memory and Reference Management', () => {
     it('should properly cleanup references when deleting nested structures', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<unknown>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<LooseRecord>(doc, {
         getRoot: (d) => d.getMap('app'),
         debug: false
       });
@@ -952,12 +1153,12 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       await waitMicrotask();
       
       // Verify deletion
-      expect(proxy.activeSession).toBeUndefined();
-      expect(proxy.cache).toBeDefined();
+      expect((proxy as LooseRecord).activeSession).toBeUndefined();
+      expect((proxy as LooseRecord).cache).toBeDefined();
       expect(proxy.cache.recent).toHaveLength(3);
       
       // Replace cache with completely new structure
-      proxy.cache = {
+      (proxy as LooseRecord).cache = {
         strategy: 'lru',
         maxSize: 1000,
         storage: {
@@ -979,11 +1180,11 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       const doc1 = new Y.Doc();
       const doc2 = new Y.Doc();
       
-      const { proxy: proxy1, bootstrap } = createYjsProxy<Record<string, unknown>>(doc1, {
+      const { proxy: proxy1, bootstrap } = createYjsProxy<LooseRecord>(doc1, {
         getRoot: (d) => d.getMap('system'),
         debug: false
       });
-      const { proxy: proxy2 } = createYjsProxy<Record<string, unknown>>(doc2, {
+      const { proxy: proxy2 } = createYjsProxy<LooseRecord>(doc2, {
         getRoot: (d) => d.getMap('system'),
         debug: false
       });
@@ -1024,7 +1225,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       // Verify initial cross-references
       expect(proxy1.nodes[0].connections).toEqual(['node2', 'node3']);
       expect(proxy2.nodes[0].connections).toEqual(['node2', 'node3']);
-      expect(Object.keys(proxy1.edges)).toHaveLength(3);
+      expect(Object.keys(proxy1.edges as any)).toHaveLength(3);
       
       // Delete node2 and its related edges
       proxy1.nodes.splice(1, 1); // Remove node2
@@ -1044,8 +1245,8 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       expect(proxy1.nodes.map((n: any) => n.id)).toEqual(['node1', 'node3']);
       expect(proxy2.nodes.map((n: any) => n.id)).toEqual(['node1', 'node3']);
       
-      expect(Object.keys(proxy1.edges)).toEqual(['node1->node3']);
-      expect(Object.keys(proxy2.edges)).toEqual(['node1->node3']);
+      expect(Object.keys(proxy1.edges as any)).toEqual(['node1->node3']);
+      expect(Object.keys(proxy2.edges as any)).toEqual(['node1->node3']);
       expect(proxy1.edges['node1->node3'].weight).toBe(0.8);
       expect(proxy2.edges['node1->node3'].weight).toBe(0.8);
     });
@@ -1054,7 +1255,7 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
   describe('Error Handling in Nested Operations', () => {
     it('should handle errors gracefully when nested structures contain invalid data', async () => {
       const doc = new Y.Doc();
-      const { proxy, bootstrap } = createYjsProxy<unknown[]>(doc, {
+      const { proxy, bootstrap } = createYjsProxy<ContentItem[]>(doc, {
         getRoot: (d) => d.getArray('data'),
         debug: false
       });
@@ -1085,8 +1286,8 @@ describe('Nested Deletion and Replacement: Elements with Children', () => {
       }).toThrow('[valtio-yjs] undefined is not allowed');
       
       // Verify original structure remains
-      expect(proxy[0].id).toBe('valid1');
-      expect(proxy[0].content.text).toBe('Valid content');
+      expect(proxy[0]!.id).toBe('valid1');
+      expect(proxy[0]!.content.text).toBe('Valid content');
     });
   });
 });

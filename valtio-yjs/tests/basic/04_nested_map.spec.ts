@@ -76,10 +76,10 @@ describe('nested map operations', () => {
     const doc1 = new Y.Doc();
     const doc2 = new Y.Doc();
 
-    const { proxy: proxy1 } = createYjsProxy<Record<string, unknown>>(doc1, {
+    const { proxy: proxy1 } = createYjsProxy<{ b?: { b: string } }>(doc1, {
       getRoot: (d) => d.getMap('root'),
     });
-    const { proxy: _proxy2 } = createYjsProxy<Record<string, unknown>>(doc2, {
+    const { proxy: _proxy2 } = createYjsProxy<{ b?: { b: string } }>(doc2, {
       getRoot: (d) => d.getMap('root'),
     });
 

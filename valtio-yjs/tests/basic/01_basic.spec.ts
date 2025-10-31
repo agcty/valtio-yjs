@@ -3,6 +3,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from '../../src/index';
+import type { LooseRecord } from '../helpers/test-helpers';
 
 const waitMicrotask = () => Promise.resolve();
 
@@ -85,12 +86,12 @@ describe('basic map operations', () => {
 
     p.foo = { bar: 'a' };
     await waitMicrotask();
-    expect((p.foo as Record<string, unknown>).bar).toBe('a');
+    expect((p.foo as LooseRecord).bar).toBe('a');
     expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('a');
 
     (m.get('foo') as Y.Map<unknown>).set('bar', 'b');
     await waitMicrotask();
-    expect((p.foo as Record<string, unknown>).bar).toBe('b');
+    expect((p.foo as LooseRecord).bar).toBe('b');
     expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('b');
   });
 
@@ -112,7 +113,7 @@ describe('basic map operations', () => {
     expect(p?.foo?.bar).toBe('a');
     expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('a');
 
-    ((p as Record<string, unknown>).foo as Record<string, unknown>).bar = 'b';
+    ((p as LooseRecord).foo as LooseRecord).bar = 'b';
     await waitMicrotask();
     expect(p?.foo?.bar).toBe('b');
     expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('b');

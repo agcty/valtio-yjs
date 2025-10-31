@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from '../../src/index';
 import { syncedText } from '../../src/synced-types';
+import type { LooseRecord } from '../helpers/test-helpers';
 
 const waitMicrotask = () => Promise.resolve();
 
@@ -50,10 +51,10 @@ describe('Advanced Capabilities', () => {
 
       doc1.on('update', (update: Uint8Array) => Y.applyUpdate(doc2, update));
 
-      const { proxy: p1, bootstrap } = createYjsProxy<{ data: Record<string, unknown> }>(doc1, {
+      const { proxy: p1, bootstrap } = createYjsProxy<{ data: LooseRecord }>(doc1, {
         getRoot: (d) => d.getMap('root'),
       });
-      const { proxy: p2 } = createYjsProxy<{ data: Record<string, unknown> }>(doc2, {
+      const { proxy: p2 } = createYjsProxy<{ data: LooseRecord }>(doc2, {
         getRoot: (d) => d.getMap('root'),
       });
 
@@ -62,14 +63,14 @@ describe('Advanced Capabilities', () => {
       await waitMicrotask();
 
       // Access ONLY the top level on p2 (don't drill down)
-      const topLevel = p2.data as Record<string, unknown>;
+      const topLevel = p2.data as LooseRecord;
 
       // Change deep nested value on p1
-      ((p1.data as Record<string, unknown>).level1 as Record<string, unknown>).level2 = { level3: { value: 999 } };
+      ((p1.data as LooseRecord).level1 as LooseRecord).level2 = { level3: { value: 999 } };
       await waitMicrotask();
 
       // ✨ p2 automatically has the deep change, even though we never accessed intermediate levels
-      expect(((topLevel.level1 as Record<string, unknown>).level2 as Record<string, unknown>).level3).toEqual({ value: 999 });
+      expect(((topLevel.level1 as LooseRecord).level2 as LooseRecord).level3).toEqual({ value: 999 });
     });
   });
 
