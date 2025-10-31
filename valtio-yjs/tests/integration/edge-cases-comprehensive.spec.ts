@@ -3,7 +3,6 @@
 import { describe, expect, it } from "vitest";
 import * as Y from "yjs";
 import { createYjsProxy } from "../../src/index";
-import type { LooseRecord } from "../helpers/test-helpers";
 
 interface Item {
   id: number;
