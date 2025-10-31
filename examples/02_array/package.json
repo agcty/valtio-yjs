@@ -19,6 +19,7 @@
     "vite": "latest"
   },
   "scripts": {
-    "dev": "HOST=localhost PORT=1234 npx y-websocket & vite"
+    "dev": "HOST=localhost PORT=1234 npx y-websocket & vite",
+    "typecheck": "tsc --noEmit"
   }
 }

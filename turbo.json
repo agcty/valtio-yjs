@@ -14,8 +14,7 @@
       "outputs": ["coverage/**"]
     },
     "typecheck": {
-      "dependsOn": ["^build"],
-      "outputs": [".tsbuild/**"]
+      "dependsOn": ["^build"]
     }
   }
 }
