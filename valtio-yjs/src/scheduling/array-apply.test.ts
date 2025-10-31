@@ -35,7 +35,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       }
       await waitMicrotask();
 
-      expect(proxy.length).toBe(101);
+      expect(proxy).toHaveLength(101);
       expect(proxy[0]!.id).toBe(0);
       expect(proxy[100]!.id).toBe(100);
       
@@ -60,7 +60,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       proxy.push(...items);
       await waitMicrotask();
 
-      expect(proxy.length).toBe(100);
+      expect(proxy).toHaveLength(100);
       expect(proxy[0]!.id).toBe(0);
       expect(proxy[99]!.id).toBe(99);
 
@@ -81,7 +81,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       proxy.push({ id: 4 });
       await waitMicrotask();
 
-      expect(proxy.length).toBe(5);
+      expect(proxy).toHaveLength(5);
       expect(proxy.map(x => x.id)).toEqual([0, 1, 2, 3, 4]);
 
       dispose();
@@ -103,7 +103,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       }
       await waitMicrotask();
 
-      expect(proxy.length).toBe(101);
+      expect(proxy).toHaveLength(101);
       // Last unshift wins for position 0
       expect(proxy[0]!.id).toBe(100);
       expect(proxy[100]!.id).toBe(0); // Original item shifted to end
@@ -124,7 +124,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       proxy.unshift(...items);
       await waitMicrotask();
 
-      expect(proxy.length).toBe(4);
+      expect(proxy).toHaveLength(4);
       expect(proxy.map(x => x.id)).toEqual([0, 1, 2, 99]);
 
       dispose();
@@ -148,7 +148,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       await waitMicrotask();
 
       // Y.Array doesn't support holes, so indices compress
-      expect(proxy.length).toBe(3);
+      expect(proxy).toHaveLength(3);
       expect(proxy.map(x => x.id)).toEqual([0, 2, 5]);
 
       dispose();
@@ -187,7 +187,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       proxy.splice(2, 1, { id: 10 }, { id: 11 }, { id: 12 });
       await waitMicrotask();
 
-      expect(proxy.length).toBe(7);
+      expect(proxy).toHaveLength(7);
       expect(proxy.map(x => x.id)).toEqual([0, 1, 10, 11, 12, 3, 4]);
 
       dispose();
@@ -275,7 +275,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       proxy.push(...items);
       await waitMicrotask();
 
-      expect(proxy.length).toBe(50);
+      expect(proxy).toHaveLength(50);
       expect(proxy[0]!.nested.value).toBe('nested-0');
       expect(proxy[49]!.nested.value).toBe('nested-49');
 
@@ -303,7 +303,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       proxy.unshift(...items);
       await waitMicrotask();
 
-      expect(proxy.length).toBe(11);
+      expect(proxy).toHaveLength(11);
       expect(proxy[0]!.id).toBe(0);
       expect(proxy[0]!.children[0]!.name).toBe('child-0-0');
       expect(proxy[10]!.id).toBe(99);
@@ -344,7 +344,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       await waitMicrotask();
 
       // Verify sync
-      expect(proxyB.proxy.length).toBe(1);
+      expect(proxyB.proxy).toHaveLength(1);
       expect(proxyB.proxy[0]!.id).toBe(0);
 
       // Bulk push on A
@@ -353,8 +353,8 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       await waitMicrotask();
 
       // Verify both clients have same state
-      expect(proxyA.proxy.length).toBe(101);
-      expect(proxyB.proxy.length).toBe(101);
+      expect(proxyA.proxy).toHaveLength(101);
+      expect(proxyB.proxy).toHaveLength(101);
       expect(proxyA.proxy.map(x => x.id)).toEqual(proxyB.proxy.map(x => x.id));
 
       proxyA.dispose();
@@ -393,8 +393,8 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       await waitMicrotask();
 
       // Verify both clients have same state
-      expect(proxyA.proxy.length).toBe(11);
-      expect(proxyB.proxy.length).toBe(11);
+      expect(proxyA.proxy).toHaveLength(11);
+      expect(proxyB.proxy).toHaveLength(11);
       expect(proxyA.proxy.map(x => x.id)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 99]);
       expect(proxyB.proxy.map(x => x.id)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 99]);
 
@@ -418,7 +418,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       await waitMicrotask();
       const elapsed = performance.now() - start;
 
-      expect(proxy.length).toBe(1000);
+      expect(proxy).toHaveLength(1000);
       expect(proxy[0]!.id).toBe(0);
       expect(proxy[999]!.id).toBe(999);
       
@@ -442,7 +442,7 @@ describe('Bulk Insert Optimization - Correctness Tests', () => {
       await waitMicrotask();
       const elapsed = performance.now() - start;
 
-      expect(proxy.length).toBe(1000);
+      expect(proxy).toHaveLength(1000);
       
       // Should complete in reasonable time
       expect(elapsed).toBeLessThan(100);
@@ -519,7 +519,7 @@ describe('Bulk Insert Optimization - Y.Array Event Verification', () => {
     // Note: Without optimization, this would be 100 events
     // With optimization, this should be 1 event
     // For now, we just verify correctness
-    expect(proxy.length).toBe(101);
+    expect(proxy).toHaveLength(101);
     expect(totalInserted).toBe(100);
 
     dispose();

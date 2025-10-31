@@ -16,7 +16,7 @@ describe('syncedText()', () => {
     // Y.Text needs to be attached to a document to be read
     doc.getArray('test').insert(0, [text]);
     expect(text.toString()).toBe('');
-    expect(text.length).toBe(0);
+    expect(text).toHaveLength(0);
   });
 
   it('creates Y.Text with initial content when provided', () => {
@@ -25,7 +25,7 @@ describe('syncedText()', () => {
     // Y.Text needs to be attached to a document to be read
     doc.getArray('test').insert(0, [text]);
     expect(text.toString()).toBe('Hello World');
-    expect(text.length).toBe(11);
+    expect(text).toHaveLength(11);
   });
 
   it('creates Y.Text with empty string when explicitly provided', () => {
@@ -33,7 +33,7 @@ describe('syncedText()', () => {
     const text = syncedText('');
     doc.getArray('test').insert(0, [text]);
     expect(text.toString()).toBe('');
-    expect(text.length).toBe(0);
+    expect(text).toHaveLength(0);
   });
 
   it('creates Y.Text with unicode content', () => {
@@ -74,7 +74,7 @@ describe('syncedText()', () => {
     const text = syncedText('test content');
     
     yArr.insert(0, [text]);
-    expect(yArr.length).toBe(1);
+    expect(yArr).toHaveLength(1);
     expect(yArr.get(0)).toBeInstanceOf(Y.Text);
     expect(yArr.get(0).toString()).toBe('test content');
   });

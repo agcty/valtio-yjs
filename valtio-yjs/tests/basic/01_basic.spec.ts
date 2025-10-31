@@ -12,7 +12,7 @@ describe('basic map operations', () => {
     const { proxy: p } = createYjsProxy<{ foo?: string }>(doc, {
       getRoot: (d) => d.getMap('root'),
     });
-    const m = doc.getMap<any>('root');
+    const m = doc.getMap<unknown>('root');
 
     expect(p.foo).toBe(undefined);
 
@@ -30,7 +30,7 @@ describe('basic map operations', () => {
     const { proxy: p, bootstrap } = createYjsProxy<{ foo?: string; bar?: number }>(doc, {
       getRoot: (d) => d.getMap('root'),
     });
-    const m = doc.getMap<any>('root');
+    const m = doc.getMap<unknown>('root');
 
     bootstrap({ foo: 'a', bar: 1 });
     await waitMicrotask();
@@ -54,7 +54,7 @@ describe('basic map operations', () => {
     const { proxy: p, bootstrap } = createYjsProxy<{ foo: string | null }>(doc, {
       getRoot: (d) => d.getMap('root'),
     });
-    const m = doc.getMap<any>('root');
+    const m = doc.getMap<unknown>('root');
 
     bootstrap({ foo: null });
     await waitMicrotask();
@@ -78,20 +78,20 @@ describe('basic map operations', () => {
     const { proxy: p } = createYjsProxy<{ foo?: { bar?: string } }>(doc, {
       getRoot: (d) => d.getMap('root'),
     });
-    const m = doc.getMap<any>('root');
+    const m = doc.getMap<unknown>('root');
 
     expect(p.foo).toBe(undefined);
     expect(m.get('foo')).toBe(undefined);
 
     p.foo = { bar: 'a' };
     await waitMicrotask();
-    expect(p.foo.bar).toBe('a');
-    expect(m.get('foo').get('bar')).toBe('a');
+    expect((p.foo as Record<string, unknown>).bar).toBe('a');
+    expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('a');
 
-    m.get('foo').set('bar', 'b');
+    (m.get('foo') as Y.Map<unknown>).set('bar', 'b');
     await waitMicrotask();
-    expect(p.foo.bar).toBe('b');
-    expect(m.get('foo').get('bar')).toBe('b');
+    expect((p.foo as Record<string, unknown>).bar).toBe('b');
+    expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('b');
   });
 
   it('nested map (from y.map)', async () => {
@@ -99,7 +99,7 @@ describe('basic map operations', () => {
     const { proxy: p } = createYjsProxy<{ foo?: { bar?: string } }>(doc, {
       getRoot: (d) => d.getMap('root'),
     });
-    const m = doc.getMap<any>('root');
+    const m = doc.getMap<unknown>('root');
 
     expect(p.foo).toBe(undefined);
     expect(m.get('foo')).toBe(undefined);
@@ -110,12 +110,12 @@ describe('basic map operations', () => {
     await waitMicrotask();
 
     expect(p?.foo?.bar).toBe('a');
-    expect(m.get('foo').get('bar')).toBe('a');
+    expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('a');
 
-    (p as any).foo.bar = 'b';
+    ((p as Record<string, unknown>).foo as Record<string, unknown>).bar = 'b';
     await waitMicrotask();
     expect(p?.foo?.bar).toBe('b');
-    expect(m.get('foo').get('bar')).toBe('b');
+    expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('b');
   });
 
   it('bootstrap creates a single transaction', async () => {
@@ -138,7 +138,7 @@ describe('basic map operations', () => {
     const { proxy: p, dispose } = createYjsProxy<{ foo?: string }>(doc, {
       getRoot: (d) => d.getMap('root'),
     });
-    const m = doc.getMap<any>('root');
+    const m = doc.getMap<unknown>('root');
 
     dispose();
     expect(p.foo).toBe(undefined);

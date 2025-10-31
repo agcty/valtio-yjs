@@ -30,7 +30,7 @@ describe('Y.Text Reactivity with React', () => {
       );
     }
     
-    const screen = render(<TextDisplay />);
+    const screen = await render(<TextDisplay />);
     
     // Initially should show "Hello"
     await expect.element(screen.getByTestId('text-content')).toHaveTextContent('Hello');
@@ -63,7 +63,7 @@ describe('Y.Text Reactivity with React', () => {
       return <div data-testid="text-content">{snap.text.toString()}</div>;
     }
     
-    const screen = render(<TextDisplay />);
+    const screen = await render(<TextDisplay />);
     
     // Initially should show "Hello World"
     await expect.element(screen.getByTestId('text-content')).toHaveTextContent('Hello World');
@@ -115,7 +115,7 @@ describe('Y.Text Reactivity with React', () => {
       return <div data-testid="remote-text">{snap.text?.toString() || 'loading...'}</div>;
     }
     
-    const screen = render(<TextDisplay />);
+    const screen = await render(<TextDisplay />);
     
     // Initially should show "Initial"
     await expect.element(screen.getByTestId('remote-text')).toHaveTextContent('Initial');
@@ -152,7 +152,7 @@ describe('Y.Text Reactivity with React', () => {
       );
     }
     
-    const screen = render(<TextDisplay />);
+    const screen = await render(<TextDisplay />);
     
     // Perform multiple rapid inserts
     proxy.text.insert(0, 'H');
@@ -191,7 +191,7 @@ describe('Y.Text Reactivity with React', () => {
       );
     }
     
-    const screen = render(<CharacterCounter />);
+    const screen = await render(<CharacterCounter />);
     
     // Initial count
     await expect.element(screen.getByTestId('char-count')).toHaveTextContent('Characters: 4');

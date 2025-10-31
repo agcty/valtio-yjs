@@ -9,22 +9,22 @@ const waitMicrotask = () => Promise.resolve();
 describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
   it('map change in Yjs reflects in proxy, identity preserved', async () => {
     const doc = new Y.Doc();
-    const yRoot = doc.getMap<unknown>('root') as Y.Map<any>;
+    const yRoot = doc.getMap<unknown>('root') as Y.Map<unknown>;
     const { proxy } = createYjsProxy<{ users: Array<{ id: string; profile?: { name?: string } }> }>(doc, {
       getRoot: (d) => d.getMap('root'),
     });
 
     // Initialize through Yjs first to avoid races with controller scheduler
-    const yUsers = new Y.Array<any>();
+    const yUsers = new Y.Array<unknown>();
     yRoot.set('users', yUsers);
     await waitMicrotask();
 
     const prevUsersRef = proxy.users;
 
     // Remote mutation directly on Yjs
-    const newUser = new Y.Map<any>();
+    const newUser = new Y.Map<unknown>();
     newUser.set('id', 'u1');
-    const profile = new Y.Map<any>();
+    const profile = new Y.Map<unknown>();
     profile.set('name', 'Alice');
     newUser.set('profile', profile);
     yUsers.insert(0, [newUser]);
@@ -40,7 +40,7 @@ describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
     expect(item!.profile!.name).toBe('Alice');
 
     // Update primitive value remotely and ensure proxy updates in place
-    (newUser.get('profile') as Y.Map<any>).set('name', 'Alicia');
+    (newUser.get('profile') as Y.Map<unknown>).set('name', 'Alicia');
     await waitMicrotask();
     expect(proxy.users[0]).toBe(item); // identity preserved
     expect(item!.profile!.name).toBe('Alicia');
@@ -53,7 +53,7 @@ describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
 
     yArr.push([1, 2]);
     await waitMicrotask();
-    expect(proxy.length).toBe(2);
+    expect(proxy).toHaveLength(2);
     expect(proxy[0]).toBe(1);
     expect(proxy[1]).toBe(2);
 
@@ -64,12 +64,12 @@ describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
 
   it('Y.Map delete propagates and preserves sibling identity', async () => {
     const doc = new Y.Doc();
-    const yRoot = doc.getMap<any>('root');
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
 
-    const obj1 = new Y.Map<any>();
+    const obj1 = new Y.Map<unknown>();
     obj1.set('v', 1);
-    const obj2 = new Y.Map<any>();
+    const obj2 = new Y.Map<unknown>();
     obj2.set('w', 2);
     yRoot.set('obj1', obj1);
     yRoot.set('obj2', obj2);
@@ -86,10 +86,10 @@ describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
 
   it('Y.Map primitive update propagates and preserves nested identity', async () => {
     const doc = new Y.Doc();
-    const yRoot = doc.getMap<any>('root');
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
 
-    const user = new Y.Map<any>();
+    const user = new Y.Map<unknown>();
     user.set('name', 'A');
     yRoot.set('user', user);
     await waitMicrotask();
@@ -104,12 +104,12 @@ describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
 
   it('Y.Array delete propagates; other indices keep identity', async () => {
     const doc = new Y.Doc();
-    const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
-    const yArr = doc.getArray<any>('arr');
+    const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+    const yArr = doc.getArray<unknown>('arr');
 
-    const a = new Y.Map<any>();
+    const a = new Y.Map<unknown>();
     a.set('id', 'a');
-    const b = new Y.Map<any>();
+    const b = new Y.Map<unknown>();
     b.set('id', 'b');
     yArr.insert(0, [a, b]);
     await waitMicrotask();
@@ -125,8 +125,8 @@ describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
 
   it('single transaction: create nested array under map and insert items without double-apply', async () => {
     const doc = new Y.Doc();
-    const yRoot = doc.getMap<any>('root');
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
 
     // In one transaction, create the array and insert items into it
     doc.transact(() => {
@@ -142,16 +142,16 @@ describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
 
   it('Deep nested remote insert/replace upgrades child controllers', async () => {
     const doc = new Y.Doc();
-    const yRoot = doc.getMap<any>('root');
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
 
-    const container = new Y.Map<any>();
+    const container = new Y.Map<unknown>();
     yRoot.set('container', container);
     await waitMicrotask();
 
-    const list = new Y.Array<any>();
+    const list = new Y.Array<unknown>();
     container.set('list', list);
-    const item = new Y.Map<any>();
+    const item = new Y.Map<unknown>();
     item.set('k', 'v');
     list.insert(0, [item]);
     await waitMicrotask();
@@ -163,72 +163,74 @@ describe('Integration 2A: Yjs → Valtio (Remote Change Simulation)', () => {
 
   it('remote set to null reflects as null; remote delete reflects as undefined', async () => {
     const doc = new Y.Doc();
-    const yRoot = doc.getMap<any>('root');
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
 
     yRoot.set('prop', 'value');
     await waitMicrotask();
-    expect((proxy as any).prop).toBe('value');
+    expect((proxy as Record<string, unknown>).prop).toBe('value');
 
     yRoot.set('prop', null);
     await waitMicrotask();
-    expect((proxy as any).prop).toBe(null);
+    expect((proxy as Record<string, unknown>).prop).toBe(null);
 
     yRoot.delete('prop');
     await waitMicrotask();
-    expect((proxy as any).prop).toBe(undefined);
-    expect('prop' in (proxy as any)).toBe(false);
+    expect((proxy as Record<string, unknown>).prop).toBe(undefined);
+    expect('prop' in (proxy as Record<string, unknown>)).toBe(false);
   });
 
   it('remote replace of nested container preserves sibling identity', async () => {
     const doc = new Y.Doc();
-    const yRoot = doc.getMap<any>('root');
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
 
-    const left = new Y.Map<any>();
+    const left = new Y.Map<unknown>();
     left.set('v', 1);
-    const right = new Y.Map<any>();
+    const right = new Y.Map<unknown>();
     right.set('w', 2);
     yRoot.set('left', left);
     yRoot.set('right', right);
     await waitMicrotask();
 
-    const prevRight = proxy.right;
+    const prevRight = (proxy as Record<string, unknown>).right;
     // Replace left and set nested value in one transaction so reconcile sees final state
     doc.transact(() => {
-      const newLeft = new Y.Map<any>();
+      const newLeft = new Y.Map<unknown>();
       newLeft.set('v', 9);
       yRoot.set('left', newLeft);
     });
     await waitMicrotask();
     // Force materialization, then let deep reconcile run
     // before checking nested value
-    void proxy.left;
+    void (proxy as Record<string, unknown>).left;
     await waitMicrotask();
 
-    expect(proxy.left.v).toBe(9);
-    expect(proxy.right).toBe(prevRight);
+    const leftProxy = (proxy as Record<string, unknown>).left as Record<string, unknown>;
+    expect(leftProxy.v).toBe(9);
+    expect((proxy as Record<string, unknown>).right).toBe(prevRight);
   });
 
   it('nested: null then delete on a key yields proxy transitions value → null → undefined', async () => {
     const doc = new Y.Doc();
-    const yRoot = doc.getMap<any>('root');
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
 
-    const user = new Y.Map<any>();
+    const user = new Y.Map<unknown>();
     user.set('name', 'A');
     yRoot.set('user', user);
     await waitMicrotask();
-    expect(proxy.user.name).toBe('A');
+    const userProxy = (proxy as Record<string, unknown>).user as Record<string, unknown>;
+    expect(userProxy.name).toBe('A');
 
     user.set('name', null);
     await waitMicrotask();
-    expect(proxy.user.name).toBe(null);
+    expect(userProxy.name).toBe(null);
 
     user.delete('name');
     await waitMicrotask();
-    expect(proxy.user.name).toBe(undefined);
-    expect('name' in proxy.user).toBe(false);
+    expect(userProxy.name).toBe(undefined);
+    expect('name' in userProxy).toBe(false);
   });
 });
 

@@ -76,7 +76,7 @@ describe('WriteScheduler: Subtree Purging Necessity', () => {
 
       // Expected: Only item1 should remain
       expect(result).toEqual([{ nested: { value: 'item1' } }]);
-      expect(proxy.length).toBe(1);
+      expect(proxy).toHaveLength(1);
       expect(proxy[0]?.nested.value).toBe('item1');
     });
 
@@ -175,7 +175,7 @@ describe('WriteScheduler: Subtree Purging Necessity', () => {
       console.log(`Batch with purging took: ${endTime - startTime}ms`);
       
       // Verify correctness
-      expect(proxy.length).toBe(100);
+      expect(proxy).toHaveLength(100);
       expect(proxy[0]?.value).toBe('replaced0');
       expect(proxy[99]?.value).toBe('replaced99');
     });

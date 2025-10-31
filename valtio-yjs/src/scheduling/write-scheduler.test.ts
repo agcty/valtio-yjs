@@ -44,7 +44,7 @@ describe('Conservative merge check - detailed analysis', () => {
     await waitMicrotask();
     
     console.log('Single assignment operations:', operations);
-    expect(operations.length).toBe(1); // One transaction
+    expect(operations).toHaveLength(1); // One transaction
     
     const yItems = doc.getMap('root').get('items') as Y.Array<unknown>;
     const result = yTypeToPlainObject(yItems) as unknown[];
@@ -82,7 +82,7 @@ describe('Conservative merge check - detailed analysis', () => {
     await waitMicrotask();
     
     console.log('Multiple assignment operations:', operations);
-    expect(operations.length).toBe(1); // Still one transaction (batched)
+    expect(operations).toHaveLength(1); // Still one transaction (batched)
     
     // But the result should still be correct
     const yItems = doc.getMap('root').get('items') as Y.Array<unknown>;
@@ -125,8 +125,8 @@ describe('Conservative merge check - detailed analysis', () => {
     console.log('Multiple assignments - Third item type:', yItems2.get(2)?.constructor.name);
     
     // Both should have correct length and types
-    expect(yItems1.length).toBe(3);
-    expect(yItems2.length).toBe(3);
+    expect(yItems1).toHaveLength(3);
+    expect(yItems2).toHaveLength(3);
     
     dispose1();
     dispose2();

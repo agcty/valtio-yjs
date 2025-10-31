@@ -39,7 +39,7 @@ describe('Y.Text Reactivity - Final Test', () => {
     }
     
     console.log('=== Initial Render ===');
-    const screen = render(<TestComponent />);
+    const screen = await render(<TestComponent />);
     
     await new Promise(resolve => setTimeout(resolve, 100));
     
@@ -90,7 +90,7 @@ describe('Y.Text Reactivity - Final Test', () => {
       return <div data-testid="text">{textContent}</div>;
     }
     
-    const screen = render(<TestComponent />);
+    const screen = await render(<TestComponent />);
     
     await new Promise(resolve => setTimeout(resolve, 50));
     

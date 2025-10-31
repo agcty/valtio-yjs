@@ -37,8 +37,8 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     expect(proxyB.data).toEqual({ x: 1 });
 
     // Direct Y write on A
-    const yRootA = docA.getMap<any>('root');
-    (yRootA.get('data') as Y.Map<any>).set('y', 3);
+    const yRootA = docA.getMap<unknown>('root');
+    (yRootA.get('data') as Y.Map<unknown>).set('y', 3);
     await waitMicrotask();
     expect(proxyB.data.y).toBeUndefined();
   });
@@ -75,8 +75,8 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
 
     // On A: in one transaction, create an inner array and insert items
     docA.transact(() => {
-      const yRoot = docA.getMap<any>('root');
-      const container = yRoot.get('container') as Y.Map<any>;
+      const yRoot = docA.getMap<unknown>('root');
+      const container = yRoot.get('container') as Y.Map<unknown>;
       const yList = new Y.Array<number>();
       container.set('list', yList);
       yList.insert(0, [1, 2]);
@@ -114,7 +114,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     // Shape: root: { lists: [ [a,b], [c] ] }
     bootstrapA({ lists: [['a', 'b'], ['c']] });
     await waitMicrotask();
-    expect(proxyB.lists.length).toBe(2);
+    expect(proxyB.lists).toHaveLength(2);
     expect(proxyB.lists[0]).toEqual(['a', 'b']);
     expect(proxyB.lists[1]).toEqual(['c']);
 
@@ -133,7 +133,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     // and then mutate nested to ensure upgrades and propagation remain stable
     proxyA.lists.push(['d']);
     await waitMicrotask();
-    expect(proxyB.lists.length).toBe(3);
+    expect(proxyB.lists).toHaveLength(3);
     expect(proxyB.lists[2]).toEqual(['d']);
     proxyA.lists[2].unshift('z');
     await waitMicrotask();
@@ -149,9 +149,9 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
 
     // Replace container.a with a fresh Y.Map and set content in the same transaction
     docA.transact(() => {
-      const yRoot = docA.getMap<any>('root');
-      const cont = yRoot.get('container') as Y.Map<any>;
-      const newA = new Y.Map<any>();
+      const yRoot = docA.getMap<unknown>('root');
+      const cont = yRoot.get('container') as Y.Map<unknown>;
+      const newA = new Y.Map<unknown>();
       newA.set('v', 9);
       cont.set('a', newA);
     });
@@ -171,7 +171,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
 
     // Insert 2 at index 1 remotely
     docA.transact(() => {
-      const root = docA.getMap<any>('root');
+      const root = docA.getMap<unknown>('root');
       const arr = root.get('arr') as Y.Array<number>;
       arr.insert(1, [2]);
     });
@@ -185,7 +185,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     // Root is an array of arrays
     bootstrapA([[1, 2], [3]]);
     await waitMicrotask();
-    expect(proxyB.length).toBe(2);
+    expect(proxyB).toHaveLength(2);
     expect(proxyB[0]).toEqual([1, 2]);
     expect(proxyB[1]).toEqual([3]);
 
@@ -244,7 +244,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     bootstrapA({ matrix: [[], ['a', 'b']] });
     await waitMicrotask();
     expect(Array.isArray(proxyB.matrix)).toBe(true);
-    expect(proxyB.matrix.length).toBe(2);
+    expect(proxyB.matrix).toHaveLength(2);
     expect(proxyB.matrix[1]).toEqual(['a', 'b']);
 
     // Push into the second inner array on A -> B should see it
@@ -289,8 +289,8 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
     // Children should remain present and identical across clients
     expect(Array.isArray(proxyA.list[0].children)).toBe(true);
     expect(Array.isArray(proxyB.list[0].children)).toBe(true);
-    expect(proxyA.list[0].children.length).toBe(2);
-    expect(proxyB.list[0].children.length).toBe(2);
+    expect(proxyA.list[0].children).toHaveLength(2);
+    expect(proxyB.list[0].children).toHaveLength(2);
     expect(proxyA.list[0].children[0].text).toBe('Alpha - Child A');
     expect(proxyB.list[0].children[0].text).toBe('Alpha - Child A');
   });
@@ -322,7 +322,7 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
       // All changes should be visible on proxyB
       expect(proxyB.deep.foo.bar.baz[2].qux).toBe('world');
       expect(proxyB.deep.foo.bar.baz[2].newProp).toBe(42);
-      expect(proxyB.deep.foo.bar.baz.length).toBe(4);
+      expect(proxyB.deep.foo.bar.baz).toHaveLength(4);
       expect(proxyB.deep.foo.bar.baz[3].extra).toBe(false);
     });
 
@@ -364,8 +364,8 @@ describe('E2E Collaboration: two docs with relayed updates', () => {
       expect(proxyB.tree.left.child.leaf).toBe(true);
       expect(proxyA.tree.right.value).toBe(20);
       expect(proxyB.tree.right.value).toBe(20);
-      expect(proxyA.tree.right.children.length).toBe(2);
-      expect(proxyB.tree.right.children.length).toBe(2);
+      expect(proxyA.tree.right.children).toHaveLength(2);
+      expect(proxyB.tree.right.children).toHaveLength(2);
       expect(proxyA.tree.right.children[1].id).toBe('b2');
       expect(proxyB.tree.right.children[1].id).toBe('b2');
     });

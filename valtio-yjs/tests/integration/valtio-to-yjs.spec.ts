@@ -9,8 +9,8 @@ const waitMicrotask = () => Promise.resolve();
 describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
   it('proxy mutations write correct Y.Map/Y.Array content (do not assert proxy)', async () => {
     const doc = new Y.Doc();
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-    const yRoot = doc.getMap<any>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
 
     // Listen to number of transactions to ensure batching correctness
     const onUpdate = vi.fn();
@@ -23,7 +23,7 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
     await waitMicrotask();
 
     // Assert source of truth (Yjs)
-    const yTasks = yRoot.get('tasks') as Y.Array<Y.Map<any>>;
+    const yTasks = yRoot.get('tasks') as Y.Array<Y.Map<unknown>>;
     expect(yTasks instanceof Y.Array).toBe(true);
     expect(yTasks.toJSON()).toEqual([{ title: 'New Task' }]);
 
@@ -52,8 +52,8 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
 
   it('undefined removes key; null persists as null in Y.Map', async () => {
     const doc = new Y.Doc();
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-    const yRoot = doc.getMap<any>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
 
     proxy.a = 'x';
     await waitMicrotask();
@@ -93,14 +93,14 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
     proxy.push(11);
     await waitMicrotask();
 
-    const deltas: any[] = [];
-    const handler = (e: any) => {
+    const deltas: unknown[] = [];
+    const handler = (e: unknown) => {
       deltas.push(e.changes.delta);
     };
     yArr.observe(handler);
 
     // Perform a multi-element unshift in one microtask
-    (proxy as any).unshift(7, 8);
+    ((proxy as unknown)).unshift(7, 8);
     await waitMicrotask();
 
     // The result should be correct, even if implementation differs
@@ -113,7 +113,7 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
     // 2. Optimize the implementation to coalesce these operations
     
     // For now, let's just verify the final state is correct
-    expect(yArr.length).toBe(4);
+    expect(yArr).toHaveLength(4);
     expect(yArr.get(0)).toBe(7);
     expect(yArr.get(1)).toBe(8);
     expect(yArr.get(2)).toBe(10);
@@ -131,21 +131,21 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
     proxy.push(1);
     await waitMicrotask();
 
-    const deltas: any[] = [];
-    const handler = (e: any) => {
+    const deltas: unknown[] = [];
+    const handler = (e: unknown) => {
       deltas.push(e.changes.delta);
     };
     yArr.observe(handler);
 
-    (proxy as any).push(2, 3);
+    ((proxy as unknown)).push(2, 3);
     await waitMicrotask();
 
     expect(yArr.toJSON()).toEqual([1, 2, 3]);
-    expect(deltas.length).toBe(1);
+    expect(deltas).toHaveLength(1);
     // For tail inserts, Yjs emits a retain for the prefix then an insert
     const delta = deltas[0];
     expect(Array.isArray(delta)).toBe(true);
-    expect(delta.length).toBe(2);
+    expect(delta).toHaveLength(2);
     expect(delta[0]).toEqual({ retain: 1 });
     expect(delta[1]).toEqual({ insert: [2, 3] });
 
@@ -154,12 +154,12 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
 
   it('nested upgrade + immediate nested edit coalesces to a single transaction', async () => {
     const doc = new Y.Doc();
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
     const onUpdate = vi.fn();
     doc.on('update', onUpdate);
 
     proxy.item = { title: 'A' };
-    (proxy as any).item.title = 'B';
+    ((proxy as unknown)).item.title = 'B';
     await waitMicrotask();
 
     expect(onUpdate).toHaveBeenCalledTimes(1);
@@ -174,19 +174,19 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
     proxy.push(3);
     await waitMicrotask();
 
-    const deltas: any[] = [];
-    const handler = (e: any) => deltas.push(e.changes.delta);
+    const deltas: unknown[] = [];
+    const handler = (e: unknown) => deltas.push(e.changes.delta);
     yArr.observe(handler);
 
     proxy.splice(1, 0, 2);
     await waitMicrotask();
 
     expect(yArr.toJSON()).toEqual([1, 2, 3]);
-    expect(deltas.length).toBe(1);
+    expect(deltas).toHaveLength(1);
     const delta = deltas[0];
     expect(Array.isArray(delta)).toBe(true);
     // Some Yjs versions may include surrounding retains; assert expected insert shape is present
-    const flat = deltas[0] as any[];
+    const flat = deltas[0] as unknown[];
     // Insert op may include suffix content depending on previous tail state
     const insertOp = flat.find((op) => 'insert' in op);
     const retainBefore = flat.find((op) => 'retain' in op && op.retain === 1);
@@ -199,13 +199,13 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
 
   it('batch top-level map sets and deletes coalesce to one transaction', async () => {
     const doc = new Y.Doc();
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
     const onUpdate = vi.fn();
     doc.on('update', onUpdate);
 
     proxy.x = 1;
     proxy.y = 2;
-    delete (proxy as any).x;
+    delete ((proxy as unknown)).x;
     await waitMicrotask();
 
     expect(onUpdate).toHaveBeenCalledTimes(1);
@@ -231,8 +231,8 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
 
   it('pushing plain object upgrades to Y.Map item in document', async () => {
     const doc = new Y.Doc();
-    const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
-    const yArr = doc.getArray<any>('arr');
+    const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+    const yArr = doc.getArray<unknown>('arr');
 
     proxy.push({ title: 'T' });
     await waitMicrotask();
@@ -243,23 +243,23 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
 
   it('upgrade after push: nested local edit routes via child controller in same tick', async () => {
     const doc = new Y.Doc();
-    const { proxy } = createYjsProxy<any[]>(doc, { getRoot: (d) => d.getArray('arr') });
-    const yArr = doc.getArray<any>('arr');
+    const { proxy } = createYjsProxy<unknown[]>(doc, { getRoot: (d) => d.getArray('arr') });
+    const yArr = doc.getArray<unknown>('arr');
 
     // Push a plain object, then immediately mutate a nested field before awaiting
     proxy.push({ title: 'A' });
-    (proxy as any)[0].title = 'B';
+    ((proxy as unknown))[0].title = 'B';
     await waitMicrotask();
 
-    const first = yArr.get(0) as Y.Map<any>;
+    const first = yArr.get(0) as Y.Map<unknown>;
     expect(first instanceof Y.Map).toBe(true);
     expect(first.get('title')).toBe('B');
   });
 
   it('batched proxy writes in same tick produce a single transaction', async () => {
     const doc = new Y.Doc();
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-    const yRoot = doc.getMap<any>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
     const onUpdate = vi.fn();
     doc.on('update', onUpdate);
 
@@ -272,8 +272,8 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
 
   it('changing a simple primitive on the proxy updates the Y.Map', async () => {
     const doc = new Y.Doc();
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-    const yRoot = doc.getMap<any>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
 
     proxy.count = 1;
     await waitMicrotask();
@@ -286,8 +286,8 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
 
   it('map key delete via proxy removes key in Y.Map', async () => {
     const doc = new Y.Doc();
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-    const yRoot = doc.getMap<any>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
 
     proxy.z = 3;
     await waitMicrotask();
@@ -300,17 +300,17 @@ describe('Integration 2B: Valtio → Yjs (Local Change Simulation)', () => {
 
   it('assigning a plain object eagerly upgrades it to a live proxy', async () => {
     const doc = new Y.Doc();
-    const { proxy } = createYjsProxy<any>(doc, { getRoot: (d) => d.getMap('root') });
-    const yRoot = doc.getMap<any>('root');
+    const { proxy } = createYjsProxy<Record<string, unknown>>(doc, { getRoot: (d) => d.getMap('root') });
+    const yRoot = doc.getMap<unknown>('root');
 
     proxy.newItem = { title: 'A' };
     await waitMicrotask();
 
-    const itemProxy = (proxy as any).newItem;
+    const itemProxy = ((proxy as unknown)).newItem;
     itemProxy.title = 'B';
     await waitMicrotask();
 
-    const yItem = yRoot.get('newItem') as Y.Map<any>;
+    const yItem = yRoot.get('newItem') as Y.Map<unknown>;
     expect(yItem instanceof Y.Map).toBe(true);
     expect(yItem.get('title')).toBe('B');
   });

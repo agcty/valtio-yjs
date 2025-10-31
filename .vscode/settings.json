@@ -2,7 +2,7 @@
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "oxc.oxc-vscode",
   "editor.codeActionsOnSave": {
-    "source.fixAll.oxlint": true
+    "source.fixAll.oxlint": "explicit"
   },
   "[typescript]": {
     "editor.defaultFormatter": "oxc.oxc-vscode"

@@ -47,7 +47,7 @@ describe('Reconciler: map/array/delta', () => {
 
     yArr.push([10]);
     reconcileValtioArray(coordinator, yArr, doc, (fn) => coordinator.withReconcilingLock(fn));
-    expect(proxy.length).toBe(1);
+    expect(proxy).toHaveLength(1);
     expect(proxy[0]).toBe(10);
   });
 

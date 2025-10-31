@@ -9,10 +9,10 @@ describe("Integration: Error Handling", () => {
   describe("Invalid Value Types", () => {
     it("normalizes undefined to null (not an error)", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       proxy.value = undefined;
       await waitMicrotask();
@@ -22,7 +22,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects function values synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -33,7 +33,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects symbol values synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -44,7 +44,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects BigInt values synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -55,7 +55,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects Infinity synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -66,7 +66,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects NaN synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -77,7 +77,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects -Infinity synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -90,7 +90,7 @@ describe("Integration: Error Handling", () => {
   describe("Invalid Object Types", () => {
     it("rejects custom class instances synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -105,7 +105,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects Map instances synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -116,7 +116,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects Set instances synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -127,7 +127,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects WeakMap instances synchronously", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -138,7 +138,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects Date objects (must be explicitly converted)", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -149,7 +149,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects RegExp objects (must be explicitly converted)", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -160,10 +160,10 @@ describe("Integration: Error Handling", () => {
 
     it("allows explicitly converted Date as string", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       // User must explicitly convert
       proxy.date = new Date("2024-01-01T00:00:00.000Z").toISOString();
@@ -174,10 +174,10 @@ describe("Integration: Error Handling", () => {
 
     it("allows explicitly converted RegExp as string", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       // User must explicitly convert
       proxy.regex = /test/gi.toString();
@@ -190,7 +190,7 @@ describe("Integration: Error Handling", () => {
   describe("Nested Invalid Values", () => {
     it("rejects undefined in nested objects", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -201,7 +201,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects functions in nested objects", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -212,7 +212,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects invalid values in arrays", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -223,7 +223,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects invalid values deep in structure", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -244,10 +244,10 @@ describe("Integration: Error Handling", () => {
   describe("Y.js Type Re-parenting", () => {
     it("rejects re-assigning Y type that is already in document", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       const yMap = new Y.Map();
       yRoot.set("original", yMap);
@@ -262,10 +262,10 @@ describe("Integration: Error Handling", () => {
 
     it("rejects re-assigning Y.Array that is already in document", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       const yArray = new Y.Array();
       yRoot.set("original", yArray);
@@ -280,10 +280,10 @@ describe("Integration: Error Handling", () => {
 
     it("rejects re-assigning Y.Text that is already in document", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       const yText = new Y.Text("content");
       yRoot.set("original", yText);
@@ -298,10 +298,10 @@ describe("Integration: Error Handling", () => {
 
     it("allows assigning Y type that has no parent", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       const yMap = new Y.Map();
       yMap.set("key", "value");
@@ -316,10 +316,10 @@ describe("Integration: Error Handling", () => {
   describe("Recovery from Errors", () => {
     it("proxy remains functional after validation error", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       expect(() => {
         proxy.bad = Symbol("test");
@@ -335,10 +335,10 @@ describe("Integration: Error Handling", () => {
 
     it("can correct invalid value after error", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       expect(() => {
         proxy.value = NaN;
@@ -353,7 +353,7 @@ describe("Integration: Error Handling", () => {
 
     it("rollsback proxy state after error", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
 
@@ -371,7 +371,7 @@ describe("Integration: Error Handling", () => {
   describe("Array Operation Errors", () => {
     it("rejects pushing invalid values to array", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, {
+      const { proxy } = createYjsProxy<unknown[]>(doc, {
         getRoot: (d) => d.getArray("arr"),
       });
 
@@ -382,7 +382,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects unshifting invalid values to array", () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, {
+      const { proxy } = createYjsProxy<unknown[]>(doc, {
         getRoot: (d) => d.getArray("arr"),
       });
 
@@ -393,7 +393,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects setting invalid values in array", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, {
+      const { proxy } = createYjsProxy<unknown[]>(doc, {
         getRoot: (d) => d.getArray("arr"),
       });
 
@@ -407,7 +407,7 @@ describe("Integration: Error Handling", () => {
 
     it("rejects splice with invalid values", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any[]>(doc, {
+      const { proxy } = createYjsProxy<unknown[]>(doc, {
         getRoot: (d) => d.getArray("arr"),
       });
 
@@ -423,10 +423,10 @@ describe("Integration: Error Handling", () => {
   describe("Edge Case Error Scenarios", () => {
     it("handles null correctly (not an error)", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       proxy.nullValue = null;
       await waitMicrotask();
@@ -436,40 +436,40 @@ describe("Integration: Error Handling", () => {
 
     it("handles empty objects correctly", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       proxy.empty = {};
       await waitMicrotask();
 
-      const yEmpty = yRoot.get("empty") as Y.Map<any>;
+      const yEmpty = yRoot.get("empty") as Y.Map<unknown>;
       expect(yEmpty).toBeInstanceOf(Y.Map);
       expect(yEmpty.size).toBe(0);
     });
 
     it("handles empty arrays correctly", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       proxy.emptyArr = [];
       await waitMicrotask();
 
-      const yArr = yRoot.get("emptyArr") as Y.Array<any>;
+      const yArr = yRoot.get("emptyArr") as Y.Array<unknown>;
       expect(yArr).toBeInstanceOf(Y.Array);
-      expect(yArr.length).toBe(0);
+      expect(yArr).toHaveLength(0);
     });
 
     it("handles zero correctly", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       proxy.zero = 0;
       await waitMicrotask();
@@ -479,10 +479,10 @@ describe("Integration: Error Handling", () => {
 
     it("handles empty string correctly", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       proxy.empty = "";
       await waitMicrotask();
@@ -492,10 +492,10 @@ describe("Integration: Error Handling", () => {
 
     it("handles false boolean correctly", async () => {
       const doc = new Y.Doc();
-      const { proxy } = createYjsProxy<any>(doc, {
+      const { proxy } = createYjsProxy<unknown>(doc, {
         getRoot: (d) => d.getMap("root"),
       });
-      const yRoot = doc.getMap<any>("root");
+      const yRoot = doc.getMap<unknown>("root");
 
       proxy.falseValue = false;
       await waitMicrotask();

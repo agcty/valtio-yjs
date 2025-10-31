@@ -4,7 +4,7 @@ import * as Y from 'yjs';
 import { createYjsProxy, syncedText } from '../../src';
 import { useSnapshot } from 'valtio';
 import React, { useRef } from 'react';
-import { userEvent } from '@vitest/browser/context';
+import { userEvent } from 'vitest/browser';
 
 describe('Y.Text Sequential Typing - Definitive Test', () => {
   /**
@@ -44,7 +44,7 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
       renderLog.push(`render #${renderCountRef.current}: "${textContent}"`);
       
       const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const newValue = e.target.value;
+        const newValue = e.currentTarget.value;
         const oldValue = proxy.text.toString();
         
         changeLog.push(`onChange: "${oldValue}" → "${newValue}"`);
@@ -75,12 +75,12 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
       );
     }
     
-    const screen = render(<ControlledTextarea />);
+    const screen = await render(<ControlledTextarea />);
     const textarea = screen.getByTestId('controlled-textarea');
     
     console.log('\n=== INITIAL STATE ===');
-    await expect.element(textarea).toHaveValue('');
-    await expect.element(screen.getByTestId('display')).toHaveTextContent('');
+    expect(textarea).toHaveValue('')
+    expect(screen.getByTestId('display')).toHaveTextContent('');
     console.log('✓ Initial state correct');
     
     // Clear logs after initial render
@@ -98,8 +98,8 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
     console.log('Render log:', renderLog);
     console.log('Change log:', changeLog);
     
-    await expect.element(textarea).toHaveValue('h');
-    await expect.element(screen.getByTestId('display')).toHaveTextContent('h');
+    expect(textarea).toHaveValue('h');
+    expect(screen.getByTestId('display')).toHaveTextContent('h');
     expect(proxy.text.toString()).toBe('h');
     console.log('✓ "h" successful');
     
@@ -114,8 +114,8 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
     console.log('Render log:', renderLog);
     console.log('Change log:', changeLog);
     
-    await expect.element(textarea).toHaveValue('he');
-    await expect.element(screen.getByTestId('display')).toHaveTextContent('he');
+    expect(textarea).toHaveValue('he');
+    expect(screen.getByTestId('display')).toHaveTextContent('he');
     expect(proxy.text.toString()).toBe('he');
     console.log('✓ "he" successful');
     
@@ -130,8 +130,8 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
     console.log('Render log:', renderLog);
     console.log('Change log:', changeLog);
     
-    await expect.element(textarea).toHaveValue('hel');
-    await expect.element(screen.getByTestId('display')).toHaveTextContent('hel');
+    expect(textarea).toHaveValue('hel');
+    expect(screen.getByTestId('display')).toHaveTextContent('hel');
     expect(proxy.text.toString()).toBe('hel');
     console.log('✓ "hel" successful');
     
@@ -146,8 +146,8 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
     console.log('Render log:', renderLog);
     console.log('Change log:', changeLog);
     
-    await expect.element(textarea).toHaveValue('hell');
-    await expect.element(screen.getByTestId('display')).toHaveTextContent('hell');
+    expect(textarea).toHaveValue('hell');
+    expect(screen.getByTestId('display')).toHaveTextContent('hell');
     expect(proxy.text.toString()).toBe('hell');
     console.log('✓ "hell" successful');
     
@@ -162,8 +162,8 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
     console.log('Render log:', renderLog);
     console.log('Change log:', changeLog);
     
-    await expect.element(textarea).toHaveValue('hello');
-    await expect.element(screen.getByTestId('display')).toHaveTextContent('hello');
+    expect(textarea).toHaveValue('hello');
+    expect(screen.getByTestId('display')).toHaveTextContent('hello');
     expect(proxy.text.toString()).toBe('hello');
     console.log('✓ "hello" successful');
     
@@ -201,7 +201,7 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
       
       const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
         onChangeCount += 1;
-        const newValue = e.target.value;
+        const newValue = e.currentTarget.value;
         const oldValue = proxy.text.toString();
         
         // Handle both insertions and replacements
@@ -232,7 +232,7 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
       );
     }
     
-    const screen = render(<TestComponent />);
+    const screen = await render(<TestComponent />);
     const textarea = screen.getByTestId('textarea');
     
     // Initial state
@@ -243,35 +243,35 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
     console.log('\n=== Fill with "h" ===');
     await textarea.fill('h');
     await new Promise(resolve => setTimeout(resolve, 50));
-    await expect.element(textarea).toHaveValue('h');
+    expect(textarea).toHaveValue('h');
     expect(proxy.text.toString()).toBe('h');
     console.log('onChange count:', onChangeCount, 'render count:', renderCount);
     
     console.log('\n=== Fill with "he" ===');
     await textarea.fill('he');
     await new Promise(resolve => setTimeout(resolve, 50));
-    await expect.element(textarea).toHaveValue('he');
+    expect(textarea).toHaveValue('he');
     expect(proxy.text.toString()).toBe('he');
     console.log('onChange count:', onChangeCount, 'render count:', renderCount);
     
     console.log('\n=== Fill with "hel" ===');
     await textarea.fill('hel');
     await new Promise(resolve => setTimeout(resolve, 50));
-    await expect.element(textarea).toHaveValue('hel');
+    expect(textarea).toHaveValue('hel');
     expect(proxy.text.toString()).toBe('hel');
     console.log('onChange count:', onChangeCount, 'render count:', renderCount);
     
     console.log('\n=== Fill with "hell" ===');
     await textarea.fill('hell');
     await new Promise(resolve => setTimeout(resolve, 50));
-    await expect.element(textarea).toHaveValue('hell');
+    expect(textarea).toHaveValue('hell');
     expect(proxy.text.toString()).toBe('hell');
     console.log('onChange count:', onChangeCount, 'render count:', renderCount);
     
     console.log('\n=== Fill with "hello" ===');
     await textarea.fill('hello');
     await new Promise(resolve => setTimeout(resolve, 50));
-    await expect.element(textarea).toHaveValue('hello');
+    expect(textarea).toHaveValue('hello');
     expect(proxy.text.toString()).toBe('hello');
     console.log('onChange count:', onChangeCount, 'render count:', renderCount);
     
@@ -286,8 +286,8 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
     expect(onChangeCount).toBe(5);
     
     // Final state should be correct
-    await expect.element(textarea).toHaveValue('hello');
-    await expect.element(screen.getByTestId('display')).toHaveTextContent('hello');
+    expect(textarea).toHaveValue('hello');
+    expect(screen.getByTestId('display')).toHaveTextContent('hello');
     expect(proxy.text.toString()).toBe('hello');
     
     console.log('\n=== SUCCESS: Progressive fills work correctly ===');
@@ -327,7 +327,7 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
       const textContent = snap.text.toString();
       
       const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-        const newValue = e.target.value;
+        const newValue = e.currentTarget.value;
         const oldValue = proxy.text.toString();
         
         if (newValue.length > oldValue.length) {
@@ -345,7 +345,7 @@ describe('Y.Text Sequential Typing - Definitive Test', () => {
       );
     }
     
-    const screen = render(<TestComponent />);
+    const screen = await render(<TestComponent />);
     const textarea = screen.getByTestId('textarea');
     
     console.log('\n=== Testing observer call frequency ===');

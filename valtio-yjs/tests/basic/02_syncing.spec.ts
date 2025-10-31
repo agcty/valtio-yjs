@@ -1,8 +1,7 @@
-/* eslint @typescript-eslint/no-explicit-any: "off" */
-
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsProxy } from '../../src/index';
+import { asYMap } from '../helpers/test-helpers';
 
 const waitMicrotask = () => Promise.resolve();
 
@@ -25,8 +24,8 @@ describe('two-way syncing between docs', () => {
       getRoot: (d) => d.getMap('root'),
     });
 
-    const m1 = doc1.getMap<any>('root');
-    const m2 = doc2.getMap<any>('root');
+    const m1 = doc1.getMap<unknown>('root');
+    const m2 = doc2.getMap<unknown>('root');
 
     p1.foo = 'a';
     await waitMicrotask();
@@ -61,21 +60,21 @@ describe('two-way syncing between docs', () => {
       getRoot: (d) => d.getMap('root'),
     });
 
-    const m1 = doc1.getMap<any>('root');
-    const m2 = doc2.getMap<any>('root');
+    const m1 = doc1.getMap<unknown>('root');
+    const m2 = doc2.getMap<unknown>('root');
 
     p1.foo = { bar: 'a' };
     await waitMicrotask();
     expect(p1.foo.bar).toBe('a');
-    expect(m1.get('foo').get('bar')).toBe('a');
-    expect(m2.get('foo').get('bar')).toBe('a');
+    expect(asYMap(m1.get('foo')).get('bar')).toBe('a');
+    expect(asYMap(m2.get('foo')).get('bar')).toBe('a');
     expect(p2.foo?.bar).toBe('a');
 
     p1.foo.bar = 'b';
     await waitMicrotask();
     expect(p1.foo.bar).toBe('b');
-    expect(m1.get('foo').get('bar')).toBe('b');
-    expect(m2.get('foo').get('bar')).toBe('b');
+    expect(asYMap(m1.get('foo')).get('bar')).toBe('b');
+    expect(asYMap(m2.get('foo')).get('bar')).toBe('b');
     expect(p2.foo?.bar).toBe('b');
   });
 });
@@ -102,21 +101,21 @@ describe('nested objects and arrays sync', () => {
     b1({ texts: [] });
     await waitMicrotask();
 
-    const m1 = doc1.getMap<any>('root');
-    const m2 = doc2.getMap<any>('root');
+    const m1 = doc1.getMap<unknown>('root');
+    const m2 = doc2.getMap<unknown>('root');
 
     p1.texts.push('a');
     await waitMicrotask();
     expect(p1.texts[0]).toBe('a');
-    expect(m1.get('texts').get(0)).toBe('a');
-    expect(m2.get('texts').get(0)).toBe('a');
+    expect((m1.get('texts') as Y.Array<unknown>).get(0)).toBe('a');
+    expect((m2.get('texts') as Y.Array<unknown>).get(0)).toBe('a');
     expect(p2.texts[0]).toBe('a');
 
     p1.texts.push('b');
     await waitMicrotask();
     expect(p1.texts[1]).toBe('b');
-    expect(m1.get('texts').get(1)).toBe('b');
-    expect(m2.get('texts').get(1)).toBe('b');
+    expect((m1.get('texts') as Y.Array<unknown>).get(1)).toBe('b');
+    expect((m2.get('texts') as Y.Array<unknown>).get(1)).toBe('b');
     expect(p2.texts[1]).toBe('b');
   });
 
@@ -139,21 +138,21 @@ describe('nested objects and arrays sync', () => {
       getRoot: (d) => d.getArray('root'),
     });
 
-    const a1 = doc1.getArray<any>('root');
-    const a2 = doc2.getArray<any>('root');
+    const a1 = doc1.getArray<unknown>('root');
+    const a2 = doc2.getArray<unknown>('root');
 
     p1.push({ foo: 'a' });
     await waitMicrotask();
     expect(p1[0]!.foo).toBe('a');
-    expect((a1.get(0) as Y.Map<any>).get('foo')).toBe('a');
-    expect((a2.get(0) as Y.Map<any>).get('foo')).toBe('a');
+    expect((a1.get(0) as Y.Map<unknown>).get('foo')).toBe('a');
+    expect((a2.get(0) as Y.Map<unknown>).get('foo')).toBe('a');
     expect(p2[0]!.foo).toBe('a');
 
     p1.push({ foo: 'b' });
     await waitMicrotask();
     expect(p1[1]!.foo).toBe('b');
-    expect((a1.get(1) as Y.Map<any>).get('foo')).toBe('b');
-    expect((a2.get(1) as Y.Map<any>).get('foo')).toBe('b');
+    expect((a1.get(1) as Y.Map<unknown>).get('foo')).toBe('b');
+    expect((a2.get(1) as Y.Map<unknown>).get('foo')).toBe('b');
     expect(p2[1]!.foo).toBe('b');
   });
 
@@ -175,21 +174,21 @@ describe('nested objects and arrays sync', () => {
       getRoot: (d) => d.getArray('root'),
     });
 
-    const a1 = doc1.getArray<any>('root');
-    const a2 = doc2.getArray<any>('root');
+    const a1 = doc1.getArray<unknown>('root');
+    const a2 = doc2.getArray<unknown>('root');
 
     p1.push(['a']);
     await waitMicrotask();
     expect(p1[0]![0]).toBe('a');
-    expect((a1.get(0) as Y.Array<any>).get(0)).toBe('a');
-    expect((a2.get(0) as Y.Array<any>).get(0)).toBe('a');
+    expect((a1.get(0) as Y.Array<unknown>).get(0)).toBe('a');
+    expect((a2.get(0) as Y.Array<unknown>).get(0)).toBe('a');
     expect(p2[0]![0]).toBe('a');
 
     p1.push(['b']);
     await waitMicrotask();
     expect(p1[1]![0]).toBe('b');
-    expect((a1.get(1) as Y.Array<any>).get(0)).toBe('b');
-    expect((a2.get(1) as Y.Array<any>).get(0)).toBe('b');
+    expect((a1.get(1) as Y.Array<unknown>).get(0)).toBe('b');
+    expect((a2.get(1) as Y.Array<unknown>).get(0)).toBe('b');
     expect(p2[1]![0]).toBe('b');
   });
 });

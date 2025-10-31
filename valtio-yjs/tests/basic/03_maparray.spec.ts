@@ -9,7 +9,7 @@ const waitMicrotask = () => Promise.resolve();
 describe('map containing array', () => {
   it('array value in map syncs from yjs', async () => {
     const doc = new Y.Doc();
-    const m = doc.getMap<any>('root');
+    const m = doc.getMap<unknown>('root');
     const arr = new Y.Array();
     m.set('arr', arr);
     arr.push(['a', 'b']);
@@ -19,7 +19,7 @@ describe('map containing array', () => {
     });
     await waitMicrotask();
 
-    expect(m.get('arr').toJSON()).toEqual(['a', 'b']);
+    expect((m.get('arr') as Y.Array<unknown>).toJSON()).toEqual(['a', 'b']);
     expect(p.arr).toEqual(['a', 'b']);
   });
 
@@ -28,12 +28,12 @@ describe('map containing array', () => {
     const { proxy: p, bootstrap } = createYjsProxy<{ arr: string[] }>(doc, {
       getRoot: (d) => d.getMap('root'),
     });
-    const m = doc.getMap<any>('root');
+    const m = doc.getMap<unknown>('root');
 
     bootstrap({ arr: ['a', 'b'] });
     await waitMicrotask();
 
-    expect(m.get('arr').toJSON()).toEqual(['a', 'b']);
+    expect((m.get('arr') as Y.Array<unknown>).toJSON()).toEqual(['a', 'b']);
     expect(p.arr).toEqual(['a', 'b']);
   });
 });

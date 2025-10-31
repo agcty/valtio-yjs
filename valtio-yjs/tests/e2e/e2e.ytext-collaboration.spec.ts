@@ -97,7 +97,7 @@ describe('E2E: Y.Text Collaboration', () => {
       const contentB = proxyB.text.toString();
       
       expect(contentA).toBe(contentB);
-      expect(contentA.length).toBe(2);
+      expect(contentA).toHaveLength(2);
       // Y.js CRDT will order these deterministically
       expect(['AB', 'BA']).toContain(contentA);
     });
@@ -157,7 +157,7 @@ describe('E2E: Y.Text Collaboration', () => {
       const contentB = proxyB.text.toString();
       
       expect(contentA).toBe(contentB);
-      expect(contentA.length).toBe(10); // Original 6 + 4 inserts
+      expect(contentA).toHaveLength(10); // Original 6 + 4 inserts
       expect(contentA).toContain('X');
       expect(contentA).toContain('Y');
       expect(contentA).toContain('1');
@@ -571,7 +571,7 @@ describe('E2E: Y.Text Collaboration', () => {
       
       // Both should converge
       expect(contentA).toBe(contentB);
-      expect(contentA.length).toBe(10);
+      expect(contentA).toHaveLength(10);
       // Count occurrences - should have 5 A's and 5 B's
       const aCount = (contentA.match(/A/g) || []).length;
       const bCount = (contentA.match(/B/g) || []).length;
@@ -645,8 +645,8 @@ describe('E2E: Y.Text Collaboration', () => {
       proxyB.text.insert(0, 'B');
       await waitMicrotask();
 
-      expect(proxyA.text.length).toBe(2);
-      expect(proxyB.text.length).toBe(2);
+      expect(proxyA.text).toHaveLength(2);
+      expect(proxyB.text).toHaveLength(2);
     });
 
     it('handles Unicode and emoji in collaborative editing', async () => {

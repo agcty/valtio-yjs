@@ -10,14 +10,14 @@ describe('Reconciler: delta insert materializes fields immediately', () => {
   it('delta.insert of Y.Map makes fields available on proxy right away', () => {
     const doc = new Y.Doc();
     const coordinator = new ValtioYjsCoordinator(doc, true);
-    const yArr = new Y.Array<any>();
-    const proxy = getOrCreateValtioProxy(coordinator, yArr, doc) as any[];
+    const yArr = new Y.Array<unknown>();
+    const proxy = getOrCreateValtioProxy(coordinator, yArr, doc) as unknown[];
 
     // Prepare inserted map and integrate it under the same doc first
-    const inserted = new Y.Map<any>();
+    const inserted = new Y.Map<unknown>();
     inserted.set('id', 1);
     inserted.set('text', 'Replaced Alpha');
-    const ch = new Y.Array<any>();
+    const ch = new Y.Array<unknown>();
     ch.insert(0, [{ id: 1001, text: 'Alpha - Child A' }, { id: 1002, text: 'Alpha - Child B' }]);
     inserted.set('children', ch);
     const root = doc.getMap('pool');
@@ -25,12 +25,12 @@ describe('Reconciler: delta insert materializes fields immediately', () => {
 
     const delta = [{ insert: [inserted] }, { delete: 0 }];
 
-    reconcileValtioArrayWithDelta(coordinator, yArr, doc, delta as any, (fn) => coordinator.withReconcilingLock(fn));
+    reconcileValtioArrayWithDelta(coordinator, yArr, doc, delta, (fn) => coordinator.withReconcilingLock(fn));
     expect(Array.isArray(proxy)).toBe(true);
-    expect(proxy.length).toBe(1);
-    expect(proxy[0].text).toBe('Replaced Alpha');
-    expect(Array.isArray(proxy[0].children)).toBe(true);
-    expect(proxy[0].children[0].text).toBe('Alpha - Child A');
+    expect(proxy).toHaveLength(1);
+    expect((proxy[0] as Record<string, unknown>).text).toBe('Replaced Alpha');
+    expect(Array.isArray((proxy[0] as Record<string, unknown>).children)).toBe(true);
+    expect(((proxy[0] as Record<string, unknown>).children as Array<Record<string, unknown>>)[0]?.text).toBe('Alpha - Child A');
   });
 });
 

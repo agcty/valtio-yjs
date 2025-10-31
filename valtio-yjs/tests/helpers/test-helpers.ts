@@ -36,8 +36,8 @@ export function createTwoDocsWithRelay(): { docA: Y.Doc; docB: Y.Doc; RELAY_ORIG
 
 export function createRelayedProxiesMapRoot(options?: { debug?: boolean }) {
   const { docA, docB } = createTwoDocsWithRelay();
-  const a = createYjsProxy<any>(docA, { getRoot: (d) => d.getMap('root'), debug: options?.debug });
-  const b = createYjsProxy<any>(docB, { getRoot: (d) => d.getMap('root'), debug: options?.debug });
+  const a = createYjsProxy<Record<string, unknown>>(docA, { getRoot: (d) => d.getMap('root'), debug: options?.debug });
+  const b = createYjsProxy<Record<string, unknown>>(docB, { getRoot: (d) => d.getMap('root'), debug: options?.debug });
   return {
     docA,
     docB,
@@ -51,8 +51,8 @@ export function createRelayedProxiesMapRoot(options?: { debug?: boolean }) {
 
 export function createRelayedProxiesArrayRoot() {
   const { docA, docB } = createTwoDocsWithRelay();
-  const a = createYjsProxy<any[]>(docA, { getRoot: (d) => d.getArray('arr') });
-  const b = createYjsProxy<any[]>(docB, { getRoot: (d) => d.getArray('arr') });
+  const a = createYjsProxy<unknown[]>(docA, { getRoot: (d) => d.getArray('arr') });
+  const b = createYjsProxy<unknown[]>(docB, { getRoot: (d) => d.getArray('arr') });
   return {
     docA,
     docB,
@@ -64,4 +64,25 @@ export function createRelayedProxiesArrayRoot() {
   } as const;
 }
 
+// Helper functions for type-safe Y.Map access
+export function asYMap<T = unknown>(value: unknown): Y.Map<T> {
+  return value as Y.Map<T>;
+}
 
+export function getYMap<T = unknown>(yMap: Y.Map<unknown>, key: string): Y.Map<T> | undefined {
+  const value = yMap.get(key);
+  return value instanceof Y.Map ? (value as Y.Map<T>) : undefined;
+}
+
+// Helper for accessing nested properties on Record<string, unknown>
+export function getNested<T>(obj: Record<string, unknown>, path: string[]): T | undefined {
+  let current: unknown = obj;
+  for (const key of path) {
+    if (current && typeof current === 'object' && !Array.isArray(current) && key in current) {
+      current = (current as Record<string, unknown>)[key];
+    } else {
+      return undefined;
+    }
+  }
+  return current as T;
+}

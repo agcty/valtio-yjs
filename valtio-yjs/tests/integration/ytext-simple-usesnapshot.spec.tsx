@@ -43,7 +43,7 @@ describe('Y.Text Simple useSnapshot Test', () => {
       );
     }
     
-    const screen = render(<TestComponent />);
+    const screen = await render(<TestComponent />);
     
     await new Promise(resolve => setTimeout(resolve, 100));
     
@@ -62,7 +62,7 @@ describe('Y.Text Simple useSnapshot Test', () => {
     expect(renderCount).toBeGreaterThan(initialRenderCount);
     
     const textElement = screen.getByTestId('text');
-    await expect.element(textElement).toHaveTextContent('hello');
+    expect(textElement).toHaveTextContent('hello');
     
     console.log(`✅ SUCCESS: React re-rendered (${initialRenderCount} → ${renderCount})`);
   });

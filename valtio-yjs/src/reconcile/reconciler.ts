@@ -213,7 +213,7 @@ export function reconcileValtioArray(
 /**
  * Applies a granular Yjs delta to the Valtio array proxy, avoiding full re-splices.
  * The delta format follows Yjs ArrayEvent.changes.delta: an array of ops
- * where each op is one of { retain: number } | { delete: number } | { insert: any[] }.
+ * where each op is one of { retain: number } | { delete: number } | { insert: unknown[] }.
  */
 export function reconcileValtioArrayWithDelta(
   coordinator: ValtioYjsCoordinator,

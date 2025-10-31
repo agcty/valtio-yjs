@@ -372,7 +372,7 @@ describe('PostTransactionQueue', () => {
 
       queue.enqueue(() => {
         results.push('sync');
-        Promise.resolve().then(() => results.push('async'));
+        void Promise.resolve().then(() => results.push('async'));
       });
 
       queue.flush(withLock);
