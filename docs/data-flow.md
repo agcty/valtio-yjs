@@ -6,7 +6,7 @@ Scenario: `userProxy.profile.email = '...'` in the UI.
 
 1. Accessing `profile` returns the `profile` controller proxy (a Valtio proxy for a `Y.Map`). This proxy is the object you use; it performs the controller behavior under the hood.
 2. The Valtio subscription on the object proxy receives a top-level `set` operation for `email`.
-3. The operation is enqueued into the context's write scheduler.
+3. The operation is enqueued into the coordinator's write scheduler.
 4. On the next microtask, the scheduler flushes all pending operations in a single `doc.transact(..., VALTIO_YJS_ORIGIN)`.
 5. Inside the transaction, `yProfileMap.set('email', '...')` is called (or convert complex values using converter utilities if needed).
 6. The transaction ends.
@@ -29,5 +29,3 @@ Scenario: A peer inserts a new item into a shared list (a `Y.Array`).
 6. For arrays, the reconciler either applies the delta or performs a full structural reconcile (building new content with controller proxies).
 7. The Valtio proxy is updated under a reconciliation lock (to prevent reflection back to Yjs).
 8. Valtio detects the changes; components using `useSnapshot` of that proxy re-render.
-
- 

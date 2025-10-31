@@ -18,14 +18,35 @@
 - Decision: Many proxies (the Live Controller Proxy model).
 - Rationale: Enables surgical UI updates with `useSnapshot` and preserves identity links between UI dependencies and specific collaborative objects.
 
-## 3) Encapsulated Context vs Global Module State
+## 3) Dependency Injection via Coordinator Pattern
+
+- Problem: Circular dependencies between core modules (e.g., state management needing apply functions, apply functions needing state access) create tight coupling and make testing difficult.
+- Options:
+  - Keep circular dependencies with late binding
+  - Factory function with setter injection
+  - Coordinator pattern with constructor injection
+- Decision: Use `ValtioYjsCoordinator` with constructor-based dependency injection.
+- Architecture:
+  - `ValtioYjsCoordinator`: Orchestration layer that owns and wires all components
+  - `SynchronizationState`: Pure data holder with no dependencies
+  - `Logger`: Infrastructure for logging
+  - `WriteScheduler`: Batching and scheduling logic
+  - Apply functions: Business logic for applying operations
+- Rationale:
+  - **Eliminates circular dependencies**: All dependencies flow in ONE direction - no cycles possible
+  - **Separation of concerns**: Clear boundaries between orchestration, state, logging, and business logic
+  - **Testability**: Each component can be tested in isolation with proper mocks
+  - **Maintainability**: Explicit dependency graph makes the system easier to understand and modify
+- Trade-offs: Requires slightly more boilerplate for wiring, but the benefits of clean architecture outweigh the cost.
+
+## 4) Encapsulated State vs Global Module State
 
 - Problem: Where to store instance-scoped caches and disposers.
-- Options: Module-level globals vs per-instance `SynchronizationContext`.
-- Decision: Encapsulate in `SynchronizationContext`.
+- Options: Module-level globals vs per-instance state management.
+- Decision: Encapsulate in `SynchronizationState` (owned by `ValtioYjsCoordinator`).
 - Rationale: Prevents cross-instance interference, simplifies tests, and makes lifecycle management explicit (`disposeAll`).
 
-## 4) Eager Upgrade on Local Writes vs Parent-Level Nested Routing
+## 5) Eager Upgrade on Local Writes vs Parent-Level Nested Routing
 
 - Problem: Assigning a plain object/array to a controller proxy creates a period where the Valtio tree contains plain values while the Y tree expects live controller proxies. Subsequent nested edits would surface as deeper paths on the parent, tempting parent listeners to route and mutate grandchildren, violating encapsulation and not scaling with depth.
 - Options:
@@ -34,16 +55,16 @@
 - Decision: Eager upgrade on write.
 - Rationale: Restores encapsulation (parents only handle direct children), scales recursively (children handle their own edits), and eliminates brittle, leaky abstractions.
 
-## 5) Per-Controller vs Centralized Batching
+## 6) Per-Controller vs Centralized Batching
 
 - Problem: Interleaved `doc.transact` calls across controller proxies lead to re-entrancy, partial shapes, and hard-to-reason timing during object insertion.
 - Options:
   - Per-controller-proxy batching: simpler but still allows competing transactions in the same tick.
-  - Centralized batching: one scheduler per context flushes once per microtask.
-- Decision: Centralized batching in `SynchronizationContext`.
+  - Centralized batching: one scheduler per coordinator flushes once per microtask.
+- Decision: Centralized batching via `WriteScheduler` (owned by `ValtioYjsCoordinator`).
 - Rationale: Guarantees a single transaction per tick, deterministic ordering (map deletes → map sets → array deletes → array sets), coalesces duplicate writes, and runs all eager upgrades post-transaction under the reconciliation lock.
 
-## 6) Why a Reconciliation Lock when Yjs already does CRDTs?
+## 7) Why a Reconciliation Lock when Yjs already does CRDTs?
 
 - Problem: Yjs reconciles concurrent edits in the Y document, but our bridge must mirror Y → Valtio and translate Valtio → Y. Without a guard, inbound structural writes to the Valtio proxy would be observed by controller proxies and reflected back into Y, causing loops and redundant transactions.
 - Options:
@@ -52,7 +73,7 @@
 - Decision: Use a reconciliation lock (`withReconcilingLock`).
 - Rationale: Separates responsibilities and keeps flows one-way during inbound updates. The origin guard stops Yjs-level echo; the lock stops Valtio-level reflection. Together they avoid feedback loops, reduce redundant writes/relay traffic, and ensure deterministic, cheap reconciliation.
 
-## 7) Array Operations: Sets, Deletes, and Replaces
+## 8) Array Operations: Sets, Deletes, and Replaces
 
 - Problem: Valtio array operations need to map cleanly to Yjs array operations while supporting all standard array methods including moves.
 - Decision: Categorize operations into three types:
@@ -67,7 +88,7 @@
 - Implementation: See `planning/array-ops-planner.ts` for classification logic and `scheduling/array-apply.ts` for execution
 - Note: Array moves work correctly via standard splice operations (e.g., `arr.splice(from, 1); arr.splice(to, 0, item)`). For applications with high-frequency concurrent reordering where conflict resolution is critical, consider fractional indexing as an application-level optimization pattern.
 
-## 8) Two-phase Y→Valtio reconciliation with delta-aware arrays
+## 9) Two-phase Y→Valtio reconciliation with delta-aware arrays
 
 - Problem: Nested array updates could be applied twice when reconciling both ancestor structure and direct array deltas in the same tick; also, children might be missing controllers when deltas arrive.
 - Decision:
@@ -79,7 +100,7 @@
   - Deterministic ordering and fewer observer churns.
   - Clear separation of concerns: structure first, then deltas.
 
-## 9) Validation and Rollback on Assignment Errors
+## 10) Validation and Rollback on Assignment Errors
 
 - Problem: When a user assigns invalid data (e.g., objects with `undefined`, functions, or non-plain objects) to a Valtio proxy, the assignment happens immediately in Valtio's state, but validation may fail later during the asynchronous Yjs flush. This creates an inconsistent state where the Valtio proxy contains invalid data that was never written to Yjs.
 - Options:
@@ -104,7 +125,7 @@
   - Enables defensive programming patterns with try/catch
 - Test Coverage: See `tests/map-validation-rollback.spec.ts` for comprehensive validation scenarios
 
-## 10) No Implicit Type Conversions (Date, RegExp, etc.)
+## 11) No Implicit Type Conversions (Date, RegExp, etc.)
 
 - Problem: JavaScript has several built-in types (Date, RegExp, URL, etc.) that could potentially be "magically" converted to strings or other primitive representations for storage in Yjs, but this creates ambiguity about what's actually stored and how it will be deserialized.
 - Options:
