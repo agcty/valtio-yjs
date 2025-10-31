@@ -35,11 +35,7 @@
     "dev": "tsdown --watch ./src",
     "test": "bun vitest",
     "bench": "bun vitest bench --config vitest.bench.config.ts",
-    "typecheck": "bun tsc -b --emitDeclarationOnly",
-    "lint": "cd .. && bun run lint",
-    "lint:fix": "cd .. && bun run lint:fix",
-    "format": "cd .. && bun run format",
-    "format:check": "cd .. && bun run format:check"
+    "typecheck": "bun tsc -b --emitDeclarationOnly"
   },
   "keywords": [
     "valtio",

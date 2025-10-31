@@ -13,13 +13,6 @@
       "dependsOn": ["^build"],
       "outputs": ["coverage/**"]
     },
-    "lint": {
-      "dependsOn": ["^build"]
-    },
-    "lint:fix": {
-      "dependsOn": ["^build"],
-      "cache": false
-    },
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": [".tsbuild/**"]

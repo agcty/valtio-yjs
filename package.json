@@ -11,8 +11,8 @@
     "dev": "turbo run dev",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "lint": "turbo run lint",
-    "lint:fix": "turbo run lint:fix",
+    "lint": "oxlint --type-aware .",
+    "lint:fix": "oxlint --type-aware --fix .",
     "format": "turbo run format",
     "format:check": "turbo run format:check",
     "check": "bun run format && bun run lint:fix"
