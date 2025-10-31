@@ -58,7 +58,7 @@ export function reconcileValtioMap(
       yJson: yTypeToJSON(yMap),
     });
     const yKeys = new Set(Array.from(yMap.keys()).map((k) => String(k)));
-    // EXCLUDE internal valtio-yjs properties from reconciliation
+    // EXCLUDE internal valtio-y properties from reconciliation
     // These properties (like __valtio_yjs_version, __valtio_yjs_leaf_*) are used for reactivity
     // and should NOT be synced with Y.Map or deleted during reconciliation
     const valtioKeys = new Set(

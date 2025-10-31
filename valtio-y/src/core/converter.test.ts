@@ -23,7 +23,7 @@ describe("Converters: plainObjectToYType and yTypeToPlainObject", () => {
 
     // Test that undefined throws an error per new architecture
     expect(() => plainObjectToYType(undefined, state, logger)).toThrowError(
-      "[valtio-yjs] undefined is not allowed in shared state",
+      "[valtio-y] undefined is not allowed in shared state",
     );
   });
 
@@ -50,7 +50,7 @@ describe("Converters: plainObjectToYType and yTypeToPlainObject", () => {
       validateDeepForSharedState(inputWithUndefined);
       plainObjectToYType(inputWithUndefined, state, logger);
     }).toThrowError(
-      "[valtio-yjs] undefined is not allowed in objects for shared state",
+      "[valtio-y] undefined is not allowed in objects for shared state",
     );
   });
 
@@ -150,7 +150,7 @@ describe("Converters: plainObjectToYType and yTypeToPlainObject", () => {
       a: undefined,
     } as const;
     expect(() => validateDeepForSharedState(objWithUndefined)).toThrow(
-      "[valtio-yjs] undefined is not allowed in objects for shared state",
+      "[valtio-y] undefined is not allowed in objects for shared state",
     );
 
     // Test that undefined in nested objects throws (validation layer)
@@ -158,13 +158,13 @@ describe("Converters: plainObjectToYType and yTypeToPlainObject", () => {
       b: { c: undefined },
     } as const;
     expect(() => validateDeepForSharedState(nestedObjWithUndefined)).toThrow(
-      "[valtio-yjs] undefined is not allowed in objects for shared state",
+      "[valtio-y] undefined is not allowed in objects for shared state",
     );
 
     // Arrays with undefined should also throw errors per new architecture (validation layer)
     const arrayWithUndefined = [1, undefined, 2];
     expect(() => validateDeepForSharedState(arrayWithUndefined)).toThrow(
-      "[valtio-yjs] undefined is not allowed in shared state",
+      "[valtio-y] undefined is not allowed in shared state",
     );
   });
 

@@ -1,7 +1,7 @@
 import { LOG_PREFIX } from "./constants";
 
 /**
- * Logger interface for valtio-yjs.
+ * Logger interface for valtio-y.
  * Provides debug, warn, and error logging with automatic prefix handling.
  */
 export interface Logger {
@@ -15,7 +15,7 @@ export interface Logger {
  *
  * @param debug - Enable debug logging (default: false)
  * @param trace - Enable trace logging (currently unused, reserved for future use)
- * @returns Logger instance that automatically prefixes all messages with [valtio-yjs]
+ * @returns Logger instance that automatically prefixes all messages with [valtio-y]
  */
 export function createLogger(
   debug: boolean = false,

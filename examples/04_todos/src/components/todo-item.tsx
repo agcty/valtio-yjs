@@ -10,7 +10,7 @@
  * - Deletion
  *
  * Key learning points:
- * - Direct mutations to the proxy automatically sync via valtio-yjs
+ * - Direct mutations to the proxy automatically sync via valtio-y
  * - Array operations (push, splice) work seamlessly
  * - Deeply nested updates propagate correctly
  */
@@ -50,7 +50,7 @@ import { getItemByPath, getContainingArray } from "../utils";
 interface TodoItemProps {
   /** The todo item data from the snapshot */
   item: TodoItemType;
-  /** The mutable valtio-yjs proxy for making changes */
+  /** The mutable valtio-y proxy for making changes */
   stateProxy: AppState;
   /** Path to this item in the tree (array of indices) */
   path: number[];
@@ -109,7 +109,7 @@ export function TodoItem({
 
   /**
    * Toggle completion status.
-   * Note: We mutate the proxy directly - valtio-yjs handles the sync!
+   * Note: We mutate the proxy directly - valtio-y handles the sync!
    */
   function toggleComplete() {
     const target = getItemByPath(stateProxy.todos, path);
@@ -156,7 +156,7 @@ export function TodoItem({
         target.children = [];
       }
       const newId = `${item.id}-${Date.now()}`;
-      // Push directly - valtio-yjs tracks this!
+      // Push directly - valtio-y tracks this!
       target.children.push({
         id: newId,
         text: "New subtask",

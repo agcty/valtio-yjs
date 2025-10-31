@@ -2,12 +2,12 @@ import * as Y from "yjs";
 import type { YSharedContainer } from "./yjs-types";
 
 /**
- * Type alias for any Y.js shared type that valtio-yjs can synchronize.
+ * Type alias for any Y.js shared type that valtio-y can synchronize.
  */
 export type AnySharedType = YSharedContainer;
 
 /**
- * Pure state holder for valtio-yjs synchronization.
+ * Pure state holder for valtio-y synchronization.
  *
  * This class contains ONLY data structures and state management logic.
  * It has ZERO dependencies on business logic modules (no circular dependencies).

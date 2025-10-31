@@ -7,7 +7,7 @@
     "react": "latest",
     "react-dom": "latest",
     "valtio": "latest",
-    "valtio-yjs": "workspace:*",
+    "valtio-y": "workspace:*",
     "y-websocket": "latest",
     "yjs": "latest"
   },

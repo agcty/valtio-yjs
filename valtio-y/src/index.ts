@@ -1,5 +1,5 @@
 /**
- * valtio-yjs: Bi-directional synchronization between Valtio and Y.js
+ * valtio-y: Bi-directional synchronization between Valtio and Y.js
  *
  * This is a barrel file that re-exports the public API.
  */

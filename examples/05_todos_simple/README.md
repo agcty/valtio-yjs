@@ -1,6 +1,6 @@
 # Simple Todos Example
 
-A simplified collaborative todo list demonstrating the core features of valtio-yjs in a single, easy-to-understand file.
+A simplified collaborative todo list demonstrating the core features of valtio-y in a single, easy-to-understand file.
 
 ## What You'll Learn
 
@@ -80,7 +80,7 @@ This simplified version differs from `04_todos`:
 - **One level of nesting** instead of unlimited depth
 - **Offline/online toggle** to demonstrate sync behavior
 - **No advanced features** like selection mode or bulk operations
-- **Focused on learning** the core valtio-yjs concepts
+- **Focused on learning** the core valtio-y concepts
 
 For more advanced features (drag-and-drop, deep nesting, bulk operations), see the `04_todos` example.
 
@@ -95,7 +95,7 @@ After understanding this example, you can:
 
 ## Key Concepts
 
-### valtio-yjs Proxy
+### valtio-y Proxy
 
 The proxy bridges Valtio's reactive state with Yjs CRDTs:
 

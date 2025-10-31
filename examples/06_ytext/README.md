@@ -10,7 +10,7 @@ This example showcases:
 - ⌨️ **Simultaneous Editing**: Multiple users can type at the same time
 - 🔄 **Character Merging**: Changes merge at the character level, not by replacing entire strings
 - 🔴 **Offline Support**: Changes sync when clients come back online
-- ⚛️ **React Integration**: Use Y.Text with valtio-yjs in React
+- ⚛️ **React Integration**: Use Y.Text with valtio-y in React
 
 ## Why Y.Text?
 
@@ -145,4 +145,4 @@ After understanding Y.Text, you can:
 
 - **05_todos_simple**: Shows plain strings for simple data (recommended for non-text fields)
 - **04_todos**: Complex example with nested structures
-- Check valtio-yjs docs for more Y.Text features and options
+- Check valtio-y docs for more Y.Text features and options

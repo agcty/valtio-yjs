@@ -1,5 +1,5 @@
 /**
- * Core type utilities for valtio-yjs
+ * Core type utilities for valtio-y
  *
  * This file contains:
  * - Branded types for Valtio proxies

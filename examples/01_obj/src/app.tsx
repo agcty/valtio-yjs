@@ -1,13 +1,13 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
-import { createYjsProxy } from "valtio-yjs";
+import { createYjsProxy } from "valtio-y";
 import { useSnapshot } from "valtio";
 import { useState } from "react";
 
 const ydoc = new Y.Doc();
 const provider = new WebsocketProvider(
   "ws://localhost:1234",
-  "valtio-yjs-demo",
+  "valtio-y-demo",
   ydoc,
 );
 

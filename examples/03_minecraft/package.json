@@ -11,7 +11,7 @@
     "react-dom": "latest",
     "three": "latest",
     "valtio": "latest",
-    "valtio-yjs": "workspace:*",
+    "valtio-y": "workspace:*",
     "y-webrtc": "latest",
     "yjs": "latest"
   },

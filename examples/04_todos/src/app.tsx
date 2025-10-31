@@ -1,7 +1,7 @@
 /**
  * Collaborative Todo List - Main Application
  *
- * This example demonstrates the key features of valtio-yjs:
+ * This example demonstrates the key features of valtio-y:
  *
  * 1. **Simple API**: Just mutate the proxy like regular JavaScript objects
  * 2. **Real-time Sync**: Changes sync automatically between clients via Yjs
@@ -42,11 +42,11 @@ const App = () => {
             Collaborative Todo List
           </h1>
           <p className="text-slate-600 text-base mb-2">
-            Powered by <strong>valtio-yjs</strong> · Real-time synchronization
+            Powered by <strong>valtio-y</strong> · Real-time synchronization
             between clients
           </p>
           <p className="text-sm text-slate-500 max-w-2xl mx-auto mb-4">
-            This example showcases how valtio-yjs handles complex state
+            This example showcases how valtio-y handles complex state
             including nested arrays, drag-and-drop reordering, and bulk
             operations. All changes sync automatically through Yjs CRDTs.
           </p>
@@ -78,7 +78,7 @@ const App = () => {
         {/* Educational footer */}
         <div className="mt-12 max-w-3xl mx-auto bg-white rounded-lg shadow-sm border border-slate-200 p-6">
           <h3 className="text-lg font-semibold text-slate-900 mb-3">
-            How valtio-yjs Works
+            How valtio-y Works
           </h3>
           <div className="space-y-3 text-sm text-slate-600">
             <div>
@@ -92,7 +92,7 @@ const App = () => {
               <strong className="text-slate-900">
                 Write with direct mutations:
               </strong>{" "}
-              Modify the proxy like a normal object. valtio-yjs converts
+              Modify the proxy like a normal object. valtio-y converts
               mutations into Yjs operations.
             </div>
             <div>

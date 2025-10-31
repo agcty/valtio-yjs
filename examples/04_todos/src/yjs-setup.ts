@@ -1,13 +1,13 @@
 /**
  * Yjs Setup and Network Simulation
  *
- * This file demonstrates how to set up valtio-yjs for real-time collaboration.
+ * This file demonstrates how to set up valtio-y for real-time collaboration.
  * In a real application, you would connect these documents to a network provider
  * (like y-websocket, y-webrtc, etc.) instead of this manual relay.
  */
 
 import * as Y from "yjs";
-import { createYjsProxy } from "valtio-yjs";
+import { createYjsProxy } from "valtio-y";
 import type { AppState, SyncStatus } from "./types";
 
 // ============================================================================
@@ -105,7 +105,7 @@ doc2.on("update", (update: Uint8Array, origin: unknown) => {
 // ============================================================================
 
 /**
- * Create valtio-yjs proxies for each document.
+ * Create valtio-y proxies for each document.
  *
  * The proxy acts as a bridge between Valtio's reactive state and Yjs's CRDT.
  * - Write to the proxy like normal JavaScript: proxy.todos.push(newTodo)
