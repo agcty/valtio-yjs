@@ -46,7 +46,7 @@ describe('Y.Text Reactivity - Final Test', () => {
     const initialRenderCount = renderCount;
     console.log('Initial render count:', initialRenderCount);
     
-    await expect.element(screen.getByTestId('text')).toHaveTextContent('initial');
+    expect(screen.getByTestId('text')).toHaveTextContent('initial');
     
     console.log('\n=== Modifying Y.Text ===');
     proxy.text.delete(0, proxy.text.length);
@@ -56,7 +56,7 @@ describe('Y.Text Reactivity - Final Test', () => {
     
     console.log('Final render count:', renderCount);
     
-    await expect.element(screen.getByTestId('text')).toHaveTextContent('updated');
+    expect(screen.getByTestId('text')).toHaveTextContent('updated');
     
     expect(renderCount).toBeGreaterThan(initialRenderCount);
     console.log(`\n✅ SUCCESS: React re-rendered (${initialRenderCount} → ${renderCount})`);
@@ -106,7 +106,7 @@ describe('Y.Text Reactivity - Final Test', () => {
     
     console.log('Render log:', renderLog);
     
-    await expect.element(screen.getByTestId('text')).toHaveTextContent('abc');
+    expect(screen.getByTestId('text')).toHaveTextContent('abc');
     
     // Should have re-rendered multiple times (initial + 3 updates)
     expect(renderCount).toBeGreaterThanOrEqual(4);

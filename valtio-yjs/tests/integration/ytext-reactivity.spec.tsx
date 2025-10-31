@@ -33,14 +33,14 @@ describe('Y.Text Reactivity with React', () => {
     const screen = await render(<TextDisplay />);
     
     // Initially should show "Hello"
-    await expect.element(screen.getByTestId('text-content')).toHaveTextContent('Hello');
+    expect(screen.getByTestId('text-content')).toHaveTextContent('Hello');
     
     // Modify Y.Text directly (simulating user input)
     proxy.text.insert(5, ' World');
     
     // The component should re-render and show the updated text
     // This is the critical test - without the fix, this would timeout/fail
-    await expect.element(screen.getByTestId('text-content')).toHaveTextContent('Hello World');
+    expect(screen.getByTestId('text-content')).toHaveTextContent('Hello World');
   });
   
   it('updates React component on Y.Text delete operations', async () => {
@@ -66,13 +66,13 @@ describe('Y.Text Reactivity with React', () => {
     const screen = await render(<TextDisplay />);
     
     // Initially should show "Hello World"
-    await expect.element(screen.getByTestId('text-content')).toHaveTextContent('Hello World');
+    expect(screen.getByTestId('text-content')).toHaveTextContent('Hello World');
     
     // Delete part of the text
     proxy.text.delete(5, 6); // Remove " World"
     
     // Component should update immediately
-    await expect.element(screen.getByTestId('text-content')).toHaveTextContent('Hello');
+    expect(screen.getByTestId('text-content')).toHaveTextContent('Hello');
   });
   
   it('updates React component when Y.Text is modified from remote changes', async () => {
@@ -118,13 +118,13 @@ describe('Y.Text Reactivity with React', () => {
     const screen = await render(<TextDisplay />);
     
     // Initially should show "Initial"
-    await expect.element(screen.getByTestId('remote-text')).toHaveTextContent('Initial');
+    expect(screen.getByTestId('remote-text')).toHaveTextContent('Initial');
     
     // Modify via proxy1 (remote change)
     proxy1.text.insert(7, ' Text');
     
     // Component watching proxy2 should update
-    await expect.element(screen.getByTestId('remote-text')).toHaveTextContent('Initial Text');
+    expect(screen.getByTestId('remote-text')).toHaveTextContent('Initial Text');
   });
   
   it('handles multiple rapid Y.Text changes', async () => {
@@ -162,8 +162,8 @@ describe('Y.Text Reactivity with React', () => {
     proxy.text.insert(4, 'o');
     
     // Component should eventually show all changes
-    await expect.element(screen.getByTestId('text-content')).toHaveTextContent('Hello');
-    await expect.element(screen.getByTestId('text-length')).toHaveTextContent('5');
+    expect(screen.getByTestId('text-content')).toHaveTextContent('Hello');
+    expect(screen.getByTestId('text-length')).toHaveTextContent('5');
   });
   
   it('displays character count that updates reactively', async () => {
@@ -194,13 +194,13 @@ describe('Y.Text Reactivity with React', () => {
     const screen = await render(<CharacterCounter />);
     
     // Initial count
-    await expect.element(screen.getByTestId('char-count')).toHaveTextContent('Characters: 4');
+    expect(screen.getByTestId('char-count')).toHaveTextContent('Characters: 4');
     
     // Add more text
     proxy.text.insert(4, ' Text');
     
     // Count should update
-    await expect.element(screen.getByTestId('char-count')).toHaveTextContent('Characters: 9');
+    expect(screen.getByTestId('char-count')).toHaveTextContent('Characters: 9');
   });
 });
 
