@@ -1,8 +1,8 @@
-import * as Y from 'yjs';
-import type { PendingMapEntry, PendingArrayEntry } from './batch-types';
-import type { Logger } from '../core/logger';
-import { VALTIO_YJS_ORIGIN } from '../core/constants';
-import { PostTransactionQueue } from './post-transaction-queue';
+import * as Y from "yjs";
+import type { PendingMapEntry, PendingArrayEntry } from "./batch-types";
+import type { Logger } from "../core/logger";
+import { VALTIO_YJS_ORIGIN } from "../core/constants";
+import { PostTransactionQueue } from "./post-transaction-queue";
 
 /**
  * Apply functions that WriteScheduler delegates to.
@@ -13,14 +13,14 @@ export interface ApplyFunctions {
   applyMapSets: (
     mapSets: Map<Y.Map<unknown>, Map<string, PendingMapEntry>>,
     postQueue: PostTransactionQueue,
-    withReconcilingLock: (fn: () => void) => void
+    withReconcilingLock: (fn: () => void) => void,
   ) => void;
   applyArrayOperations: (
     arraySets: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
     arrayDeletes: Map<Y.Array<unknown>, Set<number>>,
     arrayReplaces: Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>,
     postQueue: PostTransactionQueue,
-    withReconcilingLock: (fn: () => void) => void
+    withReconcilingLock: (fn: () => void) => void,
   ) => void;
   withReconcilingLock: (fn: () => void) => void;
 }
@@ -29,10 +29,13 @@ export interface ApplyFunctions {
  * Recursively collects all Y.Map and Y.Array shared types in a subtree.
  * Used for purging stale operations when a parent is deleted/replaced.
  */
-function collectYSubtree(root: unknown): { maps: Set<Y.Map<unknown>>; arrays: Set<Y.Array<unknown>> } {
+function collectYSubtree(root: unknown): {
+  maps: Set<Y.Map<unknown>>;
+  arrays: Set<Y.Array<unknown>>;
+} {
   const maps = new Set<Y.Map<unknown>>();
   const arrays = new Set<Y.Array<unknown>>();
-  
+
   const recurse = (node: unknown): void => {
     if (node instanceof Y.Map) {
       maps.add(node);
@@ -42,7 +45,7 @@ function collectYSubtree(root: unknown): { maps: Set<Y.Map<unknown>>; arrays: Se
       for (const v of node.toArray()) recurse(v);
     }
   };
-  
+
   recurse(root);
   return { maps, arrays };
 }
@@ -57,11 +60,20 @@ export class WriteScheduler {
   private flushScheduled = false;
 
   // Pending ops, deduped per target and key/index
-  private pendingMapSets = new Map<Y.Map<unknown>, Map<string, PendingMapEntry>>();
+  private pendingMapSets = new Map<
+    Y.Map<unknown>,
+    Map<string, PendingMapEntry>
+  >();
   private pendingMapDeletes = new Map<Y.Map<unknown>, Set<string>>();
-  private pendingArraySets = new Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>();
+  private pendingArraySets = new Map<
+    Y.Array<unknown>,
+    Map<number, PendingArrayEntry>
+  >();
   private pendingArrayDeletes = new Map<Y.Array<unknown>, Set<number>>();
-  private pendingArrayReplaces = new Map<Y.Array<unknown>, Map<number, PendingArrayEntry>>();
+  private pendingArrayReplaces = new Map<
+    Y.Array<unknown>,
+    Map<number, PendingArrayEntry>
+  >();
 
   /**
    * Constructor injection - all dependencies provided upfront.
@@ -76,7 +88,7 @@ export class WriteScheduler {
     doc: Y.Doc,
     log: Logger,
     applyFunctions: ApplyFunctions,
-    traceMode: boolean = false
+    traceMode: boolean = false,
   ) {
     this.doc = doc;
     this.log = log;
@@ -161,14 +173,14 @@ export class WriteScheduler {
   private scheduleFlush(): void {
     if (this.flushScheduled) return;
     this.flushScheduled = true;
-    this.log.debug('[scheduler] scheduleFlush');
+    this.log.debug("[scheduler] scheduleFlush");
     queueMicrotask(() => this.flush());
   }
 
   private flush(): void {
     this.flushScheduled = false;
     const doc = this.doc;
-    this.log.debug('[scheduler] flush start');
+    this.log.debug("[scheduler] flush start");
     // Snapshot pending and clear before running to avoid re-entrancy issues
     const mapSets = this.pendingMapSets;
     const mapDeletes = this.pendingMapDeletes;
@@ -180,23 +192,29 @@ export class WriteScheduler {
     this.pendingArraySets = new Map();
     this.pendingArrayDeletes = new Map();
     this.pendingArrayReplaces = new Map();
-    
+
     // Debug: log what we have before merging
     if (arraySets.size > 0 || arrayDeletes.size > 0 || arrayReplaces.size > 0) {
-      this.log.debug('[scheduler] before merge:', {
-        arraySets: Array.from(arraySets.entries()).map(([, m]) => Array.from(m.keys())),
-        arrayDeletes: Array.from(arrayDeletes.entries()).map(([, s]) => Array.from(s)),
-        arrayReplaces: Array.from(arrayReplaces.entries()).map(([, m]) => Array.from(m.keys())),
+      this.log.debug("[scheduler] before merge:", {
+        arraySets: Array.from(arraySets.entries()).map(([, m]) =>
+          Array.from(m.keys()),
+        ),
+        arrayDeletes: Array.from(arrayDeletes.entries()).map(([, s]) =>
+          Array.from(s),
+        ),
+        arrayReplaces: Array.from(arrayReplaces.entries()).map(([, m]) =>
+          Array.from(m.keys()),
+        ),
       });
     }
-    
+
     // Merge array delete+set operations for the same index into replace operations
     // This handles the case where multiple Valtio operations in the same batch
     // generate conflicting operations for the same index
     for (const [yArray, deleteIndices] of arrayDeletes) {
       const setMap = arraySets.get(yArray);
       const replaceMap = arrayReplaces.get(yArray);
-      
+
       // Merge any delete+set at same index into replace
       // Previous implementation was conservative (only if exactly one delete and one set),
       // but testing shows we can safely merge any matching pairs at same indices
@@ -209,39 +227,44 @@ export class WriteScheduler {
               replaceMapToUpdate = new Map();
               arrayReplaces.set(yArray, replaceMapToUpdate);
             }
-            
+
             // Move the operations from delete+set to replace
             const setValue = setMap.get(deleteIndex)!;
             replaceMapToUpdate.set(deleteIndex, setValue);
             setMap.delete(deleteIndex);
             deleteIndices.delete(deleteIndex);
-            
-            this.log.debug('[scheduler] merging delete+set into replace', { index: deleteIndex });
+
+            this.log.debug("[scheduler] merging delete+set into replace", {
+              index: deleteIndex,
+            });
           }
         }
-        
+
         // Clean up empty set map
         if (setMap.size === 0) {
           arraySets.delete(yArray);
         }
       }
-      
+
       // Check for delete+replace combinations - the replace wins, remove the delete
       if (replaceMap) {
         for (const deleteIndex of Array.from(deleteIndices)) {
           if (replaceMap.has(deleteIndex)) {
             deleteIndices.delete(deleteIndex);
-            this.log.debug('[scheduler] removing redundant delete (replace exists)', { index: deleteIndex });
+            this.log.debug(
+              "[scheduler] removing redundant delete (replace exists)",
+              { index: deleteIndex },
+            );
           }
         }
       }
-      
+
       // Clean up empty delete set
       if (deleteIndices.size === 0) {
         arrayDeletes.delete(yArray);
       }
     }
-    
+
     // Purge stale operations targeting children of items that will be replaced in this flush
     // This ensures we don't try to mutate a subtree after its parent is deleted/replaced in the same transaction
     if (arrayReplaces.size > 0) {
@@ -273,7 +296,10 @@ export class WriteScheduler {
         }
       }
       if (purged.maps > 0 || purged.arrays > 0) {
-        this.log.debug('[scheduler] Purged pending ops for replaced subtrees', purged);
+        this.log.debug(
+          "[scheduler] Purged pending ops for replaced subtrees",
+          purged,
+        );
       }
     }
 
@@ -284,7 +310,10 @@ export class WriteScheduler {
       for (const idx of replaceMap.keys()) {
         if (setMap.has(idx)) {
           setMap.delete(idx);
-          this.log.debug('[scheduler] removing redundant set (replace exists)', { index: idx });
+          this.log.debug(
+            "[scheduler] removing redundant set (replace exists)",
+            { index: idx },
+          );
         }
       }
       if (setMap.size === 0) {
@@ -322,7 +351,10 @@ export class WriteScheduler {
         }
       }
       if (purged.maps > 0 || purged.arrays > 0) {
-        this.log.debug('[scheduler] Purged pending ops for deleted subtrees', purged);
+        this.log.debug(
+          "[scheduler] Purged pending ops for deleted subtrees",
+          purged,
+        );
       }
     }
 
@@ -338,27 +370,42 @@ export class WriteScheduler {
 
     // Trace mode: log planned intents for debugging
     if (this.traceMode) {
-      this.log.debug('[scheduler] trace: planned intents for this flush', {
-        mapSets: mapSets.size > 0 ? Array.from(mapSets.entries()).map(([yMap, keyMap]) => ({
-          target: yMap.constructor.name,
-          operations: Array.from(keyMap.keys())
-        })) : [],
-        mapDeletes: mapDeletes.size > 0 ? Array.from(mapDeletes.entries()).map(([yMap, keySet]) => ({
-          target: yMap.constructor.name,
-          operations: Array.from(keySet)
-        })) : [],
-        arraySets: arraySets.size > 0 ? Array.from(arraySets.entries()).map(([yArray, indexMap]) => ({
-          target: yArray.constructor.name,
-          operations: Array.from(indexMap.keys())
-        })) : [],
-        arrayDeletes: arrayDeletes.size > 0 ? Array.from(arrayDeletes.entries()).map(([yArray, indexSet]) => ({
-          target: yArray.constructor.name,
-          operations: Array.from(indexSet)
-        })) : [],
-        arrayReplaces: arrayReplaces.size > 0 ? Array.from(arrayReplaces.entries()).map(([yArray, indexMap]) => ({
-          target: yArray.constructor.name,
-          operations: Array.from(indexMap.keys())
-        })) : []
+      this.log.debug("[scheduler] trace: planned intents for this flush", {
+        mapSets:
+          mapSets.size > 0
+            ? Array.from(mapSets.entries()).map(([yMap, keyMap]) => ({
+                target: yMap.constructor.name,
+                operations: Array.from(keyMap.keys()),
+              }))
+            : [],
+        mapDeletes:
+          mapDeletes.size > 0
+            ? Array.from(mapDeletes.entries()).map(([yMap, keySet]) => ({
+                target: yMap.constructor.name,
+                operations: Array.from(keySet),
+              }))
+            : [],
+        arraySets:
+          arraySets.size > 0
+            ? Array.from(arraySets.entries()).map(([yArray, indexMap]) => ({
+                target: yArray.constructor.name,
+                operations: Array.from(indexMap.keys()),
+              }))
+            : [],
+        arrayDeletes:
+          arrayDeletes.size > 0
+            ? Array.from(arrayDeletes.entries()).map(([yArray, indexSet]) => ({
+                target: yArray.constructor.name,
+                operations: Array.from(indexSet),
+              }))
+            : [],
+        arrayReplaces:
+          arrayReplaces.size > 0
+            ? Array.from(arrayReplaces.entries()).map(([yArray, indexMap]) => ({
+                target: yArray.constructor.name,
+                operations: Array.from(indexMap.keys()),
+              }))
+            : [],
       });
     }
 
@@ -366,27 +413,47 @@ export class WriteScheduler {
 
     // DEBUG-TRACE: dump the exact batch about to be applied
     if (this.traceMode) {
-      const mapDeletesLog = Array.from(mapDeletes.entries()).map(([yMap, keySet]) => ({
-        targetId: (yMap as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
-        keys: Array.from(keySet),
-      }));
-      const mapSetsLog = Array.from(mapSets.entries()).map(([yMap, keyMap]) => ({
-        targetId: (yMap as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
-        keys: Array.from(keyMap.keys()),
-      }));
-      const arrayDeletesLog = Array.from(arrayDeletes.entries()).map(([yArr, idxSet]) => ({
-        targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
-        indices: Array.from(idxSet).sort((a, b) => a - b),
-      }));
-      const arraySetsLog = Array.from(arraySets.entries()).map(([yArr, idxMap]) => ({
-        targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
-        indices: Array.from(idxMap.keys()).sort((a, b) => a - b),
-      }));
-      const arrayReplacesLog = Array.from(arrayReplaces.entries()).map(([yArr, idxMap]) => ({
-        targetId: (yArr as unknown as { _item?: { id?: { toString?: () => string } } })?._item?.id?.toString?.(),
-        indices: Array.from(idxMap.keys()).sort((a, b) => a - b),
-      }));
-      this.log.debug('Flushing transaction with operations:', {
+      const mapDeletesLog = Array.from(mapDeletes.entries()).map(
+        ([yMap, keySet]) => ({
+          targetId: (
+            yMap as unknown as { _item?: { id?: { toString?: () => string } } }
+          )?._item?.id?.toString?.(),
+          keys: Array.from(keySet),
+        }),
+      );
+      const mapSetsLog = Array.from(mapSets.entries()).map(
+        ([yMap, keyMap]) => ({
+          targetId: (
+            yMap as unknown as { _item?: { id?: { toString?: () => string } } }
+          )?._item?.id?.toString?.(),
+          keys: Array.from(keyMap.keys()),
+        }),
+      );
+      const arrayDeletesLog = Array.from(arrayDeletes.entries()).map(
+        ([yArr, idxSet]) => ({
+          targetId: (
+            yArr as unknown as { _item?: { id?: { toString?: () => string } } }
+          )?._item?.id?.toString?.(),
+          indices: Array.from(idxSet).sort((a, b) => a - b),
+        }),
+      );
+      const arraySetsLog = Array.from(arraySets.entries()).map(
+        ([yArr, idxMap]) => ({
+          targetId: (
+            yArr as unknown as { _item?: { id?: { toString?: () => string } } }
+          )?._item?.id?.toString?.(),
+          indices: Array.from(idxMap.keys()).sort((a, b) => a - b),
+        }),
+      );
+      const arrayReplacesLog = Array.from(arrayReplaces.entries()).map(
+        ([yArr, idxMap]) => ({
+          targetId: (
+            yArr as unknown as { _item?: { id?: { toString?: () => string } } }
+          )?._item?.id?.toString?.(),
+          indices: Array.from(idxMap.keys()).sort((a, b) => a - b),
+        }),
+      );
+      this.log.debug("Flushing transaction with operations:", {
         mapDeletes: mapDeletesLog,
         mapSets: mapSetsLog,
         arrayDeletes: arrayDeletesLog,
@@ -400,8 +467,18 @@ export class WriteScheduler {
 
     doc.transact(() => {
       this.applyFunctions.applyMapDeletes(mapDeletes);
-      this.applyFunctions.applyMapSets(mapSets, postQueue, this.applyFunctions.withReconcilingLock);
-      this.applyFunctions.applyArrayOperations(arraySets, arrayDeletes, arrayReplaces, postQueue, this.applyFunctions.withReconcilingLock);
+      this.applyFunctions.applyMapSets(
+        mapSets,
+        postQueue,
+        this.applyFunctions.withReconcilingLock,
+      );
+      this.applyFunctions.applyArrayOperations(
+        arraySets,
+        arrayDeletes,
+        arrayReplaces,
+        postQueue,
+        this.applyFunctions.withReconcilingLock,
+      );
     }, VALTIO_YJS_ORIGIN);
 
     // Flush post-transaction callbacks with reconciling lock

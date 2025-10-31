@@ -1,7 +1,7 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
 
-import * as Y from 'yjs';
-import { createYjsProxy } from '../../src/index';
+import * as Y from "yjs";
+import { createYjsProxy } from "../../src/index";
 
 export const waitMicrotask = () => Promise.resolve();
 
@@ -9,15 +9,15 @@ export type LooseRecord = Record<string, any>;
 export type LooseArray = any[];
 
 export const asLooseRecord = (value: unknown): LooseRecord => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new TypeError('Expected record-like proxy node');
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new TypeError("Expected record-like proxy node");
   }
   return value as LooseRecord;
 };
 
 export const asLooseArray = (value: unknown): LooseArray => {
   if (!Array.isArray(value)) {
-    throw new TypeError('Expected array-like proxy node');
+    throw new TypeError("Expected array-like proxy node");
   }
   return value as LooseArray;
 };
@@ -30,18 +30,22 @@ export function createDocWithProxy<T extends object>(getRoot: GetRootFn) {
   return { doc, ...result } as const;
 }
 
-export function createTwoDocsWithRelay(): { docA: Y.Doc; docB: Y.Doc; RELAY_ORIGIN: symbol } {
+export function createTwoDocsWithRelay(): {
+  docA: Y.Doc;
+  docB: Y.Doc;
+  RELAY_ORIGIN: symbol;
+} {
   const docA = new Y.Doc();
   const docB = new Y.Doc();
-  const RELAY_ORIGIN = Symbol('relay-origin');
+  const RELAY_ORIGIN = Symbol("relay-origin");
 
-  docA.on('update', (update, origin) => {
+  docA.on("update", (update, origin) => {
     if (origin === RELAY_ORIGIN) return;
     docB.transact(() => {
       Y.applyUpdate(docB, update);
     }, RELAY_ORIGIN);
   });
-  docB.on('update', (update, origin) => {
+  docB.on("update", (update, origin) => {
     if (origin === RELAY_ORIGIN) return;
     docA.transact(() => {
       Y.applyUpdate(docA, update);
@@ -51,10 +55,18 @@ export function createTwoDocsWithRelay(): { docA: Y.Doc; docB: Y.Doc; RELAY_ORIG
   return { docA, docB, RELAY_ORIGIN } as const;
 }
 
-export function createRelayedProxiesMapRoot<T extends object = LooseRecord>(options?: { debug?: boolean }) {
+export function createRelayedProxiesMapRoot<
+  T extends object = LooseRecord,
+>(options?: { debug?: boolean }) {
   const { docA, docB } = createTwoDocsWithRelay();
-  const a = createYjsProxy<T>(docA, { getRoot: (d) => d.getMap('root'), debug: options?.debug });
-  const b = createYjsProxy<T>(docB, { getRoot: (d) => d.getMap('root'), debug: options?.debug });
+  const a = createYjsProxy<T>(docA, {
+    getRoot: (d) => d.getMap("root"),
+    debug: options?.debug,
+  });
+  const b = createYjsProxy<T>(docB, {
+    getRoot: (d) => d.getMap("root"),
+    debug: options?.debug,
+  });
   return {
     docA,
     docB,
@@ -66,10 +78,12 @@ export function createRelayedProxiesMapRoot<T extends object = LooseRecord>(opti
   } as const;
 }
 
-export function createRelayedProxiesArrayRoot<T extends unknown[] = LooseArray>() {
+export function createRelayedProxiesArrayRoot<
+  T extends unknown[] = LooseArray,
+>() {
   const { docA, docB } = createTwoDocsWithRelay();
-  const a = createYjsProxy<T>(docA, { getRoot: (d) => d.getArray('arr') });
-  const b = createYjsProxy<T>(docB, { getRoot: (d) => d.getArray('arr') });
+  const a = createYjsProxy<T>(docA, { getRoot: (d) => d.getArray("arr") });
+  const b = createYjsProxy<T>(docB, { getRoot: (d) => d.getArray("arr") });
   return {
     docA,
     docB,
@@ -86,7 +100,10 @@ export function asYMap<T = unknown>(value: unknown): Y.Map<T> {
   return value as Y.Map<T>;
 }
 
-export function getYMap<T = unknown>(yMap: Y.Map<unknown>, key: string): Y.Map<T> | undefined {
+export function getYMap<T = unknown>(
+  yMap: Y.Map<unknown>,
+  key: string,
+): Y.Map<T> | undefined {
   const value = yMap.get(key);
   return value instanceof Y.Map ? (value as Y.Map<T>) : undefined;
 }
@@ -95,7 +112,12 @@ export function getYMap<T = unknown>(yMap: Y.Map<unknown>, key: string): Y.Map<T
 export function getNested<T>(obj: LooseRecord, path: string[]): T | undefined {
   let current: unknown = obj;
   for (const key of path) {
-    if (current && typeof current === 'object' && !Array.isArray(current) && key in current) {
+    if (
+      current &&
+      typeof current === "object" &&
+      !Array.isArray(current) &&
+      key in current
+    ) {
       current = (current as LooseRecord)[key];
     } else {
       return undefined;
@@ -106,20 +128,20 @@ export function getNested<T>(obj: LooseRecord, path: string[]): T | undefined {
 
 // Type guards for unknown values in tests
 export function assertObject(value: unknown): asserts value is object {
-  if (typeof value !== 'object' || value === null) {
-    throw new TypeError('Expected object');
+  if (typeof value !== "object" || value === null) {
+    throw new TypeError("Expected object");
   }
 }
 
 export function assertArray(value: unknown): asserts value is unknown[] {
   if (!Array.isArray(value)) {
-    throw new TypeError('Expected array');
+    throw new TypeError("Expected array");
   }
 }
 
 export function assertRecord(value: unknown): asserts value is LooseRecord {
   assertObject(value);
   if (Array.isArray(value)) {
-    throw new TypeError('Expected record, got array');
+    throw new TypeError("Expected record, got array");
   }
 }

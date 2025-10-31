@@ -1,6 +1,6 @@
 /**
  * SyncStatus Component
- * 
+ *
  * Displays the real-time synchronization status between clients.
  * This provides visual feedback about network state and helps users
  * understand when their changes have been synced.
@@ -59,4 +59,3 @@ export function SyncStatus({ clientId }: SyncStatusProps) {
     </div>
   );
 }
-

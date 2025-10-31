@@ -1,10 +1,10 @@
 /* eslint react/no-unknown-property: "off" */
 
-import * as THREE from 'three';
-import { useLoader } from '@react-three/fiber';
-import { usePlane } from '@react-three/cannon';
+import * as THREE from "three";
+import { useLoader } from "@react-three/fiber";
+import { usePlane } from "@react-three/cannon";
 // @ts-expect-error no types
-import grass from './assets/grass.jpg';
+import grass from "./assets/grass.jpg";
 
 export const Ground = () => {
   const [ref] = usePlane(() => ({

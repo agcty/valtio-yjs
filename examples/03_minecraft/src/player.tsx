@@ -1,19 +1,19 @@
 /* eslint react/no-unknown-property: "off" */
 
-import * as THREE from 'three';
-import { useEffect, useRef, useState } from 'react';
-import { useSphere } from '@react-three/cannon';
-import { useThree, useFrame } from '@react-three/fiber';
-import type { Group } from 'three';
-import Axe from './axe';
+import * as THREE from "three";
+import { useEffect, useRef, useState } from "react";
+import { useSphere } from "@react-three/cannon";
+import { useThree, useFrame } from "@react-three/fiber";
+import type { Group } from "three";
+import Axe from "./axe";
 
 const SPEED = 5;
 const keys = {
-  KeyW: 'forward',
-  KeyS: 'backward',
-  KeyA: 'left',
-  KeyD: 'right',
-  Space: 'jump',
+  KeyW: "forward",
+  KeyS: "backward",
+  KeyA: "left",
+  KeyD: "right",
+  Space: "jump",
 };
 const moveFieldByKey = (key: string) => keys[key as keyof typeof keys];
 const direction = new THREE.Vector3();
@@ -35,11 +35,11 @@ const usePlayerControls = () => {
       setMovement((m) => ({ ...m, [moveFieldByKey(e.code)]: true }));
     const handleKeyUp = (e: KeyboardEvent) =>
       setMovement((m) => ({ ...m, [moveFieldByKey(e.code)]: false }));
-    document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('keyup', handleKeyUp);
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("keyup", handleKeyUp);
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('keyup', handleKeyUp);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keyup", handleKeyUp);
     };
   }, []);
   return movement;
@@ -49,7 +49,7 @@ export const Player = () => {
   const axe = useRef<Group>(null!);
   const [ref, api] = useSphere(() => ({
     mass: 1,
-    type: 'Dynamic',
+    type: "Dynamic",
     position: [0, 10, 0],
   }));
   const { forward, backward, left, right, jump } = usePlayerControls();

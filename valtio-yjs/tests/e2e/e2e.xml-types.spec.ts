@@ -274,7 +274,9 @@ describe("E2E: Y.Xml Types", () => {
       expect(proxyB.root.get(0).nodeName).toBe("section");
       expect(proxyB.root.get(0).get(0).nodeName).toBe("article");
       expect(proxyB.root.get(0).get(0).get(0).nodeName).toBe("p");
-      expect(proxyB.root.get(0).get(0).get(0).get(0).toString()).toBe("Deep content");
+      expect(proxyB.root.get(0).get(0).get(0).get(0).toString()).toBe(
+        "Deep content",
+      );
     });
   });
 
@@ -520,4 +522,3 @@ describe("E2E: Y.Xml Types", () => {
     });
   });
 });
-

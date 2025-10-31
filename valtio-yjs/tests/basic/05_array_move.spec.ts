@@ -1,18 +1,18 @@
-import { describe, expect, it } from 'vitest';
-import * as Y from 'yjs';
-import { createYjsProxy } from '../../src/index';
+import { describe, expect, it } from "vitest";
+import * as Y from "yjs";
+import { createYjsProxy } from "../../src/index";
 
 const waitMicrotask = () => Promise.resolve();
 
-describe('array item move operations', () => {
-  it('array item move up', async () => {
+describe("array item move operations", () => {
+  it("array item move up", async () => {
     const doc = new Y.Doc();
     const { proxy: p, bootstrap } = createYjsProxy<string[]>(doc, {
-      getRoot: (d) => d.getArray('root'),
+      getRoot: (d) => d.getArray("root"),
     });
-    const a = doc.getArray<string>('root');
+    const a = doc.getArray<string>("root");
 
-    bootstrap(['a', 'b', 'c', 'd', 'e']);
+    bootstrap(["a", "b", "c", "d", "e"]);
     await waitMicrotask();
 
     const moveUp = (index: number) => {
@@ -22,23 +22,23 @@ describe('array item move operations', () => {
 
     moveUp(2);
     await waitMicrotask();
-    expect(a.toJSON()).toEqual(['a', 'c', 'b', 'd', 'e']);
-    expect(p).toEqual(['a', 'c', 'b', 'd', 'e']);
+    expect(a.toJSON()).toEqual(["a", "c", "b", "d", "e"]);
+    expect(p).toEqual(["a", "c", "b", "d", "e"]);
 
     moveUp(3);
     await waitMicrotask();
-    expect(a.toJSON()).toEqual(['a', 'c', 'd', 'b', 'e']);
-    expect(p).toEqual(['a', 'c', 'd', 'b', 'e']);
+    expect(a.toJSON()).toEqual(["a", "c", "d", "b", "e"]);
+    expect(p).toEqual(["a", "c", "d", "b", "e"]);
   });
 
-  it('array item move down', async () => {
+  it("array item move down", async () => {
     const doc = new Y.Doc();
     const { proxy: p, bootstrap } = createYjsProxy<string[]>(doc, {
-      getRoot: (d) => d.getArray('root'),
+      getRoot: (d) => d.getArray("root"),
     });
-    const a = doc.getArray<string>('root');
+    const a = doc.getArray<string>("root");
 
-    bootstrap(['a', 'b', 'c', 'd', 'e']);
+    bootstrap(["a", "b", "c", "d", "e"]);
     await waitMicrotask();
 
     const moveDown = (index: number) => {
@@ -48,12 +48,12 @@ describe('array item move operations', () => {
 
     moveDown(2);
     await waitMicrotask();
-    expect(a.toJSON()).toEqual(['a', 'b', 'd', 'c', 'e']);
-    expect(p).toEqual(['a', 'b', 'd', 'c', 'e']);
+    expect(a.toJSON()).toEqual(["a", "b", "d", "c", "e"]);
+    expect(p).toEqual(["a", "b", "d", "c", "e"]);
 
     moveDown(1);
     await waitMicrotask();
-    expect(a.toJSON()).toEqual(['a', 'd', 'b', 'c', 'e']);
-    expect(p).toEqual(['a', 'd', 'b', 'c', 'e']);
+    expect(a.toJSON()).toEqual(["a", "d", "b", "c", "e"]);
+    expect(p).toEqual(["a", "d", "b", "c", "e"]);
   });
 });

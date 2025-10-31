@@ -1,6 +1,6 @@
-import { bench, describe } from 'vitest';
-import * as Y from 'yjs';
-import { createYjsProxy } from '../src/index.js';
+import { bench, describe } from "vitest";
+import * as Y from "yjs";
+import { createYjsProxy } from "../src/index.js";
 
 // =============================================================================
 // Helper Functions
@@ -9,7 +9,7 @@ import { createYjsProxy } from '../src/index.js';
 const waitMicrotask = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 function createDocWithProxy<T extends object>(
-  getRoot: (d: Y.Doc) => Y.Map<unknown> | Y.Array<unknown>
+  getRoot: (d: Y.Doc) => Y.Map<unknown> | Y.Array<unknown>,
 ) {
   const doc = new Y.Doc();
   const result = createYjsProxy<T>(doc, { getRoot });
@@ -19,16 +19,16 @@ function createDocWithProxy<T extends object>(
 function createTwoDocsWithRelay() {
   const docA = new Y.Doc();
   const docB = new Y.Doc();
-  const RELAY_ORIGIN = Symbol('relay-origin');
+  const RELAY_ORIGIN = Symbol("relay-origin");
 
-  docA.on('update', (update, origin) => {
+  docA.on("update", (update, origin) => {
     if (origin === RELAY_ORIGIN) return;
     docB.transact(() => {
       Y.applyUpdate(docB, update);
     }, RELAY_ORIGIN);
   });
 
-  docB.on('update', (update, origin) => {
+  docB.on("update", (update, origin) => {
     if (origin === RELAY_ORIGIN) return;
     docA.transact(() => {
       Y.applyUpdate(docA, update);
@@ -42,13 +42,13 @@ function createTwoDocsWithRelay() {
 // Category 1: Large Arrays (1000+ items)
 // =============================================================================
 
-describe('Large Arrays Performance', () => {
+describe("Large Arrays Performance", () => {
   bench(
-    'bootstrap 1000 items',
+    "bootstrap 1000 items",
     async () => {
-      const { bootstrap, dispose } = createDocWithProxy<{ items: Array<{ id: number; value: string }> }>(
-        (d) => d.getMap('root')
-      );
+      const { bootstrap, dispose } = createDocWithProxy<{
+        items: Array<{ id: number; value: string }>;
+      }>((d) => d.getMap("root"));
 
       const data = {
         items: Array.from({ length: 1000 }, (_, i) => ({
@@ -64,15 +64,15 @@ describe('Large Arrays Performance', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'bootstrap 5000 items',
+    "bootstrap 5000 items",
     async () => {
-      const { bootstrap, dispose } = createDocWithProxy<{ items: Array<{ id: number; value: string }> }>(
-        (d) => d.getMap('root')
-      );
+      const { bootstrap, dispose } = createDocWithProxy<{
+        items: Array<{ id: number; value: string }>;
+      }>((d) => d.getMap("root"));
 
       const data = {
         items: Array.from({ length: 5000 }, (_, i) => ({
@@ -88,15 +88,15 @@ describe('Large Arrays Performance', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'batch update 100 items in large array (1000 items)',
+    "batch update 100 items in large array (1000 items)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; value: string }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; value: string }>
+      >((d) => d.getArray("arr"));
 
       const data = Array.from({ length: 1000 }, (_, i) => ({
         id: i,
@@ -116,15 +116,15 @@ describe('Large Arrays Performance', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'push 100 items to existing large array',
+    "push 100 items to existing large array",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; value: string }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; value: string }>
+      >((d) => d.getArray("arr"));
 
       const data = Array.from({ length: 1000 }, (_, i) => ({
         id: i,
@@ -144,15 +144,15 @@ describe('Large Arrays Performance', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'splice operations on large array (100 deletes)',
+    "splice operations on large array (100 deletes)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; value: string }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; value: string }>
+      >((d) => d.getArray("arr"));
 
       const data = Array.from({ length: 1000 }, (_, i) => ({
         id: i,
@@ -172,15 +172,15 @@ describe('Large Arrays Performance', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'replace 100 items in large array (same-index delete+insert)',
+    "replace 100 items in large array (same-index delete+insert)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; value: string }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; value: string }>
+      >((d) => d.getArray("arr"));
 
       const data = Array.from({ length: 1000 }, (_, i) => ({
         id: i,
@@ -200,7 +200,7 @@ describe('Large Arrays Performance', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 });
 
@@ -208,26 +208,29 @@ describe('Large Arrays Performance', () => {
 // Category 2: Deep Nesting (10+ levels)
 // =============================================================================
 
-describe('Deep Nesting Performance', () => {
+describe("Deep Nesting Performance", () => {
   // Helper to create deeply nested structure
   type DeepStructure = { value: string } | { nested: DeepStructure };
   function createDeepStructure(depth: number): DeepStructure {
     if (depth === 0) {
-      return { value: 'leaf' };
+      return { value: "leaf" };
     }
     return { nested: createDeepStructure(depth - 1) };
   }
 
   bench(
-    'access deep property (10 levels) - lazy materialization',
+    "access deep property (10 levels) - lazy materialization",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Record<string, unknown>
+      >((d) => d.getMap("root"));
 
       bootstrap({ data: createDeepStructure(10) });
       await waitMicrotask();
 
       // Access deep property (forces materialization)
-      let current: Record<string, unknown> = (proxy as Record<string, unknown>).data as Record<string, unknown>;
+      let current: Record<string, unknown> = (proxy as Record<string, unknown>)
+        .data as Record<string, unknown>;
       for (let i = 0; i < 10; i++) {
         current = current.nested as Record<string, unknown>;
       }
@@ -237,19 +240,22 @@ describe('Deep Nesting Performance', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'access deep property (20 levels) - lazy materialization',
+    "access deep property (20 levels) - lazy materialization",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Record<string, unknown>
+      >((d) => d.getMap("root"));
 
       bootstrap({ data: createDeepStructure(20) });
       await waitMicrotask();
 
       // Access deep property (forces materialization)
-      let current: Record<string, unknown> = (proxy as Record<string, unknown>).data as Record<string, unknown>;
+      let current: Record<string, unknown> = (proxy as Record<string, unknown>)
+        .data as Record<string, unknown>;
       for (let i = 0; i < 20; i++) {
         current = current.nested as Record<string, unknown>;
       }
@@ -259,69 +265,78 @@ describe('Deep Nesting Performance', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'mutate deep property (10 levels) - propagation time',
+    "mutate deep property (10 levels) - propagation time",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Record<string, unknown>
+      >((d) => d.getMap("root"));
 
       bootstrap({ data: createDeepStructure(10) });
       await waitMicrotask();
 
       // Navigate to deep property
-      let current: Record<string, unknown> = (proxy as Record<string, unknown>).data as Record<string, unknown>;
+      let current: Record<string, unknown> = (proxy as Record<string, unknown>)
+        .data as Record<string, unknown>;
       for (let i = 0; i < 9; i++) {
         current = current.nested as Record<string, unknown>;
       }
 
       // Mutate at depth
-      ((current.nested as Record<string, unknown>).value as string) = 'mutated';
+      ((current.nested as Record<string, unknown>).value as string) = "mutated";
       await waitMicrotask();
 
       dispose();
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'mutate deep property (20 levels) - propagation time',
+    "mutate deep property (20 levels) - propagation time",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Record<string, unknown>
+      >((d) => d.getMap("root"));
 
       bootstrap({ data: createDeepStructure(20) });
       await waitMicrotask();
 
       // Navigate to deep property
-      let current: Record<string, unknown> = (proxy as Record<string, unknown>).data as Record<string, unknown>;
+      let current: Record<string, unknown> = (proxy as Record<string, unknown>)
+        .data as Record<string, unknown>;
       for (let i = 0; i < 19; i++) {
         current = current.nested as Record<string, unknown>;
       }
 
       // Mutate at depth
-      ((current.nested as Record<string, unknown>).value as string) = 'mutated';
+      ((current.nested as Record<string, unknown>).value as string) = "mutated";
       await waitMicrotask();
 
       dispose();
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'replace mid-level object in deep structure (10 levels)',
+    "replace mid-level object in deep structure (10 levels)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Record<string, unknown>>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Record<string, unknown>
+      >((d) => d.getMap("root"));
 
       bootstrap({ data: createDeepStructure(10) });
       await waitMicrotask();
 
       // Navigate to mid-level (level 5)
-      let current: Record<string, unknown> = (proxy as Record<string, unknown>).data as Record<string, unknown>;
+      let current: Record<string, unknown> = (proxy as Record<string, unknown>)
+        .data as Record<string, unknown>;
       for (let i = 0; i < 4; i++) {
         current = current.nested as Record<string, unknown>;
       }
@@ -334,24 +349,22 @@ describe('Deep Nesting Performance', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'bootstrap deep structure vs shallow - comparison',
+    "bootstrap deep structure vs shallow - comparison",
     async () => {
       // Deep structure
-      const { bootstrap: bootstrapDeep, dispose: disposeDeep } = createDocWithProxy<Record<string, unknown>>(
-        (d) => d.getMap('root')
-      );
+      const { bootstrap: bootstrapDeep, dispose: disposeDeep } =
+        createDocWithProxy<Record<string, unknown>>((d) => d.getMap("root"));
       bootstrapDeep({ data: createDeepStructure(15) });
       await waitMicrotask();
 
       // Shallow structure with equivalent data
-      const { bootstrap: bootstrapShallow, dispose: disposeShallow } = createDocWithProxy<Record<string, unknown>>(
-        (d) => d.getMap('root')
-      );
-      bootstrapShallow({ items: Array(100).fill({ value: 'leaf' }) });
+      const { bootstrap: bootstrapShallow, dispose: disposeShallow } =
+        createDocWithProxy<Record<string, unknown>>((d) => d.getMap("root"));
+      bootstrapShallow({ items: Array(100).fill({ value: "leaf" }) });
       await waitMicrotask();
 
       disposeDeep();
@@ -359,7 +372,7 @@ describe('Deep Nesting Performance', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 });
 
@@ -367,13 +380,13 @@ describe('Deep Nesting Performance', () => {
 // Category 3: Rapid Mutations (Batching Effectiveness)
 // =============================================================================
 
-describe('Rapid Mutations - Batching Effectiveness', () => {
+describe("Rapid Mutations - Batching Effectiveness", () => {
   bench(
-    'single microtask: 1000 operations on array',
+    "single microtask: 1000 operations on array",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; count: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; count: number }>
+      >((d) => d.getArray("arr"));
 
       // Bootstrap with 100 items
       bootstrap(Array.from({ length: 100 }, (_, i) => ({ id: i, count: 0 })));
@@ -390,13 +403,15 @@ describe('Rapid Mutations - Batching Effectiveness', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'single microtask: 1000 map operations',
+    "single microtask: 1000 map operations",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Record<string, number>>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Record<string, number>
+      >((d) => d.getMap("root"));
 
       // Bootstrap with 100 keys
       const data: Record<string, number> = {};
@@ -417,15 +432,15 @@ describe('Rapid Mutations - Batching Effectiveness', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'multiple microtasks: 10 batches of 100 operations',
+    "multiple microtasks: 10 batches of 100 operations",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; count: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; count: number }>
+      >((d) => d.getArray("arr"));
 
       bootstrap(Array.from({ length: 100 }, (_, i) => ({ id: i, count: 0 })));
       await waitMicrotask();
@@ -443,17 +458,19 @@ describe('Rapid Mutations - Batching Effectiveness', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'mixed operations: adds, updates, deletes in same tick',
+    "mixed operations: adds, updates, deletes in same tick",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; value: string }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; value: string }>
+      >((d) => d.getArray("arr"));
 
-      bootstrap(Array.from({ length: 100 }, (_, i) => ({ id: i, value: `item-${i}` })));
+      bootstrap(
+        Array.from({ length: 100 }, (_, i) => ({ id: i, value: `item-${i}` })),
+      );
       await waitMicrotask();
 
       // Mix of operations in same tick
@@ -472,21 +489,24 @@ describe('Rapid Mutations - Batching Effectiveness', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'nested mutations: parent and child changes in same tick',
+    "nested mutations: parent and child changes in same tick",
     async () => {
       const { proxy, bootstrap, dispose } = createDocWithProxy<
-        Array<{ id: number; nested: { value: string; deep: { count: number } } }>
-      >((d) => d.getArray('arr'));
+        Array<{
+          id: number;
+          nested: { value: string; deep: { count: number } };
+        }>
+      >((d) => d.getArray("arr"));
 
       bootstrap(
         Array.from({ length: 100 }, (_, i) => ({
           id: i,
           nested: { value: `item-${i}`, deep: { count: 0 } },
-        }))
+        })),
       );
       await waitMicrotask();
 
@@ -501,13 +521,15 @@ describe('Rapid Mutations - Batching Effectiveness', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'operation deduplication test: same key updated 1000 times',
+    "operation deduplication test: same key updated 1000 times",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<{ counter: number }>((d) => d.getMap('root'));
+      const { proxy, bootstrap, dispose } = createDocWithProxy<{
+        counter: number;
+      }>((d) => d.getMap("root"));
 
       bootstrap({ counter: 0 });
       await waitMicrotask();
@@ -522,7 +544,7 @@ describe('Rapid Mutations - Batching Effectiveness', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 });
 
@@ -530,17 +552,17 @@ describe('Rapid Mutations - Batching Effectiveness', () => {
 // Category 4: Multi-Client Sync Latency
 // =============================================================================
 
-describe('Multi-Client Sync Latency', () => {
+describe("Multi-Client Sync Latency", () => {
   bench(
-    'two-client: small payload sync (single property)',
+    "two-client: small payload sync (single property)",
     async () => {
       const { docA, docB } = createTwoDocsWithRelay();
 
       const proxyA = createYjsProxy<{ value: number }>(docA, {
-        getRoot: (d) => d.getMap('root'),
+        getRoot: (d) => d.getMap("root"),
       });
       const proxyB = createYjsProxy<{ value: number }>(docB, {
-        getRoot: (d) => d.getMap('root'),
+        getRoot: (d) => d.getMap("root"),
       });
 
       proxyA.bootstrap({ value: 0 });
@@ -559,47 +581,68 @@ describe('Multi-Client Sync Latency', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'two-client: medium payload sync (nested object)',
+    "two-client: medium payload sync (nested object)",
     async () => {
       const { docA, docB } = createTwoDocsWithRelay();
 
       const proxyA = createYjsProxy<Record<string, unknown>>(docA, {
-        getRoot: (d) => d.getMap('root'),
+        getRoot: (d) => d.getMap("root"),
       });
       const proxyB = createYjsProxy<Record<string, unknown>>(docB, {
-        getRoot: (d) => d.getMap('root'),
+        getRoot: (d) => d.getMap("root"),
       });
 
-      proxyA.bootstrap({ user: { name: 'Alice', age: 30, profile: { bio: 'Developer' } } });
+      proxyA.bootstrap({
+        user: { name: "Alice", age: 30, profile: { bio: "Developer" } },
+      });
       await waitMicrotask();
 
       // Update nested object
-      (((proxyA.proxy as Record<string, unknown>).user as Record<string, unknown>).profile as Record<string, unknown>).bio = 'Senior Developer';
+      (
+        (
+          (proxyA.proxy as Record<string, unknown>).user as Record<
+            string,
+            unknown
+          >
+        ).profile as Record<string, unknown>
+      ).bio = "Senior Developer";
       await waitMicrotask();
-      const _synced = (((proxyB.proxy as Record<string, unknown>).user as Record<string, unknown>).profile as Record<string, unknown>).bio === 'Senior Developer';
+      const _synced =
+        (
+          (
+            (proxyB.proxy as Record<string, unknown>).user as Record<
+              string,
+              unknown
+            >
+          ).profile as Record<string, unknown>
+        ).bio === "Senior Developer";
 
       proxyA.dispose();
       proxyB.dispose();
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'two-client: large payload sync (100-item array)',
+    "two-client: large payload sync (100-item array)",
     async () => {
       const { docA, docB } = createTwoDocsWithRelay();
 
-      const proxyA = createYjsProxy<{ items: Array<{ id: number; value: string }> }>(docA, {
-        getRoot: (d) => d.getMap('root'),
+      const proxyA = createYjsProxy<{
+        items: Array<{ id: number; value: string }>;
+      }>(docA, {
+        getRoot: (d) => d.getMap("root"),
       });
-      const proxyB = createYjsProxy<{ items: Array<{ id: number; value: string }> }>(docB, {
-        getRoot: (d) => d.getMap('root'),
+      const proxyB = createYjsProxy<{
+        items: Array<{ id: number; value: string }>;
+      }>(docB, {
+        getRoot: (d) => d.getMap("root"),
       });
 
       proxyA.bootstrap({ items: [] });
@@ -607,60 +650,89 @@ describe('Multi-Client Sync Latency', () => {
 
       // Push 100 items in one batch
       for (let i = 0; i < 100; i++) {
-        ((proxyA.proxy as Record<string, unknown>).items as Array<unknown>).push({ id: i, value: `item-${i}` });
+        (
+          (proxyA.proxy as Record<string, unknown>).items as Array<unknown>
+        ).push({ id: i, value: `item-${i}` });
       }
       await waitMicrotask();
-      const _synced = ((proxyB.proxy as Record<string, unknown>).items as Array<unknown>).length === 100;
+      const _synced =
+        ((proxyB.proxy as Record<string, unknown>).items as Array<unknown>)
+          .length === 100;
 
       proxyA.dispose();
       proxyB.dispose();
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'two-client: batch of 100 individual updates',
+    "two-client: batch of 100 individual updates",
     async () => {
       const { docA, docB } = createTwoDocsWithRelay();
 
-      const proxyA = createYjsProxy<Array<{ id: number; count: number }>>(docA, {
-        getRoot: (d) => d.getArray('arr'),
-      });
-      const proxyB = createYjsProxy<Array<{ id: number; count: number }>>(docB, {
-        getRoot: (d) => d.getArray('arr'),
-      });
+      const proxyA = createYjsProxy<Array<{ id: number; count: number }>>(
+        docA,
+        {
+          getRoot: (d) => d.getArray("arr"),
+        },
+      );
+      const proxyB = createYjsProxy<Array<{ id: number; count: number }>>(
+        docB,
+        {
+          getRoot: (d) => d.getArray("arr"),
+        },
+      );
 
-      proxyA.bootstrap(Array.from({ length: 100 }, (_, i) => ({ id: i, count: 0 })));
+      proxyA.bootstrap(
+        Array.from({ length: 100 }, (_, i) => ({ id: i, count: 0 })),
+      );
       await waitMicrotask();
 
       // Update all 100 items in same tick
       for (let i = 0; i < 100; i++) {
-        ((proxyA.proxy as Array<Record<string, unknown>>)[i] as Record<string, number>).count++;
+        (
+          (proxyA.proxy as Array<Record<string, unknown>>)[i] as Record<
+            string,
+            number
+          >
+        ).count++;
       }
       await waitMicrotask();
-      const _synced = ((proxyB.proxy as Array<Record<string, unknown>>)[0] as Record<string, number>).count === 1;
+      const _synced =
+        (
+          (proxyB.proxy as Array<Record<string, unknown>>)[0] as Record<
+            string,
+            number
+          >
+        ).count === 1;
 
       proxyA.dispose();
       proxyB.dispose();
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'two-client: bidirectional sync (A->B and B->A)',
+    "two-client: bidirectional sync (A->B and B->A)",
     async () => {
       const { docA, docB } = createTwoDocsWithRelay();
 
-      const proxyA = createYjsProxy<{ counterA: number; counterB: number }>(docA, {
-        getRoot: (d) => d.getMap('root'),
-      });
-      const proxyB = createYjsProxy<{ counterA: number; counterB: number }>(docB, {
-        getRoot: (d) => d.getMap('root'),
-      });
+      const proxyA = createYjsProxy<{ counterA: number; counterB: number }>(
+        docA,
+        {
+          getRoot: (d) => d.getMap("root"),
+        },
+      );
+      const proxyB = createYjsProxy<{ counterA: number; counterB: number }>(
+        docB,
+        {
+          getRoot: (d) => d.getMap("root"),
+        },
+      );
 
       proxyA.bootstrap({ counterA: 0, counterB: 0 });
       await waitMicrotask();
@@ -678,24 +750,24 @@ describe('Multi-Client Sync Latency', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'two-client: deep nested sync (10 levels)',
+    "two-client: deep nested sync (10 levels)",
     async () => {
       const { docA, docB } = createTwoDocsWithRelay();
 
       const proxyA = createYjsProxy<Record<string, unknown>>(docA, {
-        getRoot: (d) => d.getMap('root'),
+        getRoot: (d) => d.getMap("root"),
       });
       const proxyB = createYjsProxy<Record<string, unknown>>(docB, {
-        getRoot: (d) => d.getMap('root'),
+        getRoot: (d) => d.getMap("root"),
       });
 
       type DeepStructure = { value: string } | { nested: DeepStructure };
       function createDeepStructure(depth: number): DeepStructure {
-        if (depth === 0) return { value: 'leaf' };
+        if (depth === 0) return { value: "leaf" };
         return { nested: createDeepStructure(depth - 1) };
       }
 
@@ -703,26 +775,32 @@ describe('Multi-Client Sync Latency', () => {
       await waitMicrotask();
 
       // Navigate and mutate deep property
-      let current: Record<string, unknown> = (proxyA.proxy as Record<string, unknown>).data as Record<string, unknown>;
+      let current: Record<string, unknown> = (
+        proxyA.proxy as Record<string, unknown>
+      ).data as Record<string, unknown>;
       for (let i = 0; i < 9; i++) {
         current = current.nested as Record<string, unknown>;
       }
-      ((current.nested as Record<string, unknown>).value as string) = 'updated';
+      ((current.nested as Record<string, unknown>).value as string) = "updated";
       await waitMicrotask();
 
       // Verify on B
-      let currentB: Record<string, unknown> = (proxyB.proxy as Record<string, unknown>).data as Record<string, unknown>;
+      let currentB: Record<string, unknown> = (
+        proxyB.proxy as Record<string, unknown>
+      ).data as Record<string, unknown>;
       for (let i = 0; i < 9; i++) {
         currentB = currentB.nested as Record<string, unknown>;
       }
-      const _synced = ((currentB.nested as Record<string, unknown>).value as string) === 'updated';
+      const _synced =
+        ((currentB.nested as Record<string, unknown>).value as string) ===
+        "updated";
 
       proxyA.dispose();
       proxyB.dispose();
     },
     {
       time: 5000,
-    }
+    },
   );
 });
 
@@ -730,13 +808,13 @@ describe('Multi-Client Sync Latency', () => {
 // Category 5: Memory & Efficiency Tests
 // =============================================================================
 
-describe('Memory & Efficiency', () => {
+describe("Memory & Efficiency", () => {
   bench(
-    'lazy materialization efficiency: access 10% of large structure',
+    "lazy materialization efficiency: access 10% of large structure",
     async () => {
       const { proxy, bootstrap, dispose } = createDocWithProxy<{
         items: Array<{ id: number; nested: { value: string } }>;
-      }>((d) => d.getMap('root'));
+      }>((d) => d.getMap("root"));
 
       // Bootstrap 1000 items
       bootstrap({
@@ -749,38 +827,46 @@ describe('Memory & Efficiency', () => {
 
       // Only access 10% (tests lazy materialization benefit)
       for (let i = 0; i < 100; i++) {
-        const _value = (((proxy as Record<string, unknown>).items as Array<Record<string, unknown>>)[i * 10] as Record<string, Record<string, string>>).nested.value;
+        const _value = (
+          (
+            (proxy as Record<string, unknown>).items as Array<
+              Record<string, unknown>
+            >
+          )[i * 10] as Record<string, Record<string, string>>
+        ).nested.value;
       }
 
       dispose();
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'subtree purging with complex nested structure',
+    "subtree purging with complex nested structure",
     async () => {
       const { proxy, bootstrap, dispose } = createDocWithProxy<
         Array<{ id: number; children: Array<{ value: string }> }>
-      >((d) => d.getArray('arr'));
+      >((d) => d.getArray("arr"));
 
       // Create structure with nested arrays
       bootstrap(
         Array.from({ length: 100 }, (_, i) => ({
           id: i,
-          children: Array.from({ length: 10 }, (_, j) => ({ value: `${i}-${j}` })),
-        }))
+          children: Array.from({ length: 10 }, (_, j) => ({
+            value: `${i}-${j}`,
+          })),
+        })),
       );
       await waitMicrotask();
 
       // Trigger subtree purging by replacing parent while children have pending ops
       for (let i = 0; i < 50; i++) {
-        proxy[i].children[0].value = 'stale'; // Will be purged
+        proxy[i].children[0].value = "stale"; // Will be purged
         proxy[i] = {
           id: i,
-          children: [{ value: 'replaced' }],
+          children: [{ value: "replaced" }],
         }; // Replace parent
       }
       await waitMicrotask();
@@ -789,16 +875,18 @@ describe('Memory & Efficiency', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'transaction overhead: 100 separate microtasks vs 1 batch',
+    "transaction overhead: 100 separate microtasks vs 1 batch",
     async () => {
       // Separate microtasks (100 transactions)
-      const { proxy: proxy1, bootstrap: bootstrap1, dispose: dispose1 } = createDocWithProxy<{ counter: number }>(
-        (d) => d.getMap('root')
-      );
+      const {
+        proxy: proxy1,
+        bootstrap: bootstrap1,
+        dispose: dispose1,
+      } = createDocWithProxy<{ counter: number }>((d) => d.getMap("root"));
       bootstrap1({ counter: 0 });
       await waitMicrotask();
 
@@ -809,9 +897,11 @@ describe('Memory & Efficiency', () => {
       dispose1();
 
       // Single batch (1 transaction)
-      const { proxy: proxy2, bootstrap: bootstrap2, dispose: dispose2 } = createDocWithProxy<{ counter: number }>(
-        (d) => d.getMap('root')
-      );
+      const {
+        proxy: proxy2,
+        bootstrap: bootstrap2,
+        dispose: dispose2,
+      } = createDocWithProxy<{ counter: number }>((d) => d.getMap("root"));
       bootstrap2({ counter: 0 });
       await waitMicrotask();
 
@@ -823,7 +913,7 @@ describe('Memory & Efficiency', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 });
 
@@ -831,13 +921,13 @@ describe('Memory & Efficiency', () => {
 // Category 6: Bulk Insert Optimization Impact
 // =============================================================================
 
-describe('Bulk Insert Optimization Impact', () => {
+describe("Bulk Insert Optimization Impact", () => {
   bench(
-    'baseline: push 100 items individually (current behavior)',
+    "baseline: push 100 items individually (current behavior)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; count: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; count: number }>
+      >((d) => d.getArray("arr"));
 
       bootstrap([]);
       await waitMicrotask();
@@ -852,21 +942,24 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'optimized: push 100 items bulk (spread syntax)',
+    "optimized: push 100 items bulk (spread syntax)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; count: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; count: number }>
+      >((d) => d.getArray("arr"));
 
       bootstrap([]);
       await waitMicrotask();
 
       // Bulk push: should trigger optimization if enabled
-      const items = Array.from({ length: 100 }, (_, i) => ({ id: i, count: 0 }));
+      const items = Array.from({ length: 100 }, (_, i) => ({
+        id: i,
+        count: 0,
+      }));
       proxy.push(...items);
       await waitMicrotask();
 
@@ -874,15 +967,15 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'baseline: unshift 100 items individually',
+    "baseline: unshift 100 items individually",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; count: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; count: number }>
+      >((d) => d.getArray("arr"));
 
       bootstrap([{ id: 999, count: 0 }]);
       await waitMicrotask();
@@ -897,21 +990,24 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'optimized: unshift 100 items bulk (spread syntax)',
+    "optimized: unshift 100 items bulk (spread syntax)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number; count: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number; count: number }>
+      >((d) => d.getArray("arr"));
 
       bootstrap([{ id: 999, count: 0 }]);
       await waitMicrotask();
 
       // Bulk unshift: should trigger optimization if enabled
-      const items = Array.from({ length: 100 }, (_, i) => ({ id: i, count: 0 }));
+      const items = Array.from({ length: 100 }, (_, i) => ({
+        id: i,
+        count: 0,
+      }));
       proxy.unshift(...items);
       await waitMicrotask();
 
@@ -919,15 +1015,15 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'push 50 items, then push 50 more (should batch both)',
+    "push 50 items, then push 50 more (should batch both)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number }>
+      >((d) => d.getArray("arr"));
 
       bootstrap([]);
       await waitMicrotask();
@@ -943,15 +1039,15 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'baseline: push to existing large array (1000 items)',
+    "baseline: push to existing large array (1000 items)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number }>
+      >((d) => d.getArray("arr"));
 
       // Start with large array
       bootstrap(Array.from({ length: 1000 }, (_, i) => ({ id: i })));
@@ -967,15 +1063,15 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'optimized: push to existing large array (1000 items)',
+    "optimized: push to existing large array (1000 items)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number }>
+      >((d) => d.getArray("arr"));
 
       // Start with large array
       bootstrap(Array.from({ length: 1000 }, (_, i) => ({ id: i })));
@@ -990,15 +1086,18 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'nested objects: push 100 items with nested structure',
+    "nested objects: push 100 items with nested structure",
     async () => {
       const { proxy, bootstrap, dispose } = createDocWithProxy<
-        Array<{ id: number; nested: { value: string; deep: { count: number } } }>
-      >((d) => d.getArray('arr'));
+        Array<{
+          id: number;
+          nested: { value: string; deep: { count: number } };
+        }>
+      >((d) => d.getArray("arr"));
 
       bootstrap([]);
       await waitMicrotask();
@@ -1015,19 +1114,19 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'two-client sync: bulk push 100 items',
+    "two-client sync: bulk push 100 items",
     async () => {
       const { docA, docB } = createTwoDocsWithRelay();
 
       const proxyA = createYjsProxy<Array<{ id: number }>>(docA, {
-        getRoot: (d) => d.getArray('arr'),
+        getRoot: (d) => d.getArray("arr"),
       });
       const proxyB = createYjsProxy<Array<{ id: number }>>(docB, {
-        getRoot: (d) => d.getArray('arr'),
+        getRoot: (d) => d.getArray("arr"),
       });
 
       proxyA.bootstrap([]);
@@ -1046,15 +1145,15 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'push 1000 items: stress test',
+    "push 1000 items: stress test",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number }>
+      >((d) => d.getArray("arr"));
 
       bootstrap([]);
       await waitMicrotask();
@@ -1068,15 +1167,15 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'comparison: no optimization - mixed operations (push + replace)',
+    "comparison: no optimization - mixed operations (push + replace)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number }>
+      >((d) => d.getArray("arr"));
 
       bootstrap([{ id: 0 }, { id: 1 }]);
       await waitMicrotask();
@@ -1091,15 +1190,15 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 
   bench(
-    'comparison: no optimization - mixed operations (delete + push)',
+    "comparison: no optimization - mixed operations (delete + push)",
     async () => {
-      const { proxy, bootstrap, dispose } = createDocWithProxy<Array<{ id: number }>>(
-        (d) => d.getArray('arr')
-      );
+      const { proxy, bootstrap, dispose } = createDocWithProxy<
+        Array<{ id: number }>
+      >((d) => d.getArray("arr"));
 
       bootstrap([{ id: 0 }, { id: 1 }, { id: 2 }]);
       await waitMicrotask();
@@ -1114,6 +1213,6 @@ describe('Bulk Insert Optimization Impact', () => {
     },
     {
       time: 5000,
-    }
+    },
   );
 });

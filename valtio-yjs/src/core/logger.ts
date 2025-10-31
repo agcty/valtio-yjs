@@ -1,4 +1,4 @@
-import { LOG_PREFIX } from './constants';
+import { LOG_PREFIX } from "./constants";
 
 /**
  * Logger interface for valtio-yjs.
@@ -17,9 +17,12 @@ export interface Logger {
  * @param trace - Enable trace logging (currently unused, reserved for future use)
  * @returns Logger instance that automatically prefixes all messages with [valtio-yjs]
  */
-export function createLogger(debug: boolean = false, _trace: boolean = false): Logger {
+export function createLogger(
+  debug: boolean = false,
+  _trace: boolean = false,
+): Logger {
   const withPrefix = (...args: unknown[]): unknown[] =>
-    args.length > 0 && typeof args[0] === 'string'
+    args.length > 0 && typeof args[0] === "string"
       ? [`${LOG_PREFIX} ${args[0] as string}`, ...(args.slice(1) as unknown[])]
       : [LOG_PREFIX, ...args];
 

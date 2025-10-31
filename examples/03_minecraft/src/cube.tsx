@@ -1,39 +1,37 @@
 /* eslint react/no-unknown-property: "off" */
 
-import * as THREE from 'three';
-import { useCallback, useState } from 'react';
-import { useLoader } from '@react-three/fiber';
-import type { ThreeEvent } from '@react-three/fiber';
-import { useBox } from '@react-three/cannon';
-import type { BoxProps } from '@react-three/cannon';
-import { useSnapshot } from 'valtio';
-import * as Y from 'yjs';
-import { createYjsProxy } from 'valtio-yjs';
-import { WebrtcProvider } from 'y-webrtc';
+import * as THREE from "three";
+import { useCallback, useState } from "react";
+import { useLoader } from "@react-three/fiber";
+import type { ThreeEvent } from "@react-three/fiber";
+import { useBox } from "@react-three/cannon";
+import type { BoxProps } from "@react-three/cannon";
+import { useSnapshot } from "valtio";
+import * as Y from "yjs";
+import { createYjsProxy } from "valtio-yjs";
+import { WebrtcProvider } from "y-webrtc";
 // @ts-expect-error no types
-import dirt from './assets/dirt.jpg';
+import dirt from "./assets/dirt.jpg";
 
 const ydoc = new Y.Doc();
 
-
-const provider = new WebrtcProvider('minecraft-valtio-yjs-demo-3', ydoc, {
-  signaling: ['ws://localhost:4444'],
+const provider = new WebrtcProvider("minecraft-valtio-yjs-demo-3", ydoc, {
+  signaling: ["ws://localhost:4444"],
 });
 
 // (optional) attach provider event logs when debugging connectivity
 
-
 const { proxy: state, bootstrap } = createYjsProxy<{
   cubes?: [number, number, number][];
 }>(ydoc, {
-  getRoot: (doc: Y.Doc) => doc.getMap('map'),
+  getRoot: (doc: Y.Doc) => doc.getMap("map"),
 });
 
 // Initialize shared state once per room:
 // - Wait for `synced` so late joiners first receive remote state.
 // - Call `bootstrap` after that; it already no-ops if the root isn't empty, preventing
 //   double-initialization.
-provider.on('synced', () => {
+provider.on("synced", () => {
   try {
     bootstrap({ cubes: [] });
   } catch (e) {
@@ -64,7 +62,7 @@ export const Cubes = () => {
 };
 
 export const Cube = (props: BoxProps) => {
-  const [ref] = useBox(() => ({ type: 'Static', ...props }));
+  const [ref] = useBox(() => ({ type: "Static", ...props }));
   const [hover, setHover] = useState<number | null>(null);
   const texture = useLoader(THREE.TextureLoader, dirt);
   const onMove = useCallback((e: ThreeEvent<PointerEvent>) => {
@@ -101,7 +99,7 @@ export const Cube = (props: BoxProps) => {
           key={index}
           attach={`material-${index}`}
           map={texture}
-          color={hover === index ? 'hotpink' : 'white'}
+          color={hover === index ? "hotpink" : "white"}
         />
       ))}
       <boxGeometry />

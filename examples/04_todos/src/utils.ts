@@ -1,6 +1,6 @@
 /**
  * Utility functions for working with nested todo items
- * 
+ *
  * These helpers demonstrate how to navigate and manipulate deeply nested
  * data structures that are synchronized with valtio-yjs.
  */
@@ -9,14 +9,14 @@ import type { TodoItem } from "./types";
 
 /**
  * Get a todo item by its path in the tree.
- * 
+ *
  * A path is an array of indices: [0, 1, 2] means:
  * - todos[0] -> first root todo
  * - todos[0].children[1] -> second child of first todo
  * - todos[0].children[1].children[2] -> third child of that child
- * 
+ *
  * This is useful for finding deeply nested items to modify them.
- * 
+ *
  * @example
  * const item = getItemByPath(todos, [0, 1]); // Get first todo's second child
  * if (item) {
@@ -25,7 +25,7 @@ import type { TodoItem } from "./types";
  */
 export function getItemByPath(
   todos: TodoItem[],
-  path: number[]
+  path: number[],
 ): TodoItem | null {
   if (path.length === 0 || path[0] === undefined) return null;
 
@@ -43,10 +43,10 @@ export function getItemByPath(
 
 /**
  * Get the array that contains the item at the given path.
- * 
+ *
  * This is useful when you need to remove an item or reorder items.
  * Returns the parent's children array, or the root todos array.
- * 
+ *
  * @example
  * const arr = getContainingArray(todos, [0, 1]);
  * // arr is now todos[0].children
@@ -54,7 +54,7 @@ export function getItemByPath(
  */
 export function getContainingArray(
   todos: TodoItem[],
-  path: number[]
+  path: number[],
 ): TodoItem[] | null {
   if (path.length === 0) return null;
   if (path.length === 1) return todos;
@@ -97,4 +97,3 @@ export function countCompletedTodos(todos: TodoItem[] | unknown): number {
   }
   return count;
 }
-

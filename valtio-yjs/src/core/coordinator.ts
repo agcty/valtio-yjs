@@ -1,9 +1,15 @@
-import * as Y from 'yjs';
-import { SynchronizationState, type AnySharedType } from './synchronization-state';
-import { createLogger, type Logger } from './logger';
-import { WriteScheduler, type ApplyFunctions } from '../scheduling/write-scheduler';
-import { applyMapDeletes, applyMapSets } from '../scheduling/map-apply';
-import { applyArrayOperations } from '../scheduling/array-apply';
+import * as Y from "yjs";
+import {
+  SynchronizationState,
+  type AnySharedType,
+} from "./synchronization-state";
+import { createLogger, type Logger } from "./logger";
+import {
+  WriteScheduler,
+  type ApplyFunctions,
+} from "../scheduling/write-scheduler";
+import { applyMapDeletes, applyMapSets } from "../scheduling/map-apply";
+import { applyArrayOperations } from "../scheduling/array-apply";
 
 /**
  * Orchestrates all valtio-yjs components using dependency injection.
@@ -60,7 +66,12 @@ export class ValtioYjsCoordinator {
 
     // Create scheduler with all dependencies (constructor injection)
     // No setter injection needed - fully initialized immediately
-    this.scheduler = new WriteScheduler(doc, this.logger, applyFunctions, trace ?? false);
+    this.scheduler = new WriteScheduler(
+      doc,
+      this.logger,
+      applyFunctions,
+      trace ?? false,
+    );
   }
 
   // ===== Coordination Methods =====
@@ -85,7 +96,7 @@ export class ValtioYjsCoordinator {
     yMap: Y.Map<unknown>,
     key: string,
     value: unknown,
-    postUpgrade?: (yValue: unknown) => void
+    postUpgrade?: (yValue: unknown) => void,
   ): void {
     this.scheduler.enqueueMapSet(yMap, key, value, postUpgrade);
   }
@@ -98,7 +109,7 @@ export class ValtioYjsCoordinator {
     yArray: Y.Array<unknown>,
     index: number,
     value: unknown,
-    postUpgrade?: (yValue: unknown) => void
+    postUpgrade?: (yValue: unknown) => void,
   ): void {
     this.scheduler.enqueueArraySet(yArray, index, value, postUpgrade);
   }
@@ -107,7 +118,7 @@ export class ValtioYjsCoordinator {
     yArray: Y.Array<unknown>,
     index: number,
     value: unknown,
-    postUpgrade?: (yValue: unknown) => void
+    postUpgrade?: (yValue: unknown) => void,
   ): void {
     this.scheduler.enqueueArrayReplace(yArray, index, value, postUpgrade);
   }

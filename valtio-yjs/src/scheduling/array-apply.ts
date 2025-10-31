@@ -1,11 +1,11 @@
-import * as Y from 'yjs';
-import type { PendingArrayEntry } from './batch-types';
-import type { ValtioYjsCoordinator } from '../core/coordinator';
-import { plainObjectToYType } from '../core/converter';
-import { reconcileValtioArray } from '../reconcile/reconciler';
-import type { PostTransactionQueue } from './post-transaction-queue';
-import { getYItemId, getYDoc, yTypeToJSON, hasProperty } from '../core/types';
-import type { Logger } from '../core/logger';
+import * as Y from "yjs";
+import type { PendingArrayEntry } from "./batch-types";
+import type { ValtioYjsCoordinator } from "../core/coordinator";
+import { plainObjectToYType } from "../core/converter";
+import { reconcileValtioArray } from "../reconcile/reconciler";
+import type { PostTransactionQueue } from "./post-transaction-queue";
+import { getYItemId, getYDoc, yTypeToJSON, hasProperty } from "../core/types";
+import type { Logger } from "../core/logger";
 
 /**
  * Execute array operations with cleaner multi-stage approach based on explicit intents.
@@ -32,12 +32,14 @@ export function applyArrayOperations(
 
   for (const yArray of allArrays) {
     const lengthAtStart = yArray.length;
-    const setsForArray = arraySets.get(yArray) ?? new Map<number, PendingArrayEntry>();
+    const setsForArray =
+      arraySets.get(yArray) ?? new Map<number, PendingArrayEntry>();
     const deletesForArray = arrayDeletes.get(yArray) ?? new Set<number>();
-    const replacesForArray = arrayReplaces.get(yArray) ?? new Map<number, PendingArrayEntry>();
+    const replacesForArray =
+      arrayReplaces.get(yArray) ?? new Map<number, PendingArrayEntry>();
 
     // DEBUG-TRACE: per-array batch snapshot
-    coordinator.logger.debug('Applying ops for Y.Array:', {
+    coordinator.logger.debug("Applying ops for Y.Array:", {
       targetId: getYItemId(yArray),
       replaces: Array.from(replacesForArray.keys()).sort((a, b) => a - b),
       deletes: Array.from(deletesForArray.values()).sort((a, b) => a - b),
@@ -47,22 +49,29 @@ export function applyArrayOperations(
 
     // 1) Handle Replaces first (canonical delete-then-insert at same index)
     handleReplaces(coordinator, yArray, replacesForArray, postQueue);
-    coordinator.logger.debug('after replaces', {
+    coordinator.logger.debug("after replaces", {
       len: yArray.length,
       json: toJSONSafe(yArray),
     });
 
     // 2) Handle Pure Deletes next (descending order to avoid index shifts)
     handleDeletes(coordinator.logger, yArray, deletesForArray);
-    coordinator.logger.debug('after deletes', {
+    coordinator.logger.debug("after deletes", {
       len: yArray.length,
       json: toJSONSafe(yArray),
     });
 
     // 3) Finally, handle Pure Inserts (sets)
     if (setsForArray.size > 0) {
-      handleSets(coordinator, yArray, setsForArray, deletesForArray, lengthAtStart, postQueue);
-      coordinator.logger.debug('after sets', {
+      handleSets(
+        coordinator,
+        yArray,
+        setsForArray,
+        deletesForArray,
+        lengthAtStart,
+        postQueue,
+      );
+      coordinator.logger.debug("after sets", {
         len: yArray.length,
         json: toJSONSafe(yArray),
       });
@@ -72,10 +81,17 @@ export function applyArrayOperations(
     // to materialize any deep children created during inserts/replaces.
     const arrayDocNow = getYDoc(yArray);
     if (arrayDocNow) {
-      coordinator.logger.debug('scheduling finalize reconcile for array', {
+      coordinator.logger.debug("scheduling finalize reconcile for array", {
         len: yArray.length,
       });
-      postQueue.enqueue(() => reconcileValtioArray(coordinator, yArray, arrayDocNow, withReconcilingLock));
+      postQueue.enqueue(() =>
+        reconcileValtioArray(
+          coordinator,
+          yArray,
+          arrayDocNow,
+          withReconcilingLock,
+        ),
+      );
     }
   }
 }
@@ -91,17 +107,23 @@ function handleReplaces(
 ): void {
   if (replaces.size === 0) return;
 
-  coordinator.logger.debug('[arrayApply] handling replaces', { count: replaces.size });
+  coordinator.logger.debug("[arrayApply] handling replaces", {
+    count: replaces.size,
+  });
 
   // Sort indices in descending order to avoid index shifting during deletions
   const sortedIndices = Array.from(replaces.keys()).sort((a, b) => b - a);
 
   for (const index of sortedIndices) {
     const entry = replaces.get(index)!;
-    const yValue = plainObjectToYType(entry.value, coordinator.state, coordinator.logger);
+    const yValue = plainObjectToYType(
+      entry.value,
+      coordinator.state,
+      coordinator.logger,
+    );
 
-    coordinator.logger.debug('[arrayApply] replace', { index });
-    
+    coordinator.logger.debug("[arrayApply] replace", { index });
+
     // Canonical replace: delete then insert, with defensive clamping for safety under rapid mixed ops
     const inBounds = index >= 0 && index < yArray.length;
     if (inBounds) {
@@ -112,12 +134,12 @@ function handleReplaces(
       const safeIndex = Math.max(0, Math.min(index, yArray.length));
       yArray.insert(safeIndex, [yValue]);
     }
-    
+
     // Handle post-integration callbacks
     if (entry.after) {
       postQueue.enqueue(() => entry.after!(yValue));
     }
-    
+
     // Note: Nested type reconciliation is handled by the final array reconciliation
     // which recursively reconciles all children (see end of applyArrayOperations)
   }
@@ -133,13 +155,13 @@ function handleDeletes(
 ): void {
   if (deletes.size === 0) return;
 
-  logger.debug('[arrayApply] handling deletes', { count: deletes.size });
-  
+  logger.debug("[arrayApply] handling deletes", { count: deletes.size });
+
   // Sort indices in descending order to avoid index shifting issues
   const sortedDeletes = Array.from(deletes).sort((a, b) => b - a);
-  
+
   for (const index of sortedDeletes) {
-    logger.debug('[arrayApply] delete', { index, length: yArray.length });
+    logger.debug("[arrayApply] delete", { index, length: yArray.length });
     if (index >= 0 && index < yArray.length) {
       yArray.delete(index, 1);
     }
@@ -160,17 +182,20 @@ function handleSets(
 ): void {
   if (sets.size === 0) return;
 
-  coordinator.logger.debug('[arrayApply] handling sets', { count: sets.size });
+  coordinator.logger.debug("[arrayApply] handling sets", { count: sets.size });
 
   // Try bulk optimization ONLY for pure inserts (no deletes in batch)
   // This is safe because:
   // 1. No deletes means no index shifting complexity
   // 2. tryOptimizedInserts checks for contiguous indices
   // 3. Only optimizes head (unshift) or tail (push) patterns
-  if (deletes.size === 0 && tryOptimizedInserts(coordinator, yArray, sets, postQueue)) {
-    coordinator.logger.debug('[arrayApply] bulk optimization applied', {
+  if (
+    deletes.size === 0 &&
+    tryOptimizedInserts(coordinator, yArray, sets, postQueue)
+  ) {
+    coordinator.logger.debug("[arrayApply] bulk optimization applied", {
       count: sets.size,
-      pattern: Array.from(sets.keys())[0] === 0 ? 'head-insert' : 'tail-insert',
+      pattern: Array.from(sets.keys())[0] === 0 ? "head-insert" : "tail-insert",
     });
     return; // Successfully optimized
   }
@@ -180,7 +205,10 @@ function handleSets(
   // treat as an append using a per-batch tail cursor that starts after replaces+deletes.
   // Otherwise, insert at clamped index.
   const sortedSetIndices = Array.from(sets.keys()).sort((a, b) => a - b);
-  const firstDeleteIndex = deletes.size > 0 ? Math.min(...Array.from(deletes)) : Number.POSITIVE_INFINITY;
+  const firstDeleteIndex =
+    deletes.size > 0
+      ? Math.min(...Array.from(deletes))
+      : Number.POSITIVE_INFINITY;
   // Compute tail cursor deterministically: after replaces (no length change) and deletes
   // we want tail cursor to be yArray.length, but also guarantee that when inserting items
   // that originated from indices >= lengthAtStart, we preserve their relative order and
@@ -189,17 +217,26 @@ function handleSets(
 
   for (const index of sortedSetIndices) {
     const entry = sets.get(index)!;
-    const yValue = plainObjectToYType(entry.value, coordinator.state, coordinator.logger);
-    coordinator.logger.debug('apply.set.prepare', {
+    const yValue = plainObjectToYType(
+      entry.value,
+      coordinator.state,
+      coordinator.logger,
+    );
+    coordinator.logger.debug("apply.set.prepare", {
       index,
-      hasId: hasProperty(entry.value, 'id'),
-      id: hasProperty(entry.value, 'id') ? entry.value.id : undefined,
+      hasId: hasProperty(entry.value, "id"),
+      id: hasProperty(entry.value, "id") ? entry.value.id : undefined,
     });
 
-    const shouldAppend = index >= lengthAtStart || index >= firstDeleteIndex || index >= yArray.length;
-    const targetIndex = shouldAppend ? tailCursor : Math.min(Math.max(index, 0), yArray.length);
+    const shouldAppend =
+      index >= lengthAtStart ||
+      index >= firstDeleteIndex ||
+      index >= yArray.length;
+    const targetIndex = shouldAppend
+      ? tailCursor
+      : Math.min(Math.max(index, 0), yArray.length);
 
-    coordinator.logger.debug('[arrayApply] insert (tail-cursor strategy)', {
+    coordinator.logger.debug("[arrayApply] insert (tail-cursor strategy)", {
       requestedIndex: index,
       targetIndex,
       tailCursor,
@@ -209,10 +246,14 @@ function handleSets(
     });
 
     yArray.insert(targetIndex, [yValue]);
-    const yValueId = typeof yValue === 'object' && yValue !== null && 'get' in yValue && typeof yValue.get === 'function'
-      ? (yValue.get as (key: string) => unknown)('id')
-      : undefined;
-    coordinator.logger.debug('apply.set.inserted', {
+    const yValueId =
+      typeof yValue === "object" &&
+      yValue !== null &&
+      "get" in yValue &&
+      typeof yValue.get === "function"
+        ? (yValue.get as (key: string) => unknown)("id")
+        : undefined;
+    coordinator.logger.debug("apply.set.inserted", {
       targetIndex,
       hasYId: yValueId !== undefined,
       id: yValueId,
@@ -257,8 +298,9 @@ function tryOptimizedInserts(
   const yLenAtStart = yArray.length;
 
   // Check if indices are contiguous
-  const isContiguous = lastSetIndex - firstSetIndex + 1 === sortedSetIndices.length;
-  
+  const isContiguous =
+    lastSetIndex - firstSetIndex + 1 === sortedSetIndices.length;
+
   if (!isContiguous) return false;
 
   // Head insert optimization: sets cover [0 .. m-1] → perform a single unshift insert
@@ -271,19 +313,27 @@ function tryOptimizedInserts(
       for (let i = 0; i < m; i++) {
         const entry = sets.get(i)!;
         entries.push(entry);
-        items.push(plainObjectToYType(entry.value, coordinator.state, coordinator.logger));
+        items.push(
+          plainObjectToYType(
+            entry.value,
+            coordinator.state,
+            coordinator.logger,
+          ),
+        );
       }
 
-      coordinator.logger.debug('[arrayApply] unshift.coalesce', { insertCount: items.length });
+      coordinator.logger.debug("[arrayApply] unshift.coalesce", {
+        insertCount: items.length,
+      });
       yArray.insert(0, items);
-      
+
       // Handle post-integration callbacks
       items.forEach((it, i) => {
         const after = entries[i]?.after;
         if (after) postQueue.enqueue(() => after(it));
       });
       // Note: Nested type reconciliation is handled by final array reconciliation
-      
+
       return true; // Successfully optimized
     }
   }
@@ -298,19 +348,27 @@ function tryOptimizedInserts(
         const idx = yLenAtStart + i;
         const entry = sets.get(idx)!;
         entries.push(entry);
-        items.push(plainObjectToYType(entry.value, coordinator.state, coordinator.logger));
+        items.push(
+          plainObjectToYType(
+            entry.value,
+            coordinator.state,
+            coordinator.logger,
+          ),
+        );
       }
 
-      coordinator.logger.debug('[arrayApply] push.coalesce', { insertCount: items.length });
+      coordinator.logger.debug("[arrayApply] push.coalesce", {
+        insertCount: items.length,
+      });
       yArray.insert(yArray.length, items);
-      
+
       // Handle post-integration callbacks
       items.forEach((it, i) => {
         const after = entries[i]?.after;
         if (after) postQueue.enqueue(() => after(it));
       });
       // Note: Nested type reconciliation is handled by final array reconciliation
-      
+
       return true; // Successfully optimized
     }
   }

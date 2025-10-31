@@ -1,4 +1,4 @@
-import { defineConfig } from "tsdown"
+import { defineConfig } from "tsdown";
 
 export default [
   defineConfig({
@@ -16,4 +16,4 @@ export default [
     treeshake: true,
     minify: false,
   }),
-]
+];

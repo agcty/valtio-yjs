@@ -1,189 +1,195 @@
 /* eslint @typescript-eslint/no-explicit-any: "off" */
 
-import { describe, expect, it, vi } from 'vitest';
-import * as Y from 'yjs';
-import { createYjsProxy } from '../../src/index';
-import type { LooseRecord } from '../helpers/test-helpers';
+import { describe, expect, it, vi } from "vitest";
+import * as Y from "yjs";
+import { createYjsProxy } from "../../src/index";
+import type { LooseRecord } from "../helpers/test-helpers";
 
 const waitMicrotask = () => Promise.resolve();
 
-describe('basic map operations', () => {
-  it('simple map', async () => {
+describe("basic map operations", () => {
+  it("simple map", async () => {
     const doc = new Y.Doc();
     const { proxy: p } = createYjsProxy<{ foo?: string }>(doc, {
-      getRoot: (d) => d.getMap('root'),
+      getRoot: (d) => d.getMap("root"),
     });
-    const m = doc.getMap<unknown>('root');
+    const m = doc.getMap<unknown>("root");
 
     expect(p.foo).toBe(undefined);
 
-    m.set('foo', 'a');
+    m.set("foo", "a");
     await waitMicrotask();
-    expect(p.foo).toBe('a');
+    expect(p.foo).toBe("a");
 
-    p.foo = 'b';
+    p.foo = "b";
     await waitMicrotask();
-    expect(m.get('foo')).toBe('b');
+    expect(m.get("foo")).toBe("b");
   });
 
-  it('simple map with initial values via bootstrap', async () => {
+  it("simple map with initial values via bootstrap", async () => {
     const doc = new Y.Doc();
-    const { proxy: p, bootstrap } = createYjsProxy<{ foo?: string; bar?: number }>(doc, {
-      getRoot: (d) => d.getMap('root'),
+    const { proxy: p, bootstrap } = createYjsProxy<{
+      foo?: string;
+      bar?: number;
+    }>(doc, {
+      getRoot: (d) => d.getMap("root"),
     });
-    const m = doc.getMap<unknown>('root');
+    const m = doc.getMap<unknown>("root");
 
-    bootstrap({ foo: 'a', bar: 1 });
+    bootstrap({ foo: "a", bar: 1 });
     await waitMicrotask();
 
-    expect(p.foo).toBe('a');
+    expect(p.foo).toBe("a");
     expect(p.bar).toBe(1);
-    expect(m.get('foo')).toBe('a');
-    expect(m.get('bar')).toBe(1);
+    expect(m.get("foo")).toBe("a");
+    expect(m.get("bar")).toBe(1);
 
-    m.set('foo', 'b');
+    m.set("foo", "b");
     await waitMicrotask();
-    expect(p.foo).toBe('b');
+    expect(p.foo).toBe("b");
 
     p.bar = 2;
     await waitMicrotask();
-    expect(m.get('bar')).toBe(2);
+    expect(m.get("bar")).toBe(2);
   });
 
-  it('simple map with null value', async () => {
+  it("simple map with null value", async () => {
     const doc = new Y.Doc();
-    const { proxy: p, bootstrap } = createYjsProxy<{ foo: string | null }>(doc, {
-      getRoot: (d) => d.getMap('root'),
-    });
-    const m = doc.getMap<unknown>('root');
+    const { proxy: p, bootstrap } = createYjsProxy<{ foo: string | null }>(
+      doc,
+      {
+        getRoot: (d) => d.getMap("root"),
+      },
+    );
+    const m = doc.getMap<unknown>("root");
 
     bootstrap({ foo: null });
     await waitMicrotask();
 
     expect(p.foo).toBe(null);
-    expect(m.get('foo')).toBe(null);
+    expect(m.get("foo")).toBe(null);
 
-    m.set('foo', 'bar');
+    m.set("foo", "bar");
     await waitMicrotask();
-    expect(p.foo).toBe('bar');
-    expect(m.get('foo')).toBe('bar');
+    expect(p.foo).toBe("bar");
+    expect(m.get("foo")).toBe("bar");
 
     p.foo = null;
     await waitMicrotask();
     expect(p.foo).toBe(null);
-    expect(m.get('foo')).toBe(null);
+    expect(m.get("foo")).toBe(null);
   });
 
-  it('nested map (from proxy)', async () => {
+  it("nested map (from proxy)", async () => {
     const doc = new Y.Doc();
     const { proxy: p } = createYjsProxy<{ foo?: { bar?: string } }>(doc, {
-      getRoot: (d) => d.getMap('root'),
+      getRoot: (d) => d.getMap("root"),
     });
-    const m = doc.getMap<unknown>('root');
+    const m = doc.getMap<unknown>("root");
 
     expect(p.foo).toBe(undefined);
-    expect(m.get('foo')).toBe(undefined);
+    expect(m.get("foo")).toBe(undefined);
 
-    p.foo = { bar: 'a' };
+    p.foo = { bar: "a" };
     await waitMicrotask();
-    expect((p.foo as LooseRecord).bar).toBe('a');
-    expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('a');
+    expect((p.foo as LooseRecord).bar).toBe("a");
+    expect((m.get("foo") as Y.Map<unknown>).get("bar")).toBe("a");
 
-    (m.get('foo') as Y.Map<unknown>).set('bar', 'b');
+    (m.get("foo") as Y.Map<unknown>).set("bar", "b");
     await waitMicrotask();
-    expect((p.foo as LooseRecord).bar).toBe('b');
-    expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('b');
+    expect((p.foo as LooseRecord).bar).toBe("b");
+    expect((m.get("foo") as Y.Map<unknown>).get("bar")).toBe("b");
   });
 
-  it('nested map (from y.map)', async () => {
+  it("nested map (from y.map)", async () => {
     const doc = new Y.Doc();
     const { proxy: p } = createYjsProxy<{ foo?: { bar?: string } }>(doc, {
-      getRoot: (d) => d.getMap('root'),
+      getRoot: (d) => d.getMap("root"),
     });
-    const m = doc.getMap<unknown>('root');
+    const m = doc.getMap<unknown>("root");
 
     expect(p.foo).toBe(undefined);
-    expect(m.get('foo')).toBe(undefined);
+    expect(m.get("foo")).toBe(undefined);
 
     const nestedMap = new Y.Map();
-    nestedMap.set('bar', 'a');
-    m.set('foo', nestedMap);
+    nestedMap.set("bar", "a");
+    m.set("foo", nestedMap);
     await waitMicrotask();
 
-    expect(p?.foo?.bar).toBe('a');
-    expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('a');
+    expect(p?.foo?.bar).toBe("a");
+    expect((m.get("foo") as Y.Map<unknown>).get("bar")).toBe("a");
 
-    ((p as LooseRecord).foo as LooseRecord).bar = 'b';
+    ((p as LooseRecord).foo as LooseRecord).bar = "b";
     await waitMicrotask();
-    expect(p?.foo?.bar).toBe('b');
-    expect((m.get('foo') as Y.Map<unknown>).get('bar')).toBe('b');
+    expect(p?.foo?.bar).toBe("b");
+    expect((m.get("foo") as Y.Map<unknown>).get("bar")).toBe("b");
   });
 
-  it('bootstrap creates a single transaction', async () => {
+  it("bootstrap creates a single transaction", async () => {
     const doc = new Y.Doc();
     const { bootstrap } = createYjsProxy<{ foo?: string; bar?: number }>(doc, {
-      getRoot: (d) => d.getMap('root'),
+      getRoot: (d) => d.getMap("root"),
     });
 
     const listener = vi.fn();
-    doc.on('update', listener);
+    doc.on("update", listener);
 
-    bootstrap({ foo: 'a', bar: 5 });
+    bootstrap({ foo: "a", bar: 5 });
     await waitMicrotask();
 
     expect(listener).toBeCalledTimes(1);
   });
 
-  it('can dispose to stop syncing', async () => {
+  it("can dispose to stop syncing", async () => {
     const doc = new Y.Doc();
     const { proxy: p, dispose } = createYjsProxy<{ foo?: string }>(doc, {
-      getRoot: (d) => d.getMap('root'),
+      getRoot: (d) => d.getMap("root"),
     });
-    const m = doc.getMap<unknown>('root');
+    const m = doc.getMap<unknown>("root");
 
     dispose();
     expect(p.foo).toBe(undefined);
 
-    m.set('foo', 'a');
+    m.set("foo", "a");
     await waitMicrotask();
-    expect(m.get('foo')).toBe('a');
+    expect(m.get("foo")).toBe("a");
     expect(p.foo).toBe(undefined);
 
-    p.foo = 'b';
+    p.foo = "b";
     await waitMicrotask();
-    expect(m.get('foo')).toBe('a');
-    expect(p.foo).toBe('b');
+    expect(m.get("foo")).toBe("a");
+    expect(p.foo).toBe("b");
   });
 });
 
-describe('basic array operations', () => {
-  it('simple array', async () => {
+describe("basic array operations", () => {
+  it("simple array", async () => {
     const doc = new Y.Doc();
     const { proxy: p } = createYjsProxy<string[]>(doc, {
-      getRoot: (d) => d.getArray('root'),
+      getRoot: (d) => d.getArray("root"),
     });
-    const a = doc.getArray<string>('root');
+    const a = doc.getArray<string>("root");
 
     expect(p).toEqual([]);
     expect(a.toJSON()).toEqual([]);
 
-    a.push(['a']);
+    a.push(["a"]);
     await waitMicrotask();
-    expect(a.toJSON()).toEqual(['a']);
-    expect(p).toEqual(['a']);
+    expect(a.toJSON()).toEqual(["a"]);
+    expect(p).toEqual(["a"]);
 
-    p.push('b');
+    p.push("b");
     await waitMicrotask();
-    expect(p).toEqual(['a', 'b']);
-    expect(a.toJSON()).toEqual(['a', 'b']);
+    expect(p).toEqual(["a", "b"]);
+    expect(a.toJSON()).toEqual(["a", "b"]);
   });
 
-  it('array push', async () => {
+  it("array push", async () => {
     const doc = new Y.Doc();
     const { proxy: p, bootstrap } = createYjsProxy<number[]>(doc, {
-      getRoot: (d) => d.getArray('root'),
+      getRoot: (d) => d.getArray("root"),
     });
-    const a = doc.getArray<number>('root');
+    const a = doc.getArray<number>("root");
 
     bootstrap([10, 11, 12, 13]);
     await waitMicrotask();
@@ -199,12 +205,12 @@ describe('basic array operations', () => {
     expect(a.toJSON()).toEqual([10, 11, 12, 13, 20, 21]);
   });
 
-  it('array pop', async () => {
+  it("array pop", async () => {
     const doc = new Y.Doc();
     const { proxy: p, bootstrap } = createYjsProxy<number[]>(doc, {
-      getRoot: (d) => d.getArray('root'),
+      getRoot: (d) => d.getArray("root"),
     });
-    const a = doc.getArray<number>('root');
+    const a = doc.getArray<number>("root");
 
     bootstrap([10, 11, 12, 13]);
     await waitMicrotask();
@@ -220,12 +226,12 @@ describe('basic array operations', () => {
     expect(a.toJSON()).toEqual([10, 11]);
   });
 
-  it('array unshift', async () => {
+  it("array unshift", async () => {
     const doc = new Y.Doc();
     const { proxy: p, bootstrap } = createYjsProxy<number[]>(doc, {
-      getRoot: (d) => d.getArray('root'),
+      getRoot: (d) => d.getArray("root"),
     });
-    const a = doc.getArray<number>('root');
+    const a = doc.getArray<number>("root");
 
     bootstrap([10, 11, 12, 13]);
     await waitMicrotask();
@@ -241,12 +247,12 @@ describe('basic array operations', () => {
     expect(a.toJSON()).toEqual([8, 9, 10, 11, 12, 13]);
   });
 
-  it('array shift', async () => {
+  it("array shift", async () => {
     const doc = new Y.Doc();
     const { proxy: p, bootstrap } = createYjsProxy<number[]>(doc, {
-      getRoot: (d) => d.getArray('root'),
+      getRoot: (d) => d.getArray("root"),
     });
-    const a = doc.getArray<number>('root');
+    const a = doc.getArray<number>("root");
 
     bootstrap([10, 11, 12, 13]);
     await waitMicrotask();
@@ -262,12 +268,12 @@ describe('basic array operations', () => {
     expect(a.toJSON()).toEqual([12, 13]);
   });
 
-  it('array index replacement', async () => {
+  it("array index replacement", async () => {
     const doc = new Y.Doc();
     const { proxy: p, bootstrap } = createYjsProxy<number[]>(doc, {
-      getRoot: (d) => d.getArray('root'),
+      getRoot: (d) => d.getArray("root"),
     });
-    const a = doc.getArray<number>('root');
+    const a = doc.getArray<number>("root");
 
     bootstrap([10, 11, 12, 13]);
     await waitMicrotask();
@@ -286,12 +292,12 @@ describe('basic array operations', () => {
     expect(a.toJSON()).toEqual([10, 11, 98, 13]);
   });
 
-  it('array splice (delete+insert)', async () => {
+  it("array splice (delete+insert)", async () => {
     const doc = new Y.Doc();
     const { proxy: p, bootstrap } = createYjsProxy<number[]>(doc, {
-      getRoot: (d) => d.getArray('root'),
+      getRoot: (d) => d.getArray("root"),
     });
-    const a = doc.getArray<number>('root');
+    const a = doc.getArray<number>("root");
 
     bootstrap([10, 11, 12, 13]);
     await waitMicrotask();
@@ -302,12 +308,12 @@ describe('basic array operations', () => {
     expect(a.toJSON()).toEqual([10, 11, 97, 13]);
   });
 
-  it('array splice (delete)', async () => {
+  it("array splice (delete)", async () => {
     const doc = new Y.Doc();
     const { proxy: p, bootstrap } = createYjsProxy<number[]>(doc, {
-      getRoot: (d) => d.getArray('root'),
+      getRoot: (d) => d.getArray("root"),
     });
-    const a = doc.getArray<number>('root');
+    const a = doc.getArray<number>("root");
 
     bootstrap([10, 11, 12, 13]);
     await waitMicrotask();
@@ -318,12 +324,12 @@ describe('basic array operations', () => {
     expect(a.toJSON()).toEqual([10, 12, 13]);
   });
 
-  it('array splice (insert)', async () => {
+  it("array splice (insert)", async () => {
     const doc = new Y.Doc();
     const { proxy: p, bootstrap } = createYjsProxy<number[]>(doc, {
-      getRoot: (d) => d.getArray('root'),
+      getRoot: (d) => d.getArray("root"),
     });
-    const a = doc.getArray<number>('root');
+    const a = doc.getArray<number>("root");
 
     bootstrap([10, 11, 12, 13]);
     await waitMicrotask();

@@ -1,5 +1,5 @@
-import * as Y from 'yjs';
-import type { YSharedContainer } from './yjs-types';
+import * as Y from "yjs";
+import type { YSharedContainer } from "./yjs-types";
 
 /**
  * Type alias for any Y.js shared type that valtio-yjs can synchronize.
@@ -92,6 +92,9 @@ export class SynchronizationState {
    * Returns true if the array had delta events and should not be structurally reconciled.
    */
   shouldSkipArrayStructuralReconcile(arr: Y.Array<unknown>): boolean {
-    return this.arraysWithDeltaDuringSync !== null && this.arraysWithDeltaDuringSync.has(arr);
+    return (
+      this.arraysWithDeltaDuringSync !== null &&
+      this.arraysWithDeltaDuringSync.has(arr)
+    );
   }
 }

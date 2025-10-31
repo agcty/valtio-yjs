@@ -1,25 +1,32 @@
-import * as Y from 'yjs';
-import type { SynchronizationState } from './synchronization-state';
-import type { Logger } from './logger';
-import { isYArray, isYMap, isYAbstractType } from './guards';
-import { isPlainObject } from './types';
+import * as Y from "yjs";
+import type { SynchronizationState } from "./synchronization-state";
+import type { Logger } from "./logger";
+import { isYArray, isYMap, isYAbstractType } from "./guards";
+import { isPlainObject } from "./types";
 
 /**
  * Error message constants (DRY principle - single source of truth)
  */
-const ERROR_UNDEFINED = '[valtio-yjs] undefined is not allowed in shared state. Use null, delete the key, or omit the field.';
-const ERROR_UNDEFINED_IN_OBJECT = '[valtio-yjs] undefined is not allowed in objects for shared state. Use null, delete the key, or omit the field.';
-const ERROR_FUNCTION = '[valtio-yjs] Unable to convert function. Functions are not allowed in shared state.';
-const ERROR_SYMBOL = '[valtio-yjs] Unable to convert symbol. Symbols are not allowed in shared state.';
-const ERROR_BIGINT = '[valtio-yjs] Unable to convert BigInt. BigInt is not allowed in shared state.';
-const ERROR_NON_FINITE = '[valtio-yjs] Infinity and NaN are not allowed in shared state. Only finite numbers are supported.';
-const ERROR_REPARENTING = '[valtio-yjs] Cannot re-assign a collaborative object that is already in the document. ' +
-  'If you intended to move or copy this object, you must explicitly create a deep clone of it ' +
-  'at the application layer before assigning it.';
+const ERROR_UNDEFINED =
+  "[valtio-yjs] undefined is not allowed in shared state. Use null, delete the key, or omit the field.";
+const ERROR_UNDEFINED_IN_OBJECT =
+  "[valtio-yjs] undefined is not allowed in objects for shared state. Use null, delete the key, or omit the field.";
+const ERROR_FUNCTION =
+  "[valtio-yjs] Unable to convert function. Functions are not allowed in shared state.";
+const ERROR_SYMBOL =
+  "[valtio-yjs] Unable to convert symbol. Symbols are not allowed in shared state.";
+const ERROR_BIGINT =
+  "[valtio-yjs] Unable to convert BigInt. BigInt is not allowed in shared state.";
+const ERROR_NON_FINITE =
+  "[valtio-yjs] Infinity and NaN are not allowed in shared state. Only finite numbers are supported.";
+const ERROR_REPARENTING =
+  "[valtio-yjs] Cannot re-assign a collaborative object that is already in the document. " +
+  "If you intended to move or copy this object, you must explicitly create a deep clone of it " +
+  "at the application layer before assigning it.";
 
 const createUnsupportedObjectError = (ctorName: string): string =>
   `[valtio-yjs] Unable to convert non-plain object of type "${ctorName}". ` +
-  'Only plain objects/arrays/primitives are supported. Use explicit conversion for Date, RegExp, etc.';
+  "Only plain objects/arrays/primitives are supported. Use explicit conversion for Date, RegExp, etc.";
 
 /**
  * Throws if a Y.js type is already parented (attached to a document).
@@ -36,7 +43,9 @@ function throwIfReparenting(yType: Y.AbstractType<unknown>): void {
  */
 export function yTypeToPlainObject(yValue: unknown): unknown {
   if (isYMap(yValue)) {
-    const entries = Array.from(yValue.entries()).map(([key, value]) => [key, yTypeToPlainObject(value)] as const);
+    const entries = Array.from(yValue.entries()).map(
+      ([key, value]) => [key, yTypeToPlainObject(value)] as const,
+    );
     return Object.fromEntries(entries);
   }
   if (isYArray(yValue)) {
@@ -56,34 +65,36 @@ export function validateValueForSharedState(jsValue: unknown): void {
     throwIfReparenting(jsValue);
     return; // Y types are valid
   }
-  
+
   // Check primitive types
-  if (jsValue === null || typeof jsValue !== 'object') {
+  if (jsValue === null || typeof jsValue !== "object") {
     if (jsValue === undefined) {
       throw new Error(ERROR_UNDEFINED);
     }
-    
+
     const t = typeof jsValue;
-    if (t === 'function') {
+    if (t === "function") {
       throw new Error(ERROR_FUNCTION);
     }
-    if (t === 'symbol') {
+    if (t === "symbol") {
       throw new Error(ERROR_SYMBOL);
     }
-    if (t === 'bigint') {
+    if (t === "bigint") {
       throw new Error(ERROR_BIGINT);
     }
-    if (t === 'number' && !Number.isFinite(jsValue as number)) {
+    if (t === "number" && !Number.isFinite(jsValue as number)) {
       throw new Error(ERROR_NON_FINITE);
     }
     return; // Valid primitive
   }
-  
+
   // Arrays and plain objects are valid (will be recursively validated during conversion)
   if (Array.isArray(jsValue) || isPlainObject(jsValue)) return;
-  
+
   // Unknown object types are invalid
-  const ctorName = (jsValue as { constructor?: { name?: string } }).constructor?.name ?? 'UnknownObject';
+  const ctorName =
+    (jsValue as { constructor?: { name?: string } }).constructor?.name ??
+    "UnknownObject";
   throw new Error(createUnsupportedObjectError(ctorName));
 }
 
@@ -99,7 +110,7 @@ export function validateDeepForSharedState(jsValue: unknown): void {
   }
 
   // Primitives: validate and return
-  if (jsValue === null || typeof jsValue !== 'object') {
+  if (jsValue === null || typeof jsValue !== "object") {
     validateValueForSharedState(jsValue);
     return;
   }
@@ -124,7 +135,9 @@ export function validateDeepForSharedState(jsValue: unknown): void {
   }
 
   // Unknown object types are invalid (same rule as validateValueForSharedState)
-  const ctorName = (jsValue as { constructor?: { name?: string } }).constructor?.name ?? 'UnknownObject';
+  const ctorName =
+    (jsValue as { constructor?: { name?: string } }).constructor?.name ??
+    "UnknownObject";
   throw new Error(createUnsupportedObjectError(ctorName));
 }
 
@@ -140,31 +153,35 @@ export function validateDeepForSharedState(jsValue: unknown): void {
  * @param state - Synchronization state for proxy-to-Y-type mapping
  * @param _logger - Logger instance (currently unused, reserved for future debugging)
  */
-export function plainObjectToYType(jsValue: unknown, state: SynchronizationState, _logger: Logger): unknown {
+export function plainObjectToYType(
+  jsValue: unknown,
+  state: SynchronizationState,
+  _logger: Logger,
+): unknown {
   // Already a Yjs value: check for forbidden re-parenting
   if (isYAbstractType(jsValue)) {
     throwIfReparenting(jsValue);
     return jsValue;
   }
-  
+
   // Defensive validation for primitives (fail-safe if called without proper validation)
   // Primary validation should happen at trust boundaries via validateDeepForSharedState
-  if (jsValue === null || typeof jsValue !== 'object') {
+  if (jsValue === null || typeof jsValue !== "object") {
     // Quick defensive checks for fundamentally invalid primitives
     if (jsValue === undefined) {
       throw new Error(ERROR_UNDEFINED);
     }
     const t = typeof jsValue;
-    if (t === 'function') {
+    if (t === "function") {
       throw new Error(ERROR_FUNCTION);
     }
-    if (t === 'symbol') {
+    if (t === "symbol") {
       throw new Error(ERROR_SYMBOL);
     }
-    if (t === 'bigint') {
+    if (t === "bigint") {
       throw new Error(ERROR_BIGINT);
     }
-    if (t === 'number' && !Number.isFinite(jsValue as number)) {
+    if (t === "number" && !Number.isFinite(jsValue as number)) {
       throw new Error(ERROR_NON_FINITE);
     }
     return jsValue;
@@ -172,14 +189,17 @@ export function plainObjectToYType(jsValue: unknown, state: SynchronizationState
 
   // If this is one of our controller proxies, return the underlying Y type if it has no parent,
   // otherwise clone it to prevent re-parenting
-  if (typeof jsValue === 'object' && state.valtioProxyToYType.has(jsValue)) {
+  if (typeof jsValue === "object" && state.valtioProxyToYType.has(jsValue)) {
     const underlyingYType = state.valtioProxyToYType.get(jsValue)!;
     // Check if the Y type is already attached to a document
     if (isYAbstractType(underlyingYType)) {
       const yType = underlyingYType as Y.AbstractType<unknown>;
       if (yType.parent !== null) {
         // Y type is already in a document - clone it to prevent re-parenting
-        const plainFromProxy = deepPlainFromValtioProxy(jsValue as object, state);
+        const plainFromProxy = deepPlainFromValtioProxy(
+          jsValue as object,
+          state,
+        );
         return plainObjectToYType(plainFromProxy, state, _logger);
       }
       // Y type has no parent - safe to return as-is
@@ -190,7 +210,10 @@ export function plainObjectToYType(jsValue: unknown, state: SynchronizationState
 
   if (Array.isArray(jsValue)) {
     const yArray = new Y.Array();
-    yArray.insert(0, jsValue.map((v) => plainObjectToYType(v, state, _logger)));
+    yArray.insert(
+      0,
+      jsValue.map((v) => plainObjectToYType(v, state, _logger)),
+    );
     return yArray;
   }
 
@@ -205,13 +228,16 @@ export function plainObjectToYType(jsValue: unknown, state: SynchronizationState
 
   // Defensive check: Unknown object types (should have been caught by validation layer)
   // This is a fail-safe in case converter is called without proper validation
-  const ctorName = jsValue.constructor?.name ?? 'UnknownObject';
+  const ctorName = jsValue.constructor?.name ?? "UnknownObject";
   throw new Error(createUnsupportedObjectError(ctorName));
 }
 
 // Build a deep plain JS value from a Valtio controller proxy, without touching its underlying Y types.
-function deepPlainFromValtioProxy(value: unknown, state: SynchronizationState): unknown {
-  if (value === null || typeof value !== 'object') return value;
+function deepPlainFromValtioProxy(
+  value: unknown,
+  state: SynchronizationState,
+): unknown {
+  if (value === null || typeof value !== "object") return value;
   if (Array.isArray(value)) {
     return value.map((v) => deepPlainFromValtioProxy(v, state));
   }
@@ -219,7 +245,11 @@ function deepPlainFromValtioProxy(value: unknown, state: SynchronizationState): 
   const result: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     // If nested value is a controller proxy too, recurse similarly
-    if (v && typeof v === 'object' && state.valtioProxyToYType.has(v as object)) {
+    if (
+      v &&
+      typeof v === "object" &&
+      state.valtioProxyToYType.has(v as object)
+    ) {
       result[k] = deepPlainFromValtioProxy(v, state);
     } else {
       result[k] = deepPlainFromValtioProxy(v, state);
@@ -227,5 +257,3 @@ function deepPlainFromValtioProxy(value: unknown, state: SynchronizationState): 
   }
   return result;
 }
-
-
