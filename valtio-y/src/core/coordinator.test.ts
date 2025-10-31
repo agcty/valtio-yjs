@@ -55,7 +55,7 @@ describe("ValtioYjsCoordinator", () => {
 
       coordinator.logger.debug("test message", 123);
 
-      expect(consoleSpy).toHaveBeenCalledWith("[valtio-yjs] test message", 123);
+      expect(consoleSpy).toHaveBeenCalledWith("[valtio-y] test message", 123);
       consoleSpy.mockRestore();
     });
 
@@ -66,7 +66,7 @@ describe("ValtioYjsCoordinator", () => {
 
       coordinator.logger.warn("warning message");
 
-      expect(consoleSpy).toHaveBeenCalledWith("[valtio-yjs] warning message");
+      expect(consoleSpy).toHaveBeenCalledWith("[valtio-y] warning message");
       consoleSpy.mockRestore();
     });
 
@@ -81,7 +81,7 @@ describe("ValtioYjsCoordinator", () => {
       coordinator.logger.error("error message", testError);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        "[valtio-yjs] error message",
+        "[valtio-y] error message",
         testError,
       );
       consoleSpy.mockRestore();

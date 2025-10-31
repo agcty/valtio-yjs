@@ -1347,7 +1347,7 @@ describe("Nested Deletion and Replacement: Elements with Children", () => {
             metadata: { created: "2024-01-15", invalid: undefined },
           },
         };
-      }).toThrow("[valtio-yjs] undefined is not allowed");
+      }).toThrow("[valtio-y] undefined is not allowed");
 
       // Verify original structure remains
       expect(proxy[0]!.id).toBe("valid1");

@@ -12,7 +12,7 @@ import {
   reconcileValtioArray,
   reconcileValtioMap,
 } from "./reconcile/reconciler";
-import { initializeValtioYjsIntegration } from "./core/valtio-yjs-integration";
+import { initializeValtioYjsIntegration } from "./core/valtio-y-integration";
 
 /**
  * Options for creating a Y.js-backed Valtio proxy.

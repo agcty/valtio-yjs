@@ -521,7 +521,7 @@ describe("Integration: Error Handling", () => {
       // Try to assign an object with nested undefined (should fail validation)
       expect(() => {
         proxy.user = { name: "Bob", invalid: undefined };
-      }).toThrow("[valtio-yjs] undefined is not allowed");
+      }).toThrow("[valtio-y] undefined is not allowed");
 
       // Should rollback to original state in proxy
       expect(proxy.user).toEqual(originalState);
@@ -552,7 +552,7 @@ describe("Integration: Error Handling", () => {
       // Invalid change should fail and rollback only that key
       expect(() => {
         proxy.invalid = { nested: undefined };
-      }).toThrow("[valtio-yjs] undefined is not allowed");
+      }).toThrow("[valtio-y] undefined is not allowed");
 
       // The invalid key should not be set in proxy (rolled back)
       expect(proxy.invalid).toBeUndefined();

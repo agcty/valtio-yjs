@@ -11,7 +11,7 @@
 
 import { useSnapshot } from "valtio";
 import * as Y from "yjs";
-import { createYjsProxy, syncedText } from "valtio-yjs";
+import { createYjsProxy, syncedText } from "valtio-y";
 import { useState, useEffect, useRef } from "react";
 
 // ============================================================================
@@ -128,7 +128,7 @@ doc2.on("update", (update: Uint8Array, origin: unknown) => {
   }
 });
 
-// Create valtio-yjs proxies
+// Create valtio-y proxies
 const { proxy: proxy1, bootstrap: bootstrap1 } = createYjsProxy<AppState>(
   doc1,
   {
@@ -320,7 +320,7 @@ const App = () => {
           </h1>
           <p className="text-slate-600 mb-2">
             Character-level collaborative text editing with{" "}
-            <strong>valtio-yjs</strong>
+            <strong>valtio-y</strong>
           </p>
           <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-500">
             <span>⌨️ Type in both editors simultaneously</span>

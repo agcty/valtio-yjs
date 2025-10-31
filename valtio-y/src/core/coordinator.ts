@@ -12,7 +12,7 @@ import { applyMapDeletes, applyMapSets } from "../scheduling/map-apply";
 import { applyArrayOperations } from "../scheduling/array-apply";
 
 /**
- * Orchestrates all valtio-yjs components using dependency injection.
+ * Orchestrates all valtio-y components using dependency injection.
  *
  * This coordinator eliminates circular dependencies by:
  * 1. Owning all components (state, logger, scheduler)

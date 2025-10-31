@@ -25,7 +25,7 @@ describe("Integration: Deep Nesting (Property-Based)", () => {
               .filter(
                 (s) => !["__proto__", "constructor", "prototype"].includes(s),
               ),
-            // Exclude undefined values (valtio-yjs doesn't support them)
+            // Exclude undefined values (valtio-y doesn't support them)
             values: [
               fc.string(),
               fc.integer(),

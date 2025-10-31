@@ -2,7 +2,7 @@
  * Utility functions for working with nested todo items
  *
  * These helpers demonstrate how to navigate and manipulate deeply nested
- * data structures that are synchronized with valtio-yjs.
+ * data structures that are synchronized with valtio-y.
  */
 
 import type { TodoItem } from "./types";
@@ -20,7 +20,7 @@ import type { TodoItem } from "./types";
  * @example
  * const item = getItemByPath(todos, [0, 1]); // Get first todo's second child
  * if (item) {
- *   item.completed = true; // This mutation will sync through valtio-yjs!
+ *   item.completed = true; // This mutation will sync through valtio-y!
  * }
  */
 export function getItemByPath(
@@ -50,7 +50,7 @@ export function getItemByPath(
  * @example
  * const arr = getContainingArray(todos, [0, 1]);
  * // arr is now todos[0].children
- * arr.splice(1, 1); // Remove the item - syncs through valtio-yjs!
+ * arr.splice(1, 1); // Remove the item - syncs through valtio-y!
  */
 export function getContainingArray(
   todos: TodoItem[],

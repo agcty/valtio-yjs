@@ -1,8 +1,8 @@
-# valtio-yjs 💊🚀
+# valtio-y 💊🚀
 
-[![CI](https://img.shields.io/github/actions/workflow/status/valtiojs/valtio-yjs/ci.yml?branch=main)](https://github.com/valtiojs/valtio-yjs/actions?query=workflow%3ACI)
-[![npm](https://img.shields.io/npm/v/valtio-yjs)](https://www.npmjs.com/package/valtio-yjs)
-[![size](https://img.shields.io/bundlephobia/minzip/valtio-yjs)](https://bundlephobia.com/result?p=valtio-yjs)
+[![CI](https://img.shields.io/github/actions/workflow/status/valtiojs/valtio-y/ci.yml?branch=main)](https://github.com/valtiojs/valtio-y/actions?query=workflow%3ACI)
+[![npm](https://img.shields.io/npm/v/valtio-y)](https://www.npmjs.com/package/valtio-y)
+[![size](https://img.shields.io/bundlephobia/minzip/valtio-y)](https://bundlephobia.com/result?p=valtio-y)
 [![discord](https://img.shields.io/discord/627656437971288081)](https://discord.gg/MrQdmzd)
 
 **Collaborative state made easy.** Two-way sync between [Valtio](https://github.com/pmndrs/valtio) proxies and [Yjs](https://github.com/yjs/yjs) CRDTs for building multi-user apps with minimal effort.
@@ -10,7 +10,7 @@
 Write normal JavaScript, get real-time collaboration for free.
 
 ```bash
-npm install valtio-yjs valtio yjs
+npm install valtio-y valtio yjs
 ```
 
 **Ready to use!** We encourage developers to try it in production apps and report any limitations or bugs you encounter.
@@ -23,7 +23,7 @@ Create a synchronized proxy and mutate it like any normal object. Changes automa
 
 ```js
 import * as Y from "yjs";
-import { createYjsProxy } from "valtio-yjs";
+import { createYjsProxy } from "valtio-y";
 
 // Create a Yjs document
 const ydoc = new Y.Doc();
@@ -42,7 +42,7 @@ state.user = { name: "Alice", age: 30 };
 state.user.age = 31;
 
 // Arrays work naturally
-state.todos = [{ text: "Learn valtio-yjs", done: false }];
+state.todos = [{ text: "Learn valtio-y", done: false }];
 state.todos.push({ text: "Build something cool", done: false });
 state.todos[0].done = true;
 ```
@@ -84,7 +84,7 @@ function AddTodo() {
 }
 ```
 
-### Why valtio-yjs?
+### Why valtio-y?
 
 - **Just JavaScript** - No special APIs, write like you normally would
 - **Automatic sync** - Changes propagate via Yjs CRDTs without conflicts
@@ -218,7 +218,7 @@ setTimeout(() => {
 For rich text editors with formatting, use `Y.Text`:
 
 ```js
-import { syncedText } from "valtio-yjs";
+import { syncedText } from "valtio-y";
 
 // Create collaborative text
 state.document = syncedText("Hello World");
@@ -275,7 +275,7 @@ undoManager.redo(); // state.count is now 2
 
 ## Performance
 
-valtio-yjs is fast out of the box with automatic optimizations:
+valtio-y is fast out of the box with automatic optimizations:
 
 ### Automatic Batching
 
@@ -384,18 +384,18 @@ For more details, see [architecture docs](./docs/)
 
 Try these live collaborative demos:
 
-- **[Object sync](https://stackblitz.com/github/valtiojs/valtio-yjs/tree/main/examples/01_obj)** - Basic object synchronization
-- **[Array sync](https://stackblitz.com/github/valtiojs/valtio-yjs/tree/main/examples/02_array)** - Shared arrays and lists
-- **[Minecraft clone](https://stackblitz.com/github/valtiojs/valtio-yjs/tree/main/examples/03_minecraft)** - Multi-player 3D world with WebRTC
-- **[Todo app](https://stackblitz.com/github/valtiojs/valtio-yjs/tree/main/examples/04_todos)** - Full-featured collaborative todo list
-- **[Simple todos](https://stackblitz.com/github/valtiojs/valtio-yjs/tree/main/examples/05_todos_simple)** - Minimal todo example
-- **[Y.Text editor](https://stackblitz.com/github/valtiojs/valtio-yjs/tree/main/examples/06_ytext)** - Collaborative text editing
+- **[Object sync](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/01_obj)** - Basic object synchronization
+- **[Array sync](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/02_array)** - Shared arrays and lists
+- **[Minecraft clone](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/03_minecraft)** - Multi-player 3D world with WebRTC
+- **[Todo app](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/04_todos)** - Full-featured collaborative todo list
+- **[Simple todos](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/05_todos_simple)** - Minimal todo example
+- **[Y.Text editor](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/06_ytext)** - Collaborative text editing
 
 All examples use `useSnapshot` from Valtio and work with any Yjs provider for real-time sync.
 
 ---
 
-**Feedback and contributions welcome!** If you find bugs or have suggestions, please [open an issue](https://github.com/valtiojs/valtio-yjs/issues).
+**Feedback and contributions welcome!** If you find bugs or have suggestions, please [open an issue](https://github.com/valtiojs/valtio-y/issues).
 
 For detailed technical documentation, see:
 

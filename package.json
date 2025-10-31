@@ -1,9 +1,9 @@
 {
-  "name": "valtio-yjs-monorepo",
+  "name": "valtio-y-monorepo",
   "version": "1.0.0",
-  "description": "valtio-yjs monorepo",
+  "description": "valtio-y monorepo",
   "workspaces": [
-    "valtio-yjs",
+    "valtio-y",
     "examples/*"
   ],
   "scripts": {

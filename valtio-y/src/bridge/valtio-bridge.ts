@@ -90,7 +90,7 @@ function filterMapOperations(ops: unknown[]): unknown[] {
       if (path.length !== 1) {
         return false;
       }
-      // Filter out internal valtio-yjs properties (version counter, leaf storage)
+      // Filter out internal valtio-y properties (version counter, leaf storage)
       const key = String(path[0]);
       if (key.startsWith("__valtio_yjs_")) {
         return false;
@@ -258,7 +258,7 @@ function attachValtioMapSubscription(
 
       // Filter out operations on internal properties
       // 1. Filter out nested Y.js internal property changes (path.length > 1)
-      // 2. Filter out valtio-yjs internal properties (__valtio_yjs_*)
+      // 2. Filter out valtio-y internal properties (__valtio_yjs_*)
       const filteredOps = filterMapOperations(ops);
 
       if (filteredOps.length === 0) {

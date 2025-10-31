@@ -22,7 +22,7 @@ describe("Conservative merge check - detailed analysis", () => {
 
     // Spy on document updates
     doc.on("update", (update, origin) => {
-      if (origin?.toString() === "Symbol(valtio-yjs-origin)") {
+      if (origin?.toString() === "Symbol(valtio-y-origin)") {
         operations.push("transaction");
       }
     });
@@ -64,7 +64,7 @@ describe("Conservative merge check - detailed analysis", () => {
 
     // Spy on document updates
     doc.on("update", (update, origin) => {
-      if (origin?.toString() === "Symbol(valtio-yjs-origin)") {
+      if (origin?.toString() === "Symbol(valtio-y-origin)") {
         operations.push("transaction");
       }
     });

@@ -1,12 +1,12 @@
 {
-  "name": "valtio-yjs",
-  "description": "valtio-yjs makes yjs state easy",
+  "name": "valtio-y",
+  "description": "Collaborative Valtio state",
   "version": "0.6.4",
   "type": "module",
   "author": "Daishi Kato, Alex Gogl",
   "repository": {
     "type": "git",
-    "url": "https://github.com/valtiojs/valtio-yjs.git"
+    "url": "https://github.com/valtiojs/valtio-y.git"
   },
   "exports": {
     "./package.json": "./package.json",

@@ -93,7 +93,7 @@ describe("Bootstrap & Lifecycle", () => {
       );
       const dataWithUndefined = { field: undefined };
       expect(() => bootstrap2(dataWithUndefined)).toThrowError(
-        "[valtio-yjs] undefined is not allowed in shared state",
+        "[valtio-y] undefined is not allowed in shared state",
       );
     });
 

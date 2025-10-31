@@ -1,7 +1,7 @@
 /**
  * Simple Collaborative Todo List
  *
- * This example demonstrates the core features of valtio-yjs in a single file:
+ * This example demonstrates the core features of valtio-y in a single file:
  *
  * 1. **Simple State Management**: Just mutate the proxy like regular objects
  * 2. **Real-time Sync**: Changes automatically sync between clients
@@ -12,7 +12,7 @@
 
 import { useSnapshot } from "valtio";
 import * as Y from "yjs";
-import { createYjsProxy } from "valtio-yjs";
+import { createYjsProxy } from "valtio-y";
 import { useState, useEffect } from "react";
 
 // ============================================================================
@@ -181,7 +181,7 @@ doc2.on("update", (update: Uint8Array, origin: unknown) => {
   }
 });
 
-// Create valtio-yjs proxies
+// Create valtio-y proxies
 const { proxy: proxy1 } = createYjsProxy<AppState>(doc1, {
   getRoot: (doc) => doc.getMap("sharedState"),
 });
@@ -556,7 +556,7 @@ const App = () => {
             Simple Collaborative Todos
           </h1>
           <p className="text-slate-600 mb-2">
-            Powered by <strong>valtio-yjs</strong> · Two clients syncing in
+            Powered by <strong>valtio-y</strong> · Two clients syncing in
             real-time
           </p>
           <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-500">
@@ -587,7 +587,7 @@ const App = () => {
         {/* How It Works */}
         <div className="bg-white rounded-lg shadow-md border border-slate-200 p-6 max-w-3xl mx-auto">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            How valtio-yjs Works
+            How valtio-y Works
           </h3>
           <div className="space-y-2 text-sm text-slate-600 mb-4">
             <p>
@@ -599,7 +599,7 @@ const App = () => {
             </p>
             <p>
               <strong className="text-slate-900">Write:</strong> Mutate the
-              proxy directly like a normal object. valtio-yjs converts it to Yjs
+              proxy directly like a normal object. valtio-y converts it to Yjs
               operations.
             </p>
             <p>

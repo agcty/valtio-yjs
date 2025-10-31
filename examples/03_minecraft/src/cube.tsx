@@ -7,13 +7,13 @@ import type { ThreeEvent } from "@react-three/fiber";
 import { useBox, type BoxProps, type Triplet } from "@react-three/cannon";
 import { useSnapshot } from "valtio";
 import * as Y from "yjs";
-import { createYjsProxy } from "valtio-yjs";
+import { createYjsProxy } from "valtio-y";
 import { WebrtcProvider } from "y-webrtc";
 import dirt from "./assets/dirt.jpg";
 
 const ydoc = new Y.Doc();
 
-const provider = new WebrtcProvider("minecraft-valtio-yjs-demo-3", ydoc, {
+const provider = new WebrtcProvider("minecraft-valtio-y-demo-3", ydoc, {
   signaling: ["ws://localhost:4444"],
 });
 

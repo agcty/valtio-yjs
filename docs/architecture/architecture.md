@@ -1,6 +1,6 @@
 # Architecture
 
-valtio-yjs creates a synchronization bridge between your Valtio state and a Yjs document. The bridge is implemented by a tree of controller proxies that operate on Yjs types and keep your Valtio proxies in sync.
+valtio-y creates a synchronization bridge between your Valtio state and a Yjs document. The bridge is implemented by a tree of controller proxies that operate on Yjs types and keep your Valtio proxies in sync.
 
 ## Core Philosophy: The "Live Controller" Model
 
@@ -34,13 +34,13 @@ Public API (bridge)  Controller Proxy Layer (how)   Synchronization Layer       
 
 ## Key Components and Their Roles
 
-- `ValtioYjsCoordinator` (`valtio-yjs/src/core/coordinator.ts`):
-  - Orchestrates all valtio-yjs components using dependency injection, eliminating circular dependencies.
+- `ValtioYjsCoordinator` (`valtio-y/src/core/coordinator.ts`):
+  - Orchestrates all valtio-y components using dependency injection, eliminating circular dependencies.
   - Owns and wires together: `SynchronizationState` (pure data holder), `Logger` (infrastructure), `WriteScheduler` (batching/scheduling), and apply functions (business logic).
   - All dependencies flow in one direction - no cycles possible.
   - Provides a clean public API that delegates to internal components.
 
-- `SynchronizationState` (`valtio-yjs/src/core/synchronization-state.ts`):
+- `SynchronizationState` (`valtio-y/src/core/synchronization-state.ts`):
   - Pure data holder with no dependencies, encapsulates all per-instance state.
   - Manages caches (`yTypeToValtioProxy`, `valtioProxyToYType`), subscription disposers, and a reconciliation lock (`isReconciling`).
   - Prevents global state leakage; supports multiple independent instances.
@@ -49,7 +49,7 @@ Public API (bridge)  Controller Proxy Layer (how)   Synchronization Layer       
   - Coalesces direct-child ops from all controller proxies, flushes once per microtask.
   - Applies deterministic map/array writes in a single transaction, then performs eager upgrades under the lock.
 
-- `getOrCreateValtioProxy` (router) (`valtio-yjs/src/bridge/valtio-bridge.ts`):
+- `getOrCreateValtioProxy` (router) (`valtio-y/src/bridge/valtio-bridge.ts`):
   - Accepts supported Yjs shared types and returns the appropriate Valtio proxy that acts as its controller. Creates the proxy if it doesn't exist in the coordinator's state cache.
   - Main internal factory for creating the bridge's controller proxies.
 
@@ -60,14 +60,14 @@ Public API (bridge)  Controller Proxy Layer (how)   Synchronization Layer       
     2) Lazily materialize nested controller proxies via `getOrCreateValtioProxy` when accessing properties that are Yjs shared types.
     3) Eagerly upgrade assigned plain objects/arrays: on write, convert to Y types and, after the scheduler's transaction, replace the plain value with a live controller proxy under the reconciliation lock.
 
-- Synchronizer (`setupSyncListener`) (`valtio-yjs/src/synchronizer.ts`):
+- Synchronizer (`setupSyncListener`) (`valtio-y/src/synchronizer.ts`):
   - Listens via `yRoot.observeDeep`.
   - Skips transactions with our origin to avoid feedback loops.
   - Two-phase reconciliation on inbound changes:
     1) Walk `.parent` to find the nearest materialized ancestor (boundary) and reconcile it to ensure structure and controller materialization.
     2) Apply granular array deltas to direct array targets after parents are materialized. Arrays with recorded deltas are skipped in phase 1 to avoid double-application.
 
-- Reconciler (`reconcileValtioMap`, `reconcileValtioArray`) (`valtio-yjs/src/reconcile/reconciler.ts`):
+- Reconciler (`reconcileValtioMap`, `reconcileValtioArray`) (`valtio-y/src/reconcile/reconciler.ts`):
   - Ensures the Valtio proxy structure matches the Yjs structure, creating missing keys/items and controller proxies for nested Y types, deleting extras, and updating primitive values.
   - Works with the coordinator to access state caches and logging.
   - Solves lazy materialization for remote changes: newly created Y objects become visible in Valtio proxies on demand.

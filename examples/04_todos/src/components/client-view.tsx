@@ -4,12 +4,12 @@
  * Represents a single client's view of the shared todo list.
  *
  * Key features demonstrated:
- * - useSnapshot() to read reactive state from valtio-yjs
+ * - useSnapshot() to read reactive state from valtio-y
  * - Direct mutations to the proxy for all write operations
  * - Drag-and-drop reordering with array manipulation
  * - Bulk operations on multiple items
  *
- * This component shows how valtio-yjs makes collaborative state
+ * This component shows how valtio-y makes collaborative state
  * feel like local state - just read from snapshot, write to proxy!
  */
 
@@ -40,7 +40,7 @@ import { TodoItem } from "./todo-item";
 interface ClientViewProps {
   /** Display name for this client */
   name: string;
-  /** The valtio-yjs proxy to read from (via useSnapshot) and write to */
+  /** The valtio-y proxy to read from (via useSnapshot) and write to */
   stateProxy: AppState;
   /** Color scheme for visual distinction */
   colorScheme: "blue" | "purple";
@@ -102,7 +102,7 @@ export function ClientView({
 
   /**
    * Add a new todo to the root level.
-   * Note the direct push() - valtio-yjs tracks this mutation!
+   * Note the direct push() - valtio-y tracks this mutation!
    */
   function addTodo() {
     if (!newTodoText.trim()) return;
@@ -144,7 +144,7 @@ export function ClientView({
 
       if (oldIndex !== -1 && newIndex !== -1) {
         const newOrder = arrayMove(todos, oldIndex, newIndex);
-        // Splice to update in place - valtio-yjs tracks this!
+        // Splice to update in place - valtio-y tracks this!
         todos.splice(0, todos.length, ...newOrder);
       }
     }

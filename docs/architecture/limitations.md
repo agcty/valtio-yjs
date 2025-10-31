@@ -123,7 +123,7 @@ The library currently uses a combination of techniques to achieve reactivity for
 
 ### 1. Global Valtio Customization
 
-**File:** `valtio-yjs/src/core/valtio-yjs-integration.ts`
+**File:** `valtio-y/src/core/valtio-y-integration.ts`
 
 We customize Valtio's internal `canProxy` function to never deep-proxy Y.js types:
 
@@ -170,7 +170,7 @@ We define a getter for the property:
 ```typescript
 Object.defineProperty(objProxy, "text", {
   get() {
-    return this[Symbol.for("valtio-yjs:leaf:text")]; // Returns reactive wrapper
+    return this[Symbol.for("valtio-y:leaf:text")]; // Returns reactive wrapper
   },
 });
 ```
@@ -180,7 +180,7 @@ Object.defineProperty(objProxy, "text", {
 The actual Y.js instance is stored in a symbol property:
 
 ```typescript
-objProxy[Symbol.for("valtio-yjs:leaf:text")] = ref(reactiveLeaf);
+objProxy[Symbol.for("valtio-y:leaf:text")] = ref(reactiveLeaf);
 ```
 
 ---
@@ -202,7 +202,7 @@ Each layer serves a purpose, but the cumulative complexity feels like we're figh
 The version counter MUST be a string property (Valtio doesn't track symbols), so we have:
 
 - `__valtio_yjs_version` visible in the proxy object
-- Symbol properties like `Symbol.for('valtio-yjs:leaf:text')` in the internal state
+- Symbol properties like `Symbol.for('valtio-y:leaf:text')` in the internal state
 
 ### Different Handling for Arrays
 

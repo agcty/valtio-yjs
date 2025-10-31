@@ -8,24 +8,24 @@ import { isPlainObject } from "./types";
  * Error message constants (DRY principle - single source of truth)
  */
 const ERROR_UNDEFINED =
-  "[valtio-yjs] undefined is not allowed in shared state. Use null, delete the key, or omit the field.";
+  "[valtio-y] undefined is not allowed in shared state. Use null, delete the key, or omit the field.";
 const ERROR_UNDEFINED_IN_OBJECT =
-  "[valtio-yjs] undefined is not allowed in objects for shared state. Use null, delete the key, or omit the field.";
+  "[valtio-y] undefined is not allowed in objects for shared state. Use null, delete the key, or omit the field.";
 const ERROR_FUNCTION =
-  "[valtio-yjs] Unable to convert function. Functions are not allowed in shared state.";
+  "[valtio-y] Unable to convert function. Functions are not allowed in shared state.";
 const ERROR_SYMBOL =
-  "[valtio-yjs] Unable to convert symbol. Symbols are not allowed in shared state.";
+  "[valtio-y] Unable to convert symbol. Symbols are not allowed in shared state.";
 const ERROR_BIGINT =
-  "[valtio-yjs] Unable to convert BigInt. BigInt is not allowed in shared state.";
+  "[valtio-y] Unable to convert BigInt. BigInt is not allowed in shared state.";
 const ERROR_NON_FINITE =
-  "[valtio-yjs] Infinity and NaN are not allowed in shared state. Only finite numbers are supported.";
+  "[valtio-y] Infinity and NaN are not allowed in shared state. Only finite numbers are supported.";
 const ERROR_REPARENTING =
-  "[valtio-yjs] Cannot re-assign a collaborative object that is already in the document. " +
+  "[valtio-y] Cannot re-assign a collaborative object that is already in the document. " +
   "If you intended to move or copy this object, you must explicitly create a deep clone of it " +
   "at the application layer before assigning it.";
 
 const createUnsupportedObjectError = (ctorName: string): string =>
-  `[valtio-yjs] Unable to convert non-plain object of type "${ctorName}". ` +
+  `[valtio-y] Unable to convert non-plain object of type "${ctorName}". ` +
   "Only plain objects/arrays/primitives are supported. Use explicit conversion for Date, RegExp, etc.";
 
 /**

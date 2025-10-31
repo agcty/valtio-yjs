@@ -11,7 +11,7 @@
     "react": "latest",
     "react-dom": "latest",
     "valtio": "latest",
-    "valtio-yjs": "workspace:*",
+    "valtio-y": "workspace:*",
     "yjs": "latest"
   },
   "devDependencies": {

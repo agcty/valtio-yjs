@@ -77,7 +77,7 @@ export function setupLeafNodeAsComputed(
   const reactiveLeaf = createReactiveLeafWrapper(leafNode, objProxy);
 
   // Store the reactive wrapper in a symbol property (ref'd to prevent deep proxying)
-  const storageKey = Symbol.for(`valtio-yjs:leaf:${key}`);
+  const storageKey = Symbol.for(`valtio-y:leaf:${key}`);
   objProxy[storageKey] = ref(reactiveLeaf);
 
   // Define a computed property (getter) that returns the reactive wrapper
@@ -161,6 +161,6 @@ export function getUnderlyingLeaf(
   obj: Record<string | symbol, unknown>,
   key: string,
 ): YLeafType | undefined {
-  const storageKey = Symbol.for(`valtio-yjs:leaf:${key}`);
+  const storageKey = Symbol.for(`valtio-y:leaf:${key}`);
   return obj[storageKey] as YLeafType | undefined;
 }
