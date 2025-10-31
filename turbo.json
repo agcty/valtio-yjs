@@ -16,7 +16,6 @@
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": [".tsbuild/**"]
-    },
-    "format:check": {}
+    }
   }
 }

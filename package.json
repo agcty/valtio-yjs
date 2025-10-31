@@ -14,9 +14,7 @@
     "typecheck": "turbo run typecheck",
     "lint": "oxlint --type-aware .",
     "lint:fix": "oxlint --type-aware --fix .",
-    "format": "bun oxfmt .",
-    "format:check": "turbo run format:check",
-    "check": "bun run format && bun run lint:fix"
+    "format": "bun oxfmt ."
   },
   "simple-git-hooks": {
     "pre-commit": "bun oxfmt ."
