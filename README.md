@@ -13,8 +13,6 @@ Write normal JavaScript, get real-time collaboration for free.
 npm install valtio-y valtio yjs
 ```
 
-**Ready to use!** We encourage developers to try it in production apps and report any limitations or bugs you encounter.
-
 ---
 
 ## Quick Start
