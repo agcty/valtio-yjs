@@ -366,10 +366,13 @@ const App = () => {
               <strong className="text-slate-900">Example:</strong>
               <ul className="mt-2 ml-4 space-y-1 text-xs list-disc">
                 <li>Client 1 types &quot;Hello&quot; at position 0</li>
-                <li>Client 2 types &quot;World&quot; at position 0 (offline)</li>
                 <li>
-                  When Client 2 comes online: Y.Text merges to &quot;WorldHello&quot; or
-                  &quot;HelloWorld&quot; depending on timestamps
+                  Client 2 types &quot;World&quot; at position 0 (offline)
+                </li>
+                <li>
+                  When Client 2 comes online: Y.Text merges to
+                  &quot;WorldHello&quot; or &quot;HelloWorld&quot; depending on
+                  timestamps
                 </li>
                 <li>With strings: One would completely replace the other ❌</li>
               </ul>
