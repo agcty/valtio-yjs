@@ -146,24 +146,29 @@ TypeScript monorepo using **Bun** (package manager) for a library that syncs **V
 ### Folder Structure
 
 ```text
-/Users/alex/code/valtio-y/
+/Users/alex/code/valtio-yjs/
 
-├── valtio-y/       # Main package
-│   ├── src/         # Source code
-│   ├── tests/       # Test files
-│   ├── benchmarks/  # Performance benchmarks
-│   └── dist/        # Built artifacts
-├── examples/         # Example applications
-│   ├── 01_obj/      # Object sync example
-│   ├── 02_array/    # Array sync example
-│   ├── 03_minecraft/# Minecraft clone example
-│   ├── 04_todos/    # Todo app example
-│   ├── 05_todos_simple/# Simple todos example
-│   └── 06_ytext/    # Y.Text editor example
-└── docs/            # Documentation
+├── valtio-y/            # Main package
+│   ├── src/             # Source code
+│   ├── tests/           # Test files
+│   ├── benchmarks/      # Performance benchmarks
+│   └── dist/            # Built artifacts
+├── examples/            # Example applications
+│   ├── 01_obj/          # Object sync example
+│   ├── 02_array/        # Array sync example
+│   ├── 03_minecraft/    # Minecraft clone example
+│   ├── 04_todos/        # Todo app example
+│   └── 05_todos_simple/ # Simple todos example
+└── docs/                # Documentation
+    └── architecture/    # Architecture docs (architecture, data flow, limitations, ADRs)
 ```
 
 **⚠️ Caution**: Changes to the main `valtio-y` package affect all examples. Test thoroughly before committing.
+
+### Important Notes
+
+- **Y.Text Integration**: Y.Text and XML types have been removed from the main branch. The library focuses on shared application state (objects, arrays, primitives), not text editors. Y.Text research is preserved in the `research/ytext-integration` branch.
+- **Scope**: valtio-y is for collaborative data structures, not for building text editors. Text editor builders should use native Yjs integrations (Lexical, TipTap, ProseMirror).
 
 ---
 
@@ -201,14 +206,14 @@ TypeScript monorepo using **Bun** (package manager) for a library that syncs **V
 
 ## Documentation Reference
 
-Use the `docs/` directory as your deep-dive companion. Start with the topic that matches your task:
+Use the `docs/architecture/` directory as your deep-dive companion. Start with the topic that matches your task:
 
-| Topic        | Directory                         | Why you'd open it                        | Representative Guides                                        |
-| ------------ | --------------------------------- | ---------------------------------------- | ------------------------------------------------------------ |
-| Architecture | `docs/architecture.md`            | Understanding how valtio-y syncs state | High-level architecture, data flow, synchronization patterns |
-| Data Flow    | `docs/data-flow.md`               | Understanding how changes propagate      | Bidirectional sync, Yjs to Valtio, Valtio to Yjs             |
-| Limitations  | `docs/limitations.md`             | Knowing what's supported and what's not  | What works, what doesn't, edge cases                         |
-| ADRs         | `docs/architectural-decisions.md` | Understanding design decisions           | Key architectural choices and rationale                      |
+| Topic        | File                                          | Why you'd open it                            | Representative Guides                                        |
+| ------------ | --------------------------------------------- | -------------------------------------------- | ------------------------------------------------------------ |
+| Architecture | `docs/architecture/architecture.md`           | Understanding how valtio-y syncs state       | High-level architecture, data flow, synchronization patterns |
+| Data Flow    | `docs/architecture/data-flow.md`              | Understanding how changes propagate          | Bidirectional sync, Yjs to Valtio, Valtio to Yjs             |
+| Limitations  | `docs/architecture/limitations.md`            | Knowing what's supported and what's not      | What works, what doesn't, edge cases                         |
+| ADRs         | `docs/architecture/architectural-decisions.md`| Understanding design decisions               | Key architectural choices and rationale                      |
 
 When unsure where to dig next, skim the relevant file or check the README.md for overview information.
 
