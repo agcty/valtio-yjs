@@ -1,6 +1,6 @@
 /**
  * TodoItem Component
- * 
+ *
  * A single todo item with support for:
  * - Nested children (recursive rendering)
  * - Drag-and-drop reordering
@@ -8,9 +8,9 @@
  * - Completion toggling
  * - Adding subtasks
  * - Deletion
- * 
+ *
  * Key learning points:
- * - Direct mutations to the proxy automatically sync via valtio-yjs
+ * - Direct mutations to the proxy automatically sync via valtio-y
  * - Array operations (push, splice) work seamlessly
  * - Deeply nested updates propagate correctly
  */
@@ -50,7 +50,7 @@ import { getItemByPath, getContainingArray } from "../utils";
 interface TodoItemProps {
   /** The todo item data from the snapshot */
   item: TodoItemType;
-  /** The mutable valtio-yjs proxy for making changes */
+  /** The mutable valtio-y proxy for making changes */
   stateProxy: AppState;
   /** Path to this item in the tree (array of indices) */
   path: number[];
@@ -88,12 +88,18 @@ export function TodoItem({
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
-    })
+    }),
   );
 
   // Setup sortable for this item
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: item.id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -103,7 +109,7 @@ export function TodoItem({
 
   /**
    * Toggle completion status.
-   * Note: We mutate the proxy directly - valtio-yjs handles the sync!
+   * Note: We mutate the proxy directly - valtio-y handles the sync!
    */
   function toggleComplete() {
     const target = getItemByPath(stateProxy.todos, path);
@@ -150,8 +156,8 @@ export function TodoItem({
         target.children = [];
       }
       const newId = `${item.id}-${Date.now()}`;
-      // Push directly - valtio-yjs tracks this!
-      (target.children).push({
+      // Push directly - valtio-y tracks this!
+      target.children.push({
         id: newId,
         text: "New subtask",
         completed: false,
@@ -214,7 +220,12 @@ export function TodoItem({
   }, [isEditing]);
 
   // Visual styling based on nesting
-  const bgColors = ["bg-white", "bg-slate-50/50", "bg-slate-100/50", "bg-slate-150/50"];
+  const bgColors = [
+    "bg-white",
+    "bg-slate-50/50",
+    "bg-slate-100/50",
+    "bg-slate-150/50",
+  ];
   const bgColor = bgColors[Math.min(nestLevel, bgColors.length - 1)];
 
   const accentColors = {
@@ -267,14 +278,20 @@ export function TodoItem({
             aria-label={isExpanded ? "Collapse subtasks" : "Expand subtasks"}
             aria-expanded={isExpanded}
           >
-            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+            {isExpanded ? (
+              <ChevronDown size={16} />
+            ) : (
+              <ChevronRight size={16} />
+            )}
           </button>
 
           {/* Complete checkbox */}
           <button
             onClick={toggleComplete}
             className="mt-0.5 flex-shrink-0 text-slate-400 hover:text-slate-700 transition-colors"
-            aria-label={item.completed ? "Mark as incomplete" : "Mark as complete"}
+            aria-label={
+              item.completed ? "Mark as incomplete" : "Mark as complete"
+            }
           >
             {item.completed ? (
               <CheckCircle2 size={20} className={accentColor} />
@@ -301,7 +318,9 @@ export function TodoItem({
             <div
               onDoubleClick={handleEditStart}
               className={`flex-1 cursor-pointer leading-relaxed ${
-                item.completed ? "text-slate-400 line-through" : "text-slate-700"
+                item.completed
+                  ? "text-slate-400 line-through"
+                  : "text-slate-700"
               }`}
               role="button"
               tabIndex={0}

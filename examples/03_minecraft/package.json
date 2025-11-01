@@ -1,5 +1,5 @@
 {
-  "name": "example",
+  "name": "example-03-minecraft",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "react-dom": "latest",
     "three": "latest",
     "valtio": "latest",
-    "valtio-yjs": "workspace:*",
+    "valtio-y": "workspace:*",
     "y-webrtc": "latest",
     "yjs": "latest"
   },
@@ -23,6 +23,7 @@
     "vite": "latest"
   },
   "scripts": {
-    "dev": "PORT=4444 node node_modules/y-webrtc/bin/server.js & vite"
+    "dev": "PORT=4444 node node_modules/y-webrtc/bin/server.js & vite",
+    "typecheck": "tsc --noEmit"
   }
 }

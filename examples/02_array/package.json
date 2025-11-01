@@ -1,5 +1,5 @@
 {
-  "name": "example",
+  "name": "example-02-array",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,7 +7,7 @@
     "react": "latest",
     "react-dom": "latest",
     "valtio": "latest",
-    "valtio-yjs": "workspace:*",
+    "valtio-y": "workspace:*",
     "y-websocket": "latest",
     "yjs": "latest"
   },
@@ -19,6 +19,7 @@
     "vite": "latest"
   },
   "scripts": {
-    "dev": "HOST=localhost PORT=1234 npx y-websocket & vite"
+    "dev": "HOST=localhost PORT=1234 npx y-websocket & vite",
+    "typecheck": "tsc --noEmit"
   }
 }

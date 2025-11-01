@@ -1,0 +1,69 @@
+{
+  "name": "valtio-y",
+  "description": "Collaborative Valtio state",
+  "version": "0.6.4",
+  "type": "module",
+  "author": "Daishi Kato, Alex Gogl",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/valtiojs/valtio-y.git"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "node": {
+        "module": "./dist/index.js",
+        "import": "./dist/index.js",
+        "require": "./dist/index.cjs"
+      },
+      "browser": {
+        "module": "./dist/index.js",
+        "import": "./dist/index.js"
+      },
+      "default": "./dist/index.js"
+    }
+  },
+  "sideEffects": false,
+  "files": [
+    "src",
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch ./src",
+    "test": "bun vitest",
+    "bench": "bun vitest bench --config vitest.bench.config.ts",
+    "typecheck": "bun tsc -b --emitDeclarationOnly"
+  },
+  "keywords": [
+    "valtio",
+    "yjs",
+    "crdt"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.0",
+    "@vitest/browser": "^4.0.6",
+    "@vitest/browser-playwright": "^4.0.6",
+    "fast-check": "^4.3.0",
+    "playwright": "^1.56.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tsdown": "^0.15.12",
+    "typescript": "^5.9.3",
+    "valtio": "^2.1.8",
+    "vite": "^7.1.12",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.0.6",
+    "vitest-browser-react": "^2.0.2",
+    "yjs": "^13.6.27"
+  },
+  "peerDependencies": {
+    "valtio": ">=2.1.8",
+    "yjs": ">=13.6.27"
+  }
+}

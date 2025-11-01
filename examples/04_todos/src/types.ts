@@ -4,7 +4,7 @@
 
 /**
  * A todo item that can have nested children, forming a tree structure.
- * This showcases how valtio-yjs handles deeply nested data structures.
+ * This showcases how valtio-y handles deeply nested data structures.
  */
 export type TodoItem = {
   /** Unique identifier for the todo */
@@ -19,7 +19,7 @@ export type TodoItem = {
 
 /**
  * The root application state structure.
- * valtio-yjs will synchronize this entire structure across clients.
+ * valtio-y will synchronize this entire structure across clients.
  */
 export type AppState = {
   todos: TodoItem[];
@@ -29,4 +29,3 @@ export type AppState = {
  * Sync status for visual feedback to users
  */
 export type SyncStatus = "connected" | "syncing" | "offline";
-

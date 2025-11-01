@@ -1,168 +1,129 @@
-# valtio-yjs 💊🚀
+# valtio-y 💊🚀
 
-[![CI](https://img.shields.io/github/actions/workflow/status/valtiojs/valtio-yjs/ci.yml?branch=main)](https://github.com/valtiojs/valtio-yjs/actions?query=workflow%3ACI)
-[![npm](https://img.shields.io/npm/v/valtio-yjs)](https://www.npmjs.com/package/valtio-yjs)
-[![size](https://img.shields.io/bundlephobia/minzip/valtio-yjs)](https://bundlephobia.com/result?p=valtio-yjs)
+[![CI](https://img.shields.io/github/actions/workflow/status/valtiojs/valtio-y/ci.yml?branch=main)](https://github.com/valtiojs/valtio-y/actions?query=workflow%3ACI)
+[![npm](https://img.shields.io/npm/v/valtio-y)](https://www.npmjs.com/package/valtio-y)
+[![size](https://img.shields.io/bundlephobia/minzip/valtio-y)](https://bundlephobia.com/result?p=valtio-y)
 [![discord](https://img.shields.io/discord/627656437971288081)](https://discord.gg/MrQdmzd)
 
-valtio-yjs makes yjs state easy
+**Collaborative state made easy.** Two-way sync between [Valtio](https://github.com/pmndrs/valtio) proxies and [Yjs](https://github.com/yjs/yjs) CRDTs for building multi-user apps with minimal effort.
 
-## What is this
-
-[valtio](https://github.com/pmndrs/valtio) is
-a proxy state library for ReactJS and VanillaJS.
-[yjs](https://github.com/yjs/yjs) is
-an implementation of CRDT algorithm
-(which allows to merge client data without server coordination).
-
-valtio-yjs is a two-way binding to bridge them.
-
-## Project status
-
-It started as an experiment, and the experiment is finished.
-Now, it's in alpha.
-We encourage developers to try it in non-trivial apps, and find bugs.
-
-## Install
+Write normal JavaScript, get real-time collaboration for free.
 
 ```bash
-yarn add valtio-yjs valtio yjs
+npm install valtio-y valtio yjs
 ```
 
-## How to use it
+---
+
+## Quick Start
+
+Create a synchronized proxy and mutate it like any normal object. Changes automatically sync across clients.
 
 ```js
 import * as Y from "yjs";
-import { createYjsProxy } from "valtio-yjs";
+import { createYjsProxy } from "valtio-y";
 
-// create a new Y doc
+// Create a Yjs document
 const ydoc = new Y.Doc();
 
-// create a synchronized proxy
-const {
-  proxy: state,
-  dispose,
-  bootstrap,
-} = createYjsProxy(ydoc, {
+// Create a synchronized proxy
+const { proxy: state } = createYjsProxy(ydoc, {
   getRoot: (doc) => doc.getMap("mymap"),
 });
 
-// optionally bootstrap with initial data (only works on empty docs)
-bootstrap({});
-
-// now you can mutate the state
+// Mutate state like a normal object
 state.text = "hello";
+state.count = 0;
 
-// you can nest objects
-state.obj = { count: 0 };
+// Nested objects work too
+state.user = { name: "Alice", age: 30 };
+state.user.age = 31;
 
-// and mutate the nested object value
-++state.obj.count;
-
-// you can use arrays too
-state.arr = [1, 2, 3];
-
-// mutating the array is also possible
-state.arr.push(4);
-
-// dispose when you're done to clean up listeners
-dispose();
+// Arrays work naturally
+state.todos = [{ text: "Learn valtio-y", done: false }];
+state.todos.push({ text: "Build something cool", done: false });
+state.todos[0].done = true;
 ```
 
-## Bootstrap vs Direct Assignment
+That's it! State is now synchronized via Yjs. Add a provider to sync across clients.
 
-In most cases, you'll use **direct assignment** to initialize and update your state. The `bootstrap` function is optional and only needed for specific scenarios.
+## Use in React
 
-### Direct Assignment (Recommended for Most Cases)
+Bind your components with Valtio's `useSnapshot`. Components re-render only when their data changes.
 
-```js
-// ✅ Just assign directly - this works great!
-if (!state.todos) {
-  state.todos = [
-    { id: 1, text: "Learn valtio-yjs" },
-    { id: 2, text: "Build something cool" },
-  ];
+```jsx
+import { useSnapshot } from "valtio/react";
+
+function TodoList() {
+  const snap = useSnapshot(state);
+
+  return (
+    <ul>
+      {snap.todos.map((todo, i) => (
+        <li key={i}>
+          <input
+            type="checkbox"
+            checked={todo.done}
+            onChange={() => (state.todos[i].done = !state.todos[i].done)}
+          />
+          {todo.text}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
-// ✅ Update anytime
-state.user = { name: "Alice", age: 30 };
-state.settings = { theme: "dark" };
+function AddTodo() {
+  return (
+    <button onClick={() => state.todos.push({ text: "New task", done: false })}>
+      Add Todo
+    </button>
+  );
+}
 ```
 
-**How it works:**
+### Why valtio-y?
 
-- Validates data synchronously
-- Converts plain objects/arrays to Y.js types automatically
-- Flushes to Y.js document on next microtask
-- Replaces plain values with live controller proxies
+- **Just JavaScript** - No special APIs, write like you normally would
+- **Automatic sync** - Changes propagate via Yjs CRDTs without conflicts
+- **React-friendly** - Works seamlessly with Valtio's `useSnapshot`
+- **Offline-first** - Local changes merge cleanly when reconnected
+- **Type-safe** - Full TypeScript support out of the box
 
-### When to Use Bootstrap
+---
 
-Use `bootstrap()` when you need these specific guarantees:
+## Collaboration Setup
 
-#### 1. **Automatic Empty-Document Check**
+Connect multiple clients with any Yjs provider:
 
 ```js
-// Bootstrap won't overwrite existing data (safe for network sync)
-provider.on("synced", () => {
-  bootstrap({ todos: [] }); // ✅ No-op if remote data exists
+import { WebsocketProvider } from "y-websocket";
+
+const ydoc = new Y.Doc();
+const provider = new WebsocketProvider("ws://localhost:1234", "my-room", ydoc);
+
+const { proxy: state } = createYjsProxy(ydoc, {
+  getRoot: (doc) => doc.getMap("state"),
 });
 
-// Direct assignment requires manual check
-provider.on("synced", () => {
-  if (!state.todos) {
-    // ⚠️ Must check manually
-    state.todos = [];
-  }
-});
+// Now all clients in "my-room" share the same state!
+state.message = "Hello from client 1";
 ```
 
-#### 2. **All-or-Nothing Atomicity**
+**Supported providers:**
 
-```js
-// ✅ Bootstrap: Either ALL data is valid and written, or NOTHING is written
-bootstrap({
-  todos: [...],
-  users: [...],
-  settings: {...}
-});
+- [y-websocket](https://github.com/yjs/y-websocket) - WebSocket sync
+- [y-webrtc](https://github.com/yjs/y-webrtc) - P2P WebRTC sync
+- [y-indexeddb](https://github.com/yjs/y-indexeddb) - Offline persistence
+- Any Yjs provider
 
-// ⚠️ Direct assignment: Partial state possible if validation fails
-state.todos = [...];      // ✅ Succeeds
-state.users = [...];      // ✅ Succeeds
-state.settings = invalid; // ❌ Fails - but todos & users already written!
-```
+---
 
-#### 3. **Same-Tick Nested Edits**
+## Recipes
 
-```js
-// ✅ Bootstrap materializes nested proxies immediately
-bootstrap({ item: { title: "A", tags: [] } });
-state.item.title = "B"; // Works in same tick
+### Initializing state with network sync
 
-// ⚠️ Direct assignment requires waiting for microtask
-state.item = { title: "A", tags: [] };
-await Promise.resolve(); // Must wait
-state.item.title = "B"; // Now safe
-```
-
-### Quick Decision Guide
-
-**Use direct assignment when:**
-
-- ✅ Building single-user or local-first apps
-- ✅ You're comfortable with manual empty checks (`if (!state.todos)`)
-- ✅ Initializing data incrementally (one field at a time)
-- ✅ You don't need same-tick nested edits
-
-**Use bootstrap when:**
-
-- ✅ Syncing with network providers (y-websocket, y-webrtc)
-- ✅ You want automatic safety against overwriting remote data
-- ✅ Initializing large, complex initial state atomically
-- ✅ You need immediate nested object access in same tick
-
-### Example: Network Sync Pattern
+When using network providers, initialize state after the first sync to avoid overwriting remote data:
 
 ```js
 import { WebsocketProvider } from "y-websocket";
@@ -170,7 +131,7 @@ import { WebsocketProvider } from "y-websocket";
 const ydoc = new Y.Doc();
 const provider = new WebsocketProvider("ws://localhost:1234", "room", ydoc);
 
-const { proxy, bootstrap } = createYjsProxy(ydoc, {
+const { proxy: state, bootstrap } = createYjsProxy(ydoc, {
   getRoot: (doc) => doc.getMap("state"),
 });
 
@@ -180,368 +141,246 @@ provider.on("synced", () => {
     todos: [],
     settings: { theme: "light" },
   });
-  // ✅ Won't overwrite data from other clients
+  // ✅ Only writes if document is empty
 });
 ```
 
-## What's Supported
-
-### Data Types
-
-- ✅ **Objects** (Y.Map → Valtio proxy)
-- ✅ **Arrays** (Y.Array → Valtio proxy)
-- ✅ **Collaborative text** (Y.Text & Y.XmlText) - [See below](#collaborative-text-ytext)
-- ✅ **XML types** (Y.XmlFragment, Y.XmlElement, Y.XmlHook) - [See below](#xml-types)
-- ✅ **Primitives** (string, number, boolean, null)
-- ✅ **Deep nesting** (arbitrary depth)
-
-### Array Operations
-
-All standard JavaScript array operations are fully supported:
-
-- ✅ **push**, **pop**, **unshift**, **shift**
-- ✅ **splice** (insert, delete, replace)
-- ✅ **Direct index assignment**: `arr[i] = value`
-- ✅ **Element deletion**: `delete arr[i]` (automatically removes element, no sparse arrays)
-- ✅ **Array reordering/moves**: `arr.splice(from, 1); arr.splice(to, 0, item)`
+For local-first apps without network sync, direct assignment works fine:
 
 ```js
-// Array moves work naturally
-const [item] = state.arr.splice(2, 1); // Remove from index 2
-state.arr.splice(0, 0, item); // Insert at index 0
-// ✅ Item successfully moved!
+// Just assign directly
+if (!state.todos) {
+  state.todos = [];
+}
 ```
 
-### Object Operations
+### Array operations
 
-- ✅ **Set properties**: `obj.key = value`
-- ✅ **Delete properties**: `delete obj.key`
-- ✅ **Nested updates**: `obj.nested.deep.value = x`
-- ✅ **Object replacement**: `obj.nested = { ...newObj }`
-
-### Collaboration Features
-
-- ✅ **Multi-client sync** (via Yjs providers)
-- ✅ **Conflict-free merging** (CRDT guarantees)
-- ✅ **Offline-first** (local-first architecture)
-- ✅ **Undo/Redo** (via Yjs UndoManager)
-
-## Collaborative Text (Y.Text)
-
-valtio-yjs provides **automatic reactivity** for Y.Text and Y.XmlText with zero configuration needed.
-
-### Usage - It Just Works! ✨
+All standard JavaScript array methods work:
 
 ```js
-import { createYjsProxy, syncedText } from "valtio-yjs";
-import { useSnapshot } from "valtio/react";
+// Add/remove items
+state.items.push(newItem);
+state.items.pop();
+state.items.unshift(firstItem);
+state.items.shift();
 
-const { proxy } = createYjsProxy(doc, {
-  getRoot: (d) => d.getMap("root"),
+// Modify by index
+state.items[0] = updatedItem;
+delete state.items[2]; // Removes element (no sparse arrays)
+
+// Splice for complex operations (recommended for resizing)
+state.items.splice(1, 2, replacement1, replacement2);
+state.items.splice(0); // Clear array (instead of: arr.length = 0)
+state.items.splice(5); // Truncate to 5 items (instead of: arr.length = 5)
+
+// Moving items
+const [item] = state.items.splice(2, 1); // Remove from index 2
+state.items.splice(0, 0, item); // Insert at index 0
+```
+
+### Object operations
+
+```js
+// Set properties
+state.user.name = "Alice";
+state.settings = { theme: "dark", fontSize: 14 };
+
+// Delete properties
+delete state.user.temporaryFlag;
+
+// Nested updates
+state.data.deeply.nested.value = 42;
+
+// Replace entire nested object
+state.user.preferences = { ...newPreferences };
+```
+
+### Accessing state outside React
+
+```js
+// Read current state (non-reactive)
+const currentCount = state.count;
+
+// Mutate from anywhere
+state.count++;
+
+// In event handlers, timers, etc.
+setTimeout(() => {
+  state.message = "Updated from timer";
+}, 1000);
+```
+
+### Undo/Redo
+
+Use Yjs's UndoManager:
+
+```js
+import { UndoManager } from "yjs";
+
+const ydoc = new Y.Doc();
+const { proxy: state } = createYjsProxy(ydoc, {
+  getRoot: (doc) => doc.getMap("state"),
 });
 
-// Create collaborative text
-proxy.document = syncedText("Hello World");
+const undoManager = new UndoManager(ydoc.getMap("state"));
 
-// In React - automatically reactive! No hooks needed
-function Editor() {
-  const snap = useSnapshot(proxy);
+// Perform some actions
+state.count = 1;
+state.count = 2;
 
-  return (
-    <div>
-      <p>{snap.document.toString()}</p>
-      <button onClick={() => proxy.document.insert(11, "!")}>Add !</button>
-    </div>
-  );
+// Undo/redo
+undoManager.undo(); // state.count is now 1
+undoManager.redo(); // state.count is now 2
+```
+
+---
+
+## Performance
+
+valtio-y is fast out of the box with automatic optimizations:
+
+### Automatic Batching
+
+Multiple mutations in the same tick are automatically batched:
+
+```js
+// These 100 operations become 1 network update
+for (let i = 0; i < 100; i++) {
+  state.count++;
 }
+// ✅ Single Yjs transaction, one sync event
 ```
 
-**That's it!** The component automatically re-renders when the text changes, whether from local edits or remote collaborators.
+### Bulk Operations
 
-### Supported Leaf Types
-
-- ✅ **Y.Text** - Collaborative rich text CRDT
-- ✅ **Y.XmlText** - XML-specific text (automatically supported)
-
-### When to Use Y.Text vs Plain Strings
-
-**Use plain strings** (95% of cases):
+Large array operations are optimized automatically:
 
 ```js
-state.title = "My Document"; // ✅ Syncs perfectly
-state.author = "Alice"; // ✅ Simple and efficient
+// Optimized: 6.3x faster for large inserts
+state.items.push(...Array(1000).fill({ data: "x" }));
+state.items.unshift(...newItems);
 ```
 
-**Use Y.Text** only when you need:
+### Lazy Materialization
 
-1. **Rich text editing** with formatting (bold, italic, colors)
-2. **Large documents** with efficient delta syncing
-3. **Collaborative text** where multiple users edit simultaneously
-4. **Text with embedded content** (images, mentions, etc.)
+Nested objects create proxies on-demand:
 
 ```js
-// Y.Text for collaborative rich text editor
-const content = syncedText("Hello");
-content.format(0, 5, { bold: true }); // Needs Y.Text for formatting
-state.documentBody = content;
+state.users = Array(10000).fill({ name: "User", data: {...} });
+// ✅ Fast initialization, proxies created when accessed
+const user = state.users[0]; // Materializes this user only
 ```
 
-### Arrays and Nested Structures
+**Performance characteristics:**
 
-Y.Text works seamlessly in arrays and nested objects:
+| Operation                   | Time     | Notes                      |
+| --------------------------- | -------- | -------------------------- |
+| Small updates (1-10 items)  | ~1-3ms   | Typical UI interactions    |
+| Bulk operations (100 items) | ~3-8ms   | Automatically optimized    |
+| Large arrays (1000 items)   | ~15-30ms | Bootstrap/import scenarios |
+| Deep nesting (10+ levels)   | ~2-4ms   | Lazy materialization helps |
 
-```js
-// Multiple text fields
-proxy.article = {
-  title: syncedText("My Article"),
-  subtitle: syncedText("A subtitle"),
-  body: syncedText("Content here"),
-};
-
-// In React - all automatically reactive!
-function Article() {
-  const snap = useSnapshot(proxy);
-
-  return (
-    <div>
-      <h1>{snap.article.title.toString()}</h1>
-      <h2>{snap.article.subtitle.toString()}</h2>
-      <p>{snap.article.body.toString()}</p>
-    </div>
-  );
-}
-
-// Text in arrays
-proxy.paragraphs = [
-  syncedText("First paragraph"),
-  syncedText("Second paragraph"),
-];
-```
-
-### How It Works (Technical)
-
-**The Challenge**: Y.Text has internal CRDT state that can't be deeply proxied without interfering with its merge algorithm.
-
-**Our Solution**:
-
-1. **Wrap with `ref()`** - Prevents Valtio from deep-proxying Y.Text internals
-2. **Observe Y.js events** - Listen to Y.Text's native `observe()` for content changes
-3. **Trigger Valtio updates** - Re-assign the reference to notify Valtio's snapshot system
-4. **Automatic cleanup** - Unobserve when proxy is disposed
-
-**vs SyncedStore's Approach**:
-
-- SyncedStore: Patches Y.Text methods (`toString()`, `toJSON()`) to trigger reactivity
-- valtio-yjs: Observes Y.Text changes and uses Valtio's existing change detection
-- Result: Cleaner implementation, no method patching, same automatic reactivity ✨
-
-## XML Types
-
-valtio-yjs fully supports Y.js XML types for building collaborative document editors.
-
-### Y.XmlFragment
-
-Container for XML nodes (similar to Y.Array):
-
-```js
-const fragment = new Y.XmlFragment();
-const element = new Y.XmlElement("div");
-fragment.insert(0, [element]);
-
-proxy.document = fragment;
-```
-
-### Y.XmlElement
-
-XML element with attributes and children:
-
-```js
-const element = new Y.XmlElement("div");
-element.setAttribute("class", "container");
-element.setAttribute("id", "main");
-
-const text = new Y.XmlText("Hello");
-element.insert(0, [text]);
-
-proxy.root = element;
-```
-
-### Y.XmlHook
-
-Custom hook type (extends Y.Map):
-
-```js
-const hook = new Y.XmlHook("custom-hook");
-hook.set("data", "value");
-proxy.customHook = hook;
-```
-
-**Note**: All XML types work as containers and are automatically reactive. Y.XmlText (which extends Y.Text) has the same automatic reactivity as Y.Text.
+---
 
 ## Limitations
 
 ### Not Supported
 
 - ❌ **`undefined` values** (use `null` or delete the key)
-- ❌ **Non-serializable types** (functions, symbols, classes)
+- ❌ **Non-serializable types** (functions, symbols, class instances)
+- ❌ **Direct length manipulation** (use `array.splice()` instead of `array.length = N`)
 
-## Performance
+### What Works
 
-### Automatic Optimizations
+- ✅ **Objects & Arrays** - Full support with deep nesting
+- ✅ **Primitives** - string, number, boolean, null
+- ✅ **All array methods** - push, pop, splice, etc.
+- ✅ **Undo/Redo** - via Yjs UndoManager
 
-valtio-yjs includes several performance optimizations out of the box:
+### Research In Progress
 
-#### Microtask Batching
+**Important:** valtio-y is designed for **shared application state** (collaborative data structures like objects, arrays, and primitives), not for building text editors.
 
-All mutations in the same JavaScript task are automatically batched into a single Yjs transaction:
+**If you're building a text editor:** Use the native Yjs integration for your editor:
 
-```js
-// These 100 operations become 1 network update
-for (let i = 0; i < 100; i++) {
-  state.obj.count++;
-}
-// ✅ Single transaction, single sync event
-```
+- [Lexical](https://lexical.dev/) → Use `@lexical/yjs`
+- [TipTap](https://tiptap.dev/) → Use their built-in Yjs extension
+- [ProseMirror](https://prosemirror.net/) → Use `y-prosemirror`
 
-#### Bulk Insert Optimization
+These editors have specialized Yjs integrations optimized for their specific use cases.
 
-Large array operations are automatically optimized:
+**Y.Text integration research:**
 
-```js
-// Optimized: 6.3x faster for unshift, efficient for push
-state.items.push(...Array(1000).fill({ data: "x" }));
-state.items.unshift(...newItems);
+We are actively researching how to best integrate collaborative text editing (Y.Text) and XML types with Valtio's reactive system for non-editor use cases. valtio-y has a different application profile from text editors, and most use cases won't need Y.Text integration at all.
 
-// Also optimized when done sequentially in same tick
-state.items.push(item1);
-state.items.push(item2);
-// ... more pushes
-```
+**Current status:**
 
-**Performance gains:**
+- Core types (Y.Map, Y.Array, primitives) are production-ready with clean, well-tested implementations
+- Leaf types (Y.Text, XML) integration is being researched in the `research/ytext-integration` branch
+- For typical valtio-y use cases, plain strings work perfectly for text fields
 
-- **Bulk unshift**: 6.3x faster (53 → 336 ops/sec for 100 items)
-- **Bulk push**: Efficient batching, no regression
-- **Large datasets**: Handles 1000+ item operations smoothly
+**Have a use case for Y.Text in shared state?** We'd love to learn more! Please [open an issue](https://github.com/valtiojs/valtio-y/issues) to discuss your requirements.
 
-#### Lazy Materialization
+---
 
-Nested objects only create Valtio proxies when accessed:
+## Best Practices
 
-```js
-state.data = {
-  users: Array(10000).fill({
-    /* large objects */
-  }),
-};
+**Do:**
 
-// ✅ Proxy created instantly, users materialized on access
-const firstUser = state.data.users[0]; // Materializes this user only
-```
+- ✅ Batch related updates in the same tick (automatically optimized into one transaction)
+- ✅ Use bulk array operations (`push(...items)`) for better performance
+- ✅ Initialize with `bootstrap()` when using network sync providers
+- ✅ Use plain strings for all text fields
+- ✅ Cache references to deeply nested objects in loops
 
-**Benefits:**
+**Don't:**
 
-- Fast initialization of large structures
-- Memory efficient for sparse data
-- Scales to deep nesting (20+ levels tested)
+- ❌ Use `undefined` (use `null` or delete the property instead)
+- ❌ Store functions or class instances (not serializable)
+- ❌ Use `await` between mutations if you want them batched together
+- ❌ Repeatedly access deep paths in loops (cache the reference first)
 
-### Performance Characteristics
+### Advanced: Concurrent List Reordering
 
-| Operation                     | Performance | Notes                      |
-| ----------------------------- | ----------- | -------------------------- |
-| Small updates (1-10 items)    | ~1-3ms      | Typical UI interactions    |
-| Bulk push/unshift (100 items) | ~3-8ms      | Optimized automatically    |
-| Large arrays (1000 items)     | ~15-30ms    | Bootstrap/import scenarios |
-| Deep nesting (10 levels)      | ~2-4ms      | Lazy materialization helps |
-| Two-client sync               | +1-2ms      | Network latency dominates  |
-
-### Best Practices
-
-#### ✅ Do This
-
-```js
-// Batch related updates in same tick
-state.user.name = "Alice";
-state.user.age = 30;
-state.user.active = true;
-// ✅ Single transaction
-
-// Use bulk operations for multiple items
-state.todos.push(...newTodos);
-// ✅ Optimized bulk insert
-
-// Access nested data as needed
-const user = state.users[id]; // Materializes on demand
-// ✅ Efficient lazy loading
-```
-
-#### ❌ Avoid This
-
-```js
-// Don't manually batch with setTimeout/Promise
-for (const item of items) {
-  await doSomething(); // ❌ Creates many transactions
-  state.items.push(item);
-}
-// Instead: prepare all items, then push in bulk
-
-// Don't repeatedly access deep paths in loops
-for (let i = 0; i < 1000; i++) {
-  state.deeply.nested.array.push(i); // ❌ Repeated lookups
-}
-// Instead: get reference once
-const arr = state.deeply.nested.array;
-for (let i = 0; i < 1000; i++) {
-  arr.push(i); // ✅ Efficient
-}
-```
-
-### When to Optimize Further
-
-For most applications, the built-in optimizations are sufficient. Consider additional optimization if you have:
-
-- **Very large lists** (10,000+ items): Consider pagination or virtualization
-- **High-frequency updates** (60+ updates/sec): May need throttling at app level
-- **Deeply nested structures** (20+ levels): Consider flattening data model
-- **Concurrent reordering**: See [Fractional Indexing](#advanced-fractional-indexing-for-list-ordering) below
-
-## Advanced: Fractional Indexing for List Ordering
-
-For most applications, standard array operations work great. However, if you're building a collaborative app with **high-frequency concurrent reordering** (e.g., shared task list with drag-and-drop), consider fractional indexing:
+For most apps, standard array operations work perfectly. For **high-frequency concurrent reordering** in collaborative lists (e.g., drag-and-drop task boards with multiple simultaneous users), consider fractional indexing:
 
 ```js
 // Standard approach (works for most cases)
 const [task] = tasks.splice(from, 1);
 tasks.splice(to, 0, task);
 
-// Fractional indexing (for concurrent reordering)
+// Fractional indexing (for heavy concurrent reordering)
 type Task = { order: number, title: string };
-
-// Each task has an order field
 tasks[i].order = (tasks[i - 1].order + tasks[i + 1].order) / 2;
-
-// Display sorted by order
 const sorted = [...tasks].sort((a, b) => a.order - b.order);
 ```
 
-**When to use fractional indexing:**
+**When to use:** Large lists (>100 items) with multiple users frequently reordering  
+**When NOT needed:** Single-user apps, small lists, or append-only scenarios
 
-- Multiple users frequently reordering the same list
-- Critical ordering where conflicts need deterministic resolution
-- Large lists (>100 items) with frequent moves
+For more details, see [architecture docs](./docs/)
 
-**When NOT needed:**
+---
 
-- Single-user applications
-- Small lists or infrequent reordering
-- Append-only lists (chat, logs)
+## Examples
 
-## Demos
+Try these live collaborative demos:
 
-Using `useSnapshot` in valtio and
-`WebsocketProvider` in [y-websocket](https://github.com/yjs/y-websocket),
-we can create multi-client React apps pretty easily.
+- **[Object sync](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/01_obj)** - Basic object synchronization
+- **[Array sync](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/02_array)** - Shared arrays and lists
+- **[Minecraft clone](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/03_minecraft)** - Multi-player 3D world with WebRTC
+- **[Todo app](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/04_todos)** - Full-featured collaborative todo list
+- **[Simple todos](https://stackblitz.com/github/valtiojs/valtio-y/tree/main/examples/05_todos_simple)** - Minimal todo example
 
-- [Messages object](https://stackblitz.com/github/valtiojs/valtio-yjs/tree/main/examples/01_obj)
-- [Messages array](https://stackblitz.com/github/valtiojs/valtio-yjs/tree/main/examples/02_array)
-- [Minecraft + webrtc](https://stackblitz.com/github/valtiojs/valtio-yjs/tree/main/examples/03_minecraft)
+All examples use `useSnapshot` from Valtio and work with any Yjs provider for real-time sync.
+
+---
+
+**Feedback and contributions welcome!** If you find bugs or have suggestions, please [open an issue](https://github.com/valtiojs/valtio-y/issues).
+
+For detailed technical documentation, see:
+
+- [Architecture](./docs/architecture.md)
+- [Limitations](./docs/limitations.md)
+- [Data Flow](./docs/data-flow.md)

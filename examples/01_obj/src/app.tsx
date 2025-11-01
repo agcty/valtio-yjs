@@ -1,25 +1,32 @@
-import * as Y from 'yjs';
-import { WebsocketProvider } from 'y-websocket';
-import { createYjsProxy } from 'valtio-yjs';
-import { useSnapshot } from 'valtio';
-import { useState } from 'react';
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
+import { createYjsProxy } from "valtio-y";
+import { useSnapshot } from "valtio";
+import { useState } from "react";
 
 const ydoc = new Y.Doc();
-const provider = new WebsocketProvider('ws://localhost:1234', 'valtio-yjs-demo', ydoc);
+const provider = new WebsocketProvider(
+  "ws://localhost:1234",
+  "valtio-y-demo",
+  ydoc,
+);
 
-const { proxy: mesgMap, bootstrap } = createYjsProxy<Record<string, string>>(ydoc, {
-  getRoot: (doc: Y.Doc) => doc.getMap('messages.v1'),
-});
+const { proxy: mesgMap, bootstrap } = createYjsProxy<Record<string, string>>(
+  ydoc,
+  {
+    getRoot: (doc: Y.Doc) => doc.getMap("messages.v1"),
+  },
+);
 // Initialize once after network sync; bootstrap is a no-op if remote state exists
-provider.on('sync', () => {
+provider.on("sync", () => {
   try {
     bootstrap({});
   } catch {}
 });
 
 const MyMessage = () => {
-  const [name, setName] = useState('');
-  const [message, setMessage] = useState('');
+  const [name, setName] = useState("");
+  const [message, setMessage] = useState("");
   const send = () => {
     if (name && message) {
       mesgMap[name] = message;
@@ -31,7 +38,7 @@ const MyMessage = () => {
         Name: <input value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <div>
-        Message:{' '}
+        Message:{" "}
         <input value={message} onChange={(e) => setMessage(e.target.value)} />
       </div>
       <button disabled={!name || !message} onClick={send}>

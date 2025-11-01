@@ -1,8 +1,8 @@
 /**
  * Simple Collaborative Todo List
- * 
- * This example demonstrates the core features of valtio-yjs in a single file:
- * 
+ *
+ * This example demonstrates the core features of valtio-y in a single file:
+ *
  * 1. **Simple State Management**: Just mutate the proxy like regular objects
  * 2. **Real-time Sync**: Changes automatically sync between clients
  * 3. **CRUD Operations**: Create, read, update, delete todos
@@ -10,10 +10,10 @@
  * 5. **Reordering**: Move todos up/down with buttons
  */
 
-import { useSnapshot } from 'valtio';
-import * as Y from 'yjs';
-import { createYjsProxy } from 'valtio-yjs';
-import { useState, useEffect } from 'react';
+import { useSnapshot } from "valtio";
+import * as Y from "yjs";
+import { createYjsProxy } from "valtio-y";
+import { useState, useEffect } from "react";
 
 // ============================================================================
 // TYPES
@@ -36,26 +36,26 @@ type AppState = {
 
 /**
  * THE "GLUE" THAT MAKES OFFLINE SYNC WORK: Yjs CRDTs
- * 
+ *
  * When both clients are offline and make changes independently, how do they
- * sync when coming back online? The answer is Yjs's CRDT (Conflict-free 
+ * sync when coming back online? The answer is Yjs's CRDT (Conflict-free
  * Replicated Data Type) algorithm:
- * 
+ *
  * 1. **Logical Clocks**: Each change gets a unique timestamp (version vector)
  *    that doesn't depend on wall-clock time. This creates a partial ordering
  *    of all changes across all clients.
- * 
- * 2. **Causality Tracking**: Updates contain information about what other 
+ *
+ * 2. **Causality Tracking**: Updates contain information about what other
  *    updates they depend on, ensuring changes are understood in context.
- * 
+ *
  * 3. **Commutative Operations**: Updates can be applied in ANY order and will
  *    converge to the same final state. If Client 1 applies [updateA, updateB]
  *    and Client 2 applies [updateB, updateA], both end up identical.
- * 
+ *
  * 4. **Deterministic Conflict Resolution**: When both clients edit the same
- *    thing (e.g., same text), Yjs uses consistent rules (client ID as 
+ *    thing (e.g., same text), Yjs uses consistent rules (client ID as
  *    tiebreaker) so both clients resolve conflicts identically.
- * 
+ *
  * This is why we can queue updates while offline and simply call Y.applyUpdate()
  * when coming back online - Yjs handles all the complexity!
  */
@@ -65,7 +65,7 @@ const doc1 = new Y.Doc();
 const doc2 = new Y.Doc();
 
 // Set up automatic syncing between documents (simulates network)
-const RELAY_ORIGIN = Symbol('relay');
+const RELAY_ORIGIN = Symbol("relay");
 
 // Track online/offline status for each client
 let client1Online = true;
@@ -80,7 +80,7 @@ const client2Queue: Uint8Array[] = [];
 const statusListeners = new Set<() => void>();
 
 function notifyStatusChange() {
-  statusListeners.forEach(listener => listener());
+  statusListeners.forEach((listener) => listener());
 }
 
 export function toggleClient1Online() {
@@ -92,17 +92,17 @@ export function toggleClient1Online() {
     // merge correctly with any changes Client 2 made, even if Client 2
     // was also offline. Y.applyUpdate uses logical clocks and causality
     // tracking to guarantee convergence.
-    client1Queue.forEach(update => {
+    client1Queue.forEach((update) => {
       setTimeout(() => {
         doc2.transact(() => Y.applyUpdate(doc2, update), RELAY_ORIGIN);
       }, 50);
     });
     client1Queue.length = 0;
-    
+
     // If Client 2 is also online and has queued updates, sync them too
     // This handles the case where both were offline and come back online
     if (client2Online && client2Queue.length > 0) {
-      client2Queue.forEach(update => {
+      client2Queue.forEach((update) => {
         setTimeout(() => {
           doc1.transact(() => Y.applyUpdate(doc1, update), RELAY_ORIGIN);
         }, 50);
@@ -118,16 +118,16 @@ export function toggleClient2Online() {
   if (client2Online) {
     // CLIENT 2 COMES BACK ONLINE
     // Flush queued updates to Client 1
-    client2Queue.forEach(update => {
+    client2Queue.forEach((update) => {
       setTimeout(() => {
         doc1.transact(() => Y.applyUpdate(doc1, update), RELAY_ORIGIN);
       }, 50);
     });
     client2Queue.length = 0;
-    
+
     // If Client 1 is also online and has queued updates, sync them too
     if (client1Online && client1Queue.length > 0) {
-      client1Queue.forEach(update => {
+      client1Queue.forEach((update) => {
         setTimeout(() => {
           doc2.transact(() => Y.applyUpdate(doc2, update), RELAY_ORIGIN);
         }, 50);
@@ -153,9 +153,9 @@ export function getClient2Online() {
   return client2Online;
 }
 
-doc1.on('update', (update: Uint8Array, origin: unknown) => {
+doc1.on("update", (update: Uint8Array, origin: unknown) => {
   if (origin === RELAY_ORIGIN) return;
-  
+
   if (client1Online) {
     // Online: sync immediately
     setTimeout(() => {
@@ -167,9 +167,9 @@ doc1.on('update', (update: Uint8Array, origin: unknown) => {
   }
 });
 
-doc2.on('update', (update: Uint8Array, origin: unknown) => {
+doc2.on("update", (update: Uint8Array, origin: unknown) => {
   if (origin === RELAY_ORIGIN) return;
-  
+
   if (client2Online) {
     // Online: sync immediately
     setTimeout(() => {
@@ -181,30 +181,30 @@ doc2.on('update', (update: Uint8Array, origin: unknown) => {
   }
 });
 
-// Create valtio-yjs proxies
+// Create valtio-y proxies
 const { proxy: proxy1 } = createYjsProxy<AppState>(doc1, {
-  getRoot: (doc) => doc.getMap('sharedState'),
+  getRoot: (doc) => doc.getMap("sharedState"),
 });
 
 const { proxy: proxy2 } = createYjsProxy<AppState>(doc2, {
-  getRoot: (doc) => doc.getMap('sharedState'),
+  getRoot: (doc) => doc.getMap("sharedState"),
 });
 
 // Initialize with sample data
 if (!proxy1.todos) {
   proxy1.todos = [
     {
-      id: '1',
-      text: 'Welcome to Simple Todos!',
+      id: "1",
+      text: "Welcome to Simple Todos!",
       completed: false,
       children: [
-        { id: '1-1', text: 'Try editing this subtask', completed: false },
-        { id: '1-2', text: 'Try marking this complete', completed: false },
+        { id: "1-1", text: "Try editing this subtask", completed: false },
+        { id: "1-2", text: "Try marking this complete", completed: false },
       ],
     },
     {
-      id: '2',
-      text: 'Add a new todo below',
+      id: "2",
+      text: "Add a new todo below",
       completed: false,
     },
   ];
@@ -229,12 +229,17 @@ type TodoItemProps = {
   isSubtask?: boolean;
 };
 
-function TodoItemComponent({ todo, todos, index, isSubtask = false }: TodoItemProps) {
+function TodoItemComponent({
+  todo,
+  todos,
+  index,
+  isSubtask = false,
+}: TodoItemProps) {
   // Use snapshot to track changes and trigger re-renders
   const snap = useSnapshot(todo);
-  
+
   const [isEditing, setIsEditing] = useState(false);
-  const [editText, setEditText] = useState('');
+  const [editText, setEditText] = useState("");
 
   const handleToggle = () => {
     todo.completed = !todo.completed;
@@ -276,13 +281,15 @@ function TodoItemComponent({ todo, todos, index, isSubtask = false }: TodoItemPr
     }
     todo.children.push({
       id: generateId(),
-      text: 'New subtask',
+      text: "New subtask",
       completed: false,
     });
   };
 
   return (
-    <div className={`rounded-lg p-3 mb-2 ${isSubtask ? 'ml-8 bg-slate-50 border border-slate-200' : 'bg-white border border-slate-300 shadow-sm'}`}>
+    <div
+      className={`rounded-lg p-3 mb-2 ${isSubtask ? "ml-8 bg-slate-50 border border-slate-200" : "bg-white border border-slate-300 shadow-sm"}`}
+    >
       <div className="flex items-start gap-2">
         {/* Checkbox */}
         <input
@@ -301,15 +308,15 @@ function TodoItemComponent({ todo, todos, index, isSubtask = false }: TodoItemPr
               onChange={(e) => setEditText(e.target.value)}
               onBlur={handleSave}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleSave();
-                if (e.key === 'Escape') setIsEditing(false);
+                if (e.key === "Enter") handleSave();
+                if (e.key === "Escape") setIsEditing(false);
               }}
               className="w-full px-2 py-1 border rounded"
               autoFocus
             />
           ) : (
             <span
-              className={`${snap.completed ? 'line-through text-slate-400' : 'text-slate-900'} cursor-pointer`}
+              className={`${snap.completed ? "line-through text-slate-400" : "text-slate-900"} cursor-pointer`}
               onDoubleClick={handleEdit}
             >
               {snap.text}
@@ -394,9 +401,11 @@ type ClientViewProps = {
 
 function ClientView({ name, stateProxy, color, clientId }: ClientViewProps) {
   const snap = useSnapshot(stateProxy);
-  const [newTodoText, setNewTodoText] = useState('');
-  const [isOnline, setIsOnline] = useState(clientId === 1 ? getClient1Online() : getClient2Online());
-  
+  const [newTodoText, setNewTodoText] = useState("");
+  const [isOnline, setIsOnline] = useState(
+    clientId === 1 ? getClient1Online() : getClient2Online(),
+  );
+
   // Subscribe to status changes
   useEffect(() => {
     const unsubscribe = subscribeToStatus(() => {
@@ -404,7 +413,7 @@ function ClientView({ name, stateProxy, color, clientId }: ClientViewProps) {
     });
     return unsubscribe;
   }, [clientId]);
-  
+
   const handleToggleOnline = () => {
     if (clientId === 1) {
       toggleClient1Online();
@@ -423,20 +432,20 @@ function ClientView({ name, stateProxy, color, clientId }: ClientViewProps) {
         text: newTodoText.trim(),
         completed: false,
       });
-      setNewTodoText('');
+      setNewTodoText("");
     }
   };
 
   const handleClearCompleted = () => {
     if (!stateProxy.todos) return;
-    
+
     // Clear completed subtasks
     stateProxy.todos.forEach((todo) => {
       if (todo.children) {
         todo.children = todo.children.filter((child) => !child.completed);
       }
     });
-    
+
     // Clear completed top-level todos
     stateProxy.todos = stateProxy.todos.filter((todo) => !todo.completed);
   };
@@ -445,32 +454,36 @@ function ClientView({ name, stateProxy, color, clientId }: ClientViewProps) {
   const completedCount = snap.todos?.filter((t) => t.completed).length || 0;
 
   return (
-    <div className={`flex-1 rounded-xl shadow-lg border-2 p-6 transition-all ${
-      isOnline 
-        ? 'bg-white border-slate-200' 
-        : 'bg-slate-100 border-orange-300'
-    }`}>
+    <div
+      className={`flex-1 rounded-xl shadow-lg border-2 p-6 transition-all ${
+        isOnline
+          ? "bg-white border-slate-200"
+          : "bg-slate-100 border-orange-300"
+      }`}
+    >
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
-          <div className={`inline-block px-3 py-1 rounded-full text-sm font-semibold bg-${color}-100 text-${color}-700`}>
+          <div
+            className={`inline-block px-3 py-1 rounded-full text-sm font-semibold bg-${color}-100 text-${color}-700`}
+          >
             {name}
           </div>
           <button
             onClick={handleToggleOnline}
             className={`px-4 py-2 rounded-lg font-medium transition-all ${
               isOnline
-                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                ? "bg-green-100 text-green-700 hover:bg-green-200"
+                : "bg-orange-100 text-orange-700 hover:bg-orange-200"
             }`}
           >
-            {isOnline ? '🟢 Online' : '🔴 Offline'}
+            {isOnline ? "🟢 Online" : "🔴 Offline"}
           </button>
         </div>
         <h2 className="text-2xl font-bold text-slate-900 mb-2">My Todos</h2>
         <p className="text-sm text-slate-600">
           {todoCount} total · {completedCount} completed
-          {!isOnline && ' · Working offline'}
+          {!isOnline && " · Working offline"}
         </p>
       </div>
 
@@ -481,7 +494,7 @@ function ClientView({ name, stateProxy, color, clientId }: ClientViewProps) {
             type="text"
             value={newTodoText}
             onChange={(e) => setNewTodoText(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleAddTodo()}
+            onKeyDown={(e) => e.key === "Enter" && handleAddTodo()}
             placeholder="What needs to be done?"
             className="flex-1 px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
@@ -510,7 +523,9 @@ function ClientView({ name, stateProxy, color, clientId }: ClientViewProps) {
             );
           })
         ) : (
-          <p className="text-slate-400 text-center py-8">No todos yet. Add one above!</p>
+          <p className="text-slate-400 text-center py-8">
+            No todos yet. Add one above!
+          </p>
         )}
       </div>
 
@@ -541,7 +556,8 @@ const App = () => {
             Simple Collaborative Todos
           </h1>
           <p className="text-slate-600 mb-2">
-            Powered by <strong>valtio-yjs</strong> · Two clients syncing in real-time
+            Powered by <strong>valtio-y</strong> · Two clients syncing in
+            real-time
           </p>
           <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-500">
             <span>✏️ Double-click to edit</span>
@@ -554,45 +570,82 @@ const App = () => {
 
         {/* Two Clients Side by Side */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <ClientView name="Client 1" stateProxy={proxy1} color="blue" clientId={1} />
-          <ClientView name="Client 2" stateProxy={proxy2} color="purple" clientId={2} />
+          <ClientView
+            name="Client 1"
+            stateProxy={proxy1}
+            color="blue"
+            clientId={1}
+          />
+          <ClientView
+            name="Client 2"
+            stateProxy={proxy2}
+            color="purple"
+            clientId={2}
+          />
         </div>
 
         {/* How It Works */}
         <div className="bg-white rounded-lg shadow-md border border-slate-200 p-6 max-w-3xl mx-auto">
           <h3 className="text-lg font-semibold text-slate-900 mb-4">
-            How valtio-yjs Works
+            How valtio-y Works
           </h3>
           <div className="space-y-2 text-sm text-slate-600 mb-4">
             <p>
-              <strong className="text-slate-900">Read:</strong> Use <code className="bg-slate-100 px-1 py-0.5 rounded">useSnapshot()</code> to get reactive state that triggers re-renders.
+              <strong className="text-slate-900">Read:</strong> Use{" "}
+              <code className="bg-slate-100 px-1 py-0.5 rounded">
+                useSnapshot()
+              </code>{" "}
+              to get reactive state that triggers re-renders.
             </p>
             <p>
-              <strong className="text-slate-900">Write:</strong> Mutate the proxy directly like a normal object. valtio-yjs converts it to Yjs operations.
+              <strong className="text-slate-900">Write:</strong> Mutate the
+              proxy directly like a normal object. valtio-y converts it to Yjs
+              operations.
             </p>
             <p>
-              <strong className="text-slate-900">Sync:</strong> Yjs CRDTs ensure changes merge correctly across all clients, even with conflicts.
+              <strong className="text-slate-900">Sync:</strong> Yjs CRDTs ensure
+              changes merge correctly across all clients, even with conflicts.
             </p>
             <p>
-              <strong className="text-slate-900">Offline Support:</strong> Changes made while offline are queued and automatically sync when reconnected.
+              <strong className="text-slate-900">Offline Support:</strong>{" "}
+              Changes made while offline are queued and automatically sync when
+              reconnected.
             </p>
           </div>
-          
+
           <div className="mt-4 pt-4 border-t border-slate-200">
-            <h4 className="text-sm font-semibold text-slate-900 mb-2">The "Glue": How CRDT Sync Works</h4>
+            <h4 className="text-sm font-semibold text-slate-900 mb-2">
+              The "Glue": How CRDT Sync Works
+            </h4>
             <p className="text-xs text-slate-600 mb-2">
-              When <strong>both clients are offline</strong> and make changes, how do they sync when coming back online?
+              When <strong>both clients are offline</strong> and make changes,
+              how do they sync when coming back online?
             </p>
             <ol className="text-xs text-slate-600 space-y-1 ml-4 list-decimal">
-              <li><strong>Logical timestamps</strong> track causality without relying on system clocks</li>
-              <li><strong>Updates are commutative</strong> - they can be applied in any order</li>
-              <li><strong>Deterministic conflict resolution</strong> ensures all clients converge to the same state</li>
-              <li><strong>Y.applyUpdate()</strong> merges changes automatically using this CRDT magic ✨</li>
+              <li>
+                <strong>Logical timestamps</strong> track causality without
+                relying on system clocks
+              </li>
+              <li>
+                <strong>Updates are commutative</strong> - they can be applied
+                in any order
+              </li>
+              <li>
+                <strong>Deterministic conflict resolution</strong> ensures all
+                clients converge to the same state
+              </li>
+              <li>
+                <strong>Y.applyUpdate()</strong> merges changes automatically
+                using this CRDT magic ✨
+              </li>
             </ol>
           </div>
-          
+
           <div className="mt-4 pt-4 border-t border-slate-200 text-xs text-slate-500">
-            💡 <strong>Try this:</strong> Make <em>both</em> clients offline, add different todos to each, edit the same todo in both, then bring them back online one by one. Watch how Yjs merges everything correctly!
+            💡 <strong>Try this:</strong> Make <em>both</em> clients offline,
+            add different todos to each, edit the same todo in both, then bring
+            them back online one by one. Watch how Yjs merges everything
+            correctly!
           </div>
         </div>
       </div>

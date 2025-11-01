@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "incremental": true,
+    "noEmit": true,
+    "outDir": ".tsbuild/test",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "paths": {
+      "src/*": ["./src/*"],
+      "test/*": ["./test/*"]
+    },
+    "types": ["node", "react", "@vitest/browser/matchers"],
+    "jsx": "react-jsx"
+  },
+  "include": [
+    "tests/**/*.ts",
+    "tests/**/*.tsx",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts"
+  ],
+  "references": [
+    { "path": "./tsconfig.src.json" }
+  ]
+}

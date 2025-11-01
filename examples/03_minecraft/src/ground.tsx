@@ -1,26 +1,33 @@
-/* eslint react/no-unknown-property: "off" */
+/* eslint-disable react/no-unknown-property */
 
-import * as THREE from 'three';
-import { useLoader } from '@react-three/fiber';
-import { usePlane } from '@react-three/cannon';
-// @ts-expect-error no types
-import grass from './assets/grass.jpg';
+import { useEffect } from "react";
+import * as THREE from "three";
+import { useLoader } from "@react-three/fiber";
+import { usePlane } from "@react-three/cannon";
+import type { Triplet } from "@react-three/cannon";
+import grass from "./assets/grass.jpg";
+
+const GROUND_ROTATION: Triplet = [-Math.PI / 2, 0, 0];
+const PLANE_SIZE: [number, number] = [1000, 1000];
+const GROUND_TEXTURE_REPEAT: [number, number] = [240, 240];
 
 export const Ground = () => {
-  const [ref] = usePlane(() => ({
-    rotation: [-Math.PI / 2, 0, 0],
+  const [ref] = usePlane<THREE.Mesh>(() => ({
+    rotation: GROUND_ROTATION,
   }));
   const texture = useLoader(THREE.TextureLoader, grass);
-  // eslint-disable-next-line react-hooks/react-compiler
-  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+
+  useEffect(() => {
+    const [repeatX, repeatY] = GROUND_TEXTURE_REPEAT;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(repeatX, repeatY);
+  }, [texture]);
+
   return (
-    <mesh ref={ref as never /* FIXME proper typing */} receiveShadow>
-      <planeGeometry args={[1000, 1000]} />
-      <meshStandardMaterial
-        map={texture}
-        map-repeat={[240, 240]}
-        color="green"
-      />
+    <mesh ref={ref} receiveShadow>
+      <planeGeometry args={PLANE_SIZE} />
+      <meshStandardMaterial map={texture} color="green" />
     </mesh>
   );
 };
